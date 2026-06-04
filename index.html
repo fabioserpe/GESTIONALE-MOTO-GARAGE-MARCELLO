@@ -1149,6 +1149,15 @@
 
             database.ref('/db').on('value', (snap) => {
                 db = snap.val() || [];
+                // Migrazione silenziosa: aggiungi data_chiusura ai lavori già chiusi che non ce l'hanno
+                let needsSave = false;
+                db.forEach(j => {
+                    if (['done','archived'].includes(j.stato) && !j.data_chiusura && j.data) {
+                        j.data_chiusura = j.data; // usa data apertura come fallback
+                        needsSave = true;
+                    }
+                });
+                if (needsSave) saveDB();
                 updateDatalist();
                 const v = currentView;
                 if (v === 'board') refreshBoard();
@@ -2293,6 +2302,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     j.acconti.push({ val: rimasto.toFixed(2), date: getOggiLocale() });
                 }
                 j.stato = 'archived';
+                if (!j.data_chiusura) j.data_chiusura = getOggiLocale();
                 saveDB();
                 refreshBoard();
                 if(typeof refreshArchive === 'function') refreshArchive();
@@ -2786,6 +2796,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             })).filter(i => i.price > 0 || i.desc.trim() !== '');
             j.totale_lordo = j.conto.reduce((a,b) => a + b.price, 0);
             j.stato = nuovoStato;
+            // Registra data di chiusura quando il lavoro passa a done o archived
+            if (nuovoStato === 'done' || nuovoStato === 'archived') {
+                if (!j.data_chiusura) j.data_chiusura = getOggiLocale();
+            }
             saveDB();
             closeModal('modal-conto');
         }
