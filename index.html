@@ -233,6 +233,8 @@
         <button class="nav-link" style="color: var(--warning); border: 1px dashed var(--warning); margin-top: 15px; margin-bottom: 8px;" onclick="document.getElementById('notes-panel').classList.toggle('show')">📝 Appunti Rapidi</button>
         <button class="nav-link" style="color: #60a5fa; border: 1px dashed #60a5fa; margin-bottom: 15px;" onclick="switchView('rubrica', this)">📞 Rubrica Utile</button>
         
+        <button class="nav-link" style="color:#e2e8f0; border: 1px dashed #475569; margin-bottom:8px;" onclick="openSettings()">⚙️ Impostazioni</button>
+
         <div class="section-dark mt-15" style="margin-top:auto;">
             <button class="nav-link" style="color:#10b981; border:1px solid; margin-bottom:5px;" onclick="exportExcel()">📊 Export Excel</button>
             <button class="nav-link" style="color:var(--success); border:1px solid; margin-bottom:5px;" onclick="exportData()">💾 Backup Locale</button>
@@ -1105,9 +1107,11 @@
                 // Aspetta che il token sia pronto prima di attivare i listener DB
                 user.getIdToken(true).then(() => {
                     initFirebaseListeners();
+                    loadSettings();
                 }).catch(() => {
                     // Fallback: prova comunque dopo un delay
                     setTimeout(initFirebaseListeners, 1500);
+                    setTimeout(loadSettings, 1600);
                 });
             } else {
                 if (loginScreen) loginScreen.style.display = 'flex';
@@ -3697,7 +3701,159 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             reader.readAsText(e.target.files[0]);
         }
 
+        // =====================================================================
+        // IMPOSTAZIONI TEMA COLORE
+        // =====================================================================
+        const TEMI = [
+            { nome: 'Rosso',    val: '#ef4444' },
+            { nome: 'Blu',      val: '#3b82f6' },
+            { nome: 'Verde',    val: '#22c55e' },
+            { nome: 'Arancio',  val: '#f59e0b' },
+            { nome: 'Viola',    val: '#8b5cf6' },
+            { nome: 'Teal',     val: '#14b8a6' },
+            { nome: 'Rosa',     val: '#ec4899' },
+            { nome: 'Silver',   val: '#94a3b8' },
+        ];
+
+        let impostazioniDB = { accent: '#ef4444', fontSize: 'normale' };
+
+        function openSettings() {
+            const grid = $('settings-color-grid');
+            if (grid) {
+                grid.innerHTML = TEMI.map(t => `
+                    <div onclick="selectThemeColor('${t.val}', this)" title="${t.nome}"
+                        style="width:36px; height:36px; border-radius:50%; background:${t.val}; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:0.2s; border: 3px solid ${impostazioniDB.accent === t.val ? 'white' : 'transparent'}; box-shadow: ${impostazioniDB.accent === t.val ? '0 0 0 2px ' + t.val : 'none'};">
+                        ${impostazioniDB.accent === t.val ? '<span style="color:white;font-size:1rem;font-weight:bold;">✓</span>' : ''}
+                    </div>
+                `).join('');
+            }
+            ['compatto','normale','grande'].forEach(sz => {
+                const btn = $('settings-font-' + sz);
+                if (btn) {
+                    btn.style.background = impostazioniDB.fontSize === sz ? 'var(--accent)' : '#1e293b';
+                    btn.style.color = impostazioniDB.fontSize === sz ? 'white' : 'var(--muted)';
+                    btn.style.borderColor = impostazioniDB.fontSize === sz ? 'var(--accent)' : '#334155';
+                }
+            });
+            $('modal-settings').classList.remove('hidden');
+        }
+
+        function selectThemeColor(val, el) {
+            impostazioniDB.accent = val;
+            document.querySelectorAll('#settings-color-grid > div').forEach(d => {
+                d.innerHTML = '';
+                d.style.border = '3px solid transparent';
+                d.style.boxShadow = 'none';
+            });
+            el.innerHTML = '<span style="color:white;font-size:1rem;font-weight:bold;">✓</span>';
+            el.style.border = '3px solid white';
+            el.style.boxShadow = '0 0 0 2px ' + val;
+            applyTheme(impostazioniDB);
+        }
+
+        function selectFontSize(sz) {
+            impostazioniDB.fontSize = sz;
+            ['compatto','normale','grande'].forEach(s => {
+                const btn = $('settings-font-' + s);
+                if (btn) {
+                    btn.style.background = s === sz ? 'var(--accent)' : '#1e293b';
+                    btn.style.color = s === sz ? 'white' : 'var(--muted)';
+                    btn.style.borderColor = s === sz ? 'var(--accent)' : '#334155';
+                }
+            });
+            applyTheme(impostazioniDB);
+        }
+
+        function applyTheme(imp) {
+            const root = document.documentElement;
+            if (imp.accent) {
+                root.style.setProperty('--accent', imp.accent);
+            }
+            const fontMap = { compatto: '13px', normale: '14px', grande: '16px' };
+            if (imp.fontSize && fontMap[imp.fontSize]) {
+                document.body.style.fontSize = fontMap[imp.fontSize];
+            }
+        }
+
+        function saveSettings() {
+            applyTheme(impostazioniDB);
+            database.ref('/impostazioni').set(impostazioniDB)
+                .then(() => { showCloudCheck(); closeModal('modal-settings'); })
+                .catch(e => alert('Errore salvataggio impostazioni: ' + e.message));
+        }
+
+        function loadSettings() {
+            database.ref('/impostazioni').once('value').then(snap => {
+                const data = snap.val();
+                if (data) {
+                    impostazioniDB = { ...impostazioniDB, ...data };
+                    applyTheme(impostazioniDB);
+                }
+            }).catch(() => {});
+        }
+
+
     </script>
+
+    <!-- MODAL IMPOSTAZIONI -->
+    <div id="modal-settings" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:500px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
+                <h2 style="color:var(--accent); margin:0;">⚙️ Impostazioni</h2>
+                <button onclick="closeModal('modal-settings')" style="background:none; border:none; color:var(--muted); font-size:1.8rem; cursor:pointer; line-height:1;">&times;</button>
+            </div>
+
+            <!-- COLORE ACCENTO -->
+            <div style="margin-bottom:28px;">
+                <label style="font-size:0.8rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:14px;">🎨 Colore Accento</label>
+                <div id="settings-color-grid" style="display:flex; gap:12px; flex-wrap:wrap;"></div>
+                <p style="font-size:0.75rem; color:var(--muted); margin-top:10px;">Applicato a bottoni, bordi attivi e testo evidenziato su tutto il gestionale.</p>
+            </div>
+
+            <!-- DIMENSIONE TESTO -->
+            <div style="margin-bottom:28px;">
+                <label style="font-size:0.8rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:14px;">🔤 Dimensione Testo</label>
+                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px;">
+                    <button id="settings-font-compatto" onclick="selectFontSize('compatto')"
+                        style="padding:14px 10px; border-radius:10px; border:1px solid #334155; background:#1e293b; color:var(--muted); cursor:pointer; font-weight:bold; transition:0.2s; text-align:center;">
+                        <div style="font-size:0.75rem; margin-bottom:5px;">Aa</div>
+                        <div style="font-size:0.7rem;">Compatto</div>
+                    </button>
+                    <button id="settings-font-normale" onclick="selectFontSize('normale')"
+                        style="padding:14px 10px; border-radius:10px; border:1px solid #334155; background:#1e293b; color:var(--muted); cursor:pointer; font-weight:bold; transition:0.2s; text-align:center;">
+                        <div style="font-size:0.9rem; margin-bottom:5px;">Aa</div>
+                        <div style="font-size:0.7rem;">Normale</div>
+                    </button>
+                    <button id="settings-font-grande" onclick="selectFontSize('grande')"
+                        style="padding:14px 10px; border-radius:10px; border:1px solid #334155; background:#1e293b; color:var(--muted); cursor:pointer; font-weight:bold; transition:0.2s; text-align:center;">
+                        <div style="font-size:1.1rem; margin-bottom:5px;">Aa</div>
+                        <div style="font-size:0.7rem;">Grande</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ANTEPRIMA LIVE -->
+            <div style="background:rgba(0,0,0,0.2); border-radius:12px; padding:15px; margin-bottom:25px; border:1px solid #334155;">
+                <div style="font-size:0.72rem; color:var(--muted); margin-bottom:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Anteprima</div>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <span style="background:var(--accent); color:white; padding:7px 16px; border-radius:8px; font-weight:bold; font-size:0.85rem;">Bottone</span>
+                    <span style="color:var(--accent); font-weight:bold; font-size:0.9rem;">Testo attivo</span>
+                    <span style="border:2px solid var(--accent); color:var(--accent); padding:5px 12px; border-radius:6px; font-size:0.8rem; font-weight:bold;">Badge</span>
+                    <span style="background:var(--card); border-left:4px solid var(--accent); padding:7px 12px; border-radius:0 6px 6px 0; font-size:0.82rem;">Scheda</span>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-dark" onclick="closeModal('modal-settings')" style="flex:1;">Annulla</button>
+                <button class="btn btn-success" onclick="saveSettings()" style="flex:2;">💾 Salva e Sincronizza</button>
+            </div>
+
+            <div style="margin-top:14px; text-align:center; font-size:0.72rem; color:#475569;">
+                ☁️ Le impostazioni vengono sincronizzate su tutti i dispositivi
+            </div>
+        </div>
+    </div>
+
     </div><!-- fine app-shell -->
 
 </body>
