@@ -737,6 +737,7 @@
                         <div id="tag-stats-scadute"  style="background:rgba(239,68,68,0.1); border:1px solid var(--accent); color:var(--accent); padding:6px 14px; border-radius:8px; font-size:0.8rem; font-weight:bold;"></div>
                         <div id="tag-stats-presto"   style="background:rgba(245,158,11,0.1); border:1px solid var(--warning); color:var(--warning); padding:6px 14px; border-radius:8px; font-size:0.8rem; font-weight:bold;"></div>
                         <div id="tag-stats-ok"       style="background:rgba(34,197,94,0.1); border:1px solid var(--success); color:var(--success); padding:6px 14px; border-radius:8px; font-size:0.8rem; font-weight:bold;"></div>
+                        <button onclick="scansionaStoricoTagliandi()" class="btn w-auto" title="Analizza tutti i lavori chiusi e imposta automaticamente i promemoria dove trova la parola Tagliando" style="background:#fb923c; color:white; font-weight:bold; padding:6px 14px; font-size:0.8rem; white-space:nowrap;">🔍 Scansiona Storico</button>
                     </div>
                 </div>
                 <div class="flex-row" style="gap:8px;">
@@ -3967,9 +3968,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         class="btn btn-info w-auto" style="padding:7px 12px; font-size:0.8rem; white-space:nowrap;">📂 Storico</button>
 
                     <!-- Col 5: Modifica tagliando -->
-                    <button onclick="openEditClienteCognome('${safeChiave}')"
-                        title="Modifica dati veicolo e data tagliando"
-                        class="btn btn-dark w-auto" style="padding:7px 12px; font-size:0.8rem; white-space:nowrap;">✏️ Data</button>
+                    <button onclick="openModalTagliando('${safeEncodedTarga}')"
+                        title="Modifica data e km del prossimo tagliando"
+                        class="btn btn-dark w-auto" style="padding:7px 12px; font-size:0.8rem; white-space:nowrap; border-color:#fb923c; color:#fb923c;">✏️ Data</button>
 
                 </div>`;
             }).join('');
@@ -4068,7 +4069,185 @@ A presto!`;
             setTimeout(() => { toast.remove(); }, 4000);
         }
 
+    
+        // =====================================================================
+        // MODAL TAGLIANDO DEDICATO
+        // =====================================================================
+        function openModalTagliando(encodedTarga) {
+            const targa = safeDecode(encodedTarga);
+            $('mt_targa').value = targa;
+
+            // Info veicolo
+            const job = db.filter(j => j.targa === targa && j.stato !== 'preventivo').pop();
+            const marca   = job ? `${job.marca||''} ${job.modello||''}`.trim() : '';
+            const cliente = job ? `${job.cognome||''} ${job.nome||''}`.trim() : '';
+            const tel     = job ? (job.tel || '') : '';
+            $('mt-veicolo-info').innerHTML = `
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span class="targa-badge" style="font-size:0.9rem;">${targa}</span>
+                    <div>
+                        <div style="font-weight:bold; color:white;">${marca || 'Veicolo'}</div>
+                        <div style="font-size:0.8rem; color:var(--muted);">${cliente}${tel ? ' · 📞 '+tel : ''}</div>
+                    </div>
+                </div>`;
+
+            // Cerca l'ultimo tagliando nello storico
+            const keywords = ['TAGLIANDO','TAG.','TAGLIANDI','CAMBIO OLIO','FILTRO OLIO'];
+            const lavoriConTagliando = db
+                .filter(j => j.targa === targa && ['done','archived'].includes(j.stato))
+                .filter(j => {
+                    const testo = ((j.lavori_richiesti||'') + ' ' + (j.conto||[]).map(c=>c.desc||'').join(' ')).toUpperCase();
+                    return keywords.some(k => testo.includes(k));
+                })
+                .sort((a,b) => (b.data_chiusura||b.data||'').localeCompare(a.data_chiusura||a.data||''));
+
+            const ultimoPanel = $('mt-ultimo-panel');
+            const ultimoTesto = $('mt-ultimo-testo');
+            if (lavoriConTagliando.length > 0) {
+                const u = lavoriConTagliando[0];
+                const dataLav = formattaData(u.data_chiusura || u.data);
+                const voci = (u.conto||[]).filter(c=>(c.desc||'').toUpperCase().includes('TAGLIANDO')||(c.desc||'').toUpperCase().includes('CAMBIO OLIO')||(c.desc||'').toUpperCase().includes('FILTRO OLIO')).map(c=>c.desc).join(', ');
+                ultimoTesto.innerHTML = `<b>${dataLav}</b> — ${voci || u.lavori_richiesti || 'Tagliando eseguito'}${u.km ? ` · 🏁 KM: ${u.km}` : ''}`;
+                ultimoPanel.style.display = 'block';
+            } else {
+                ultimoPanel.style.display = 'none';
+            }
+
+            // Carica dati esistenti
+            const tag = taggliandiDB[targa] || {};
+            $('mt_data').value  = tag.data  || '';
+            $('mt_km').value    = tag.km    || '';
+            $('mt_note').value  = tag.note  || '';
+
+            $('modal-tagliando').classList.remove('hidden');
+        }
+
+        function salvaTagliandoModal() {
+            const targa = $('mt_targa').value;
+            if (!targa) return;
+            const data  = $('mt_data').value;
+            const km    = $('mt_km').value;
+            const note  = $('mt_note').value.trim();
+            if (data || km || note) {
+                taggliandiDB[targa] = { data, km, note };
+            } else {
+                delete taggliandiDB[targa];
+            }
+            saveTagliandi();
+            closeModal('modal-tagliando');
+            if (currentView === 'tagliandi') refreshTagliandi();
+        }
+
+        function eliminaTagliandoModal() {
+            const targa = $('mt_targa').value;
+            if (!targa) return;
+            if (confirm(`Rimuovere il promemoria tagliando per ${targa}?`)) {
+                delete taggliandiDB[targa];
+                saveTagliandi();
+                closeModal('modal-tagliando');
+                if (currentView === 'tagliandi') refreshTagliandi();
+            }
+        }
+
+        // =====================================================================
+        // SCANSIONE STORICO COMPLETO
+        // =====================================================================
+        function scansionaStoricoTagliandi() {
+            const keywords = ['TAGLIANDO','TAG.','TAGLIANDI','CAMBIO OLIO','FILTRO OLIO'];
+            const oggi = getOggiLocale();
+            let aggiunti = 0, saltati = 0;
+
+            // Raggruppa per targa, prende il lavoro con tagliando più recente
+            const perTarga = {};
+            db.filter(j => j.targa && ['done','archived'].includes(j.stato)).forEach(j => {
+                const testo = ((j.lavori_richiesti||'') + ' ' + (j.conto||[]).map(c=>c.desc||'').join(' ')).toUpperCase();
+                if (!keywords.some(k => testo.includes(k))) return;
+                const t = j.targa.toUpperCase().trim();
+                const data = j.data_chiusura || j.data || '';
+                if (!perTarga[t] || data > (perTarga[t].data_chiusura || perTarga[t].data || '')) {
+                    perTarga[t] = j;
+                }
+            });
+
+            Object.entries(perTarga).forEach(([targa, job]) => {
+                // Non sovrascrivere date future già impostate manualmente
+                const esistente = taggliandiDB[targa];
+                if (esistente && esistente.data && esistente.data > oggi) {
+                    saltati++;
+                    return;
+                }
+
+                // Calcola +1 anno dalla data chiusura
+                const dataBase = job.data_chiusura || job.data || oggi;
+                const dataScad = new Date(dataBase);
+                dataScad.setFullYear(dataScad.getFullYear() + 1);
+                const dataScadStr = formatDateISO(dataScad);
+
+                // Estrai note tipo olio
+                const testoCompleto = ((job.lavori_richiesti||'') + ' ' + (job.conto||[]).map(c=>c.desc||'').join(' ')).toUpperCase();
+                const noteMatch = testoCompleto.match(/OLI[O]?\s+([0-9]+W[0-9]+)/);
+                const noteAuto = noteMatch ? 'Olio ' + noteMatch[1] : (esistente?.note || '');
+
+                taggliandiDB[targa] = {
+                    data: dataScadStr,
+                    km:   esistente?.km || '',
+                    note: noteAuto
+                };
+                aggiunti++;
+            });
+
+            if (aggiunti > 0) saveTagliandi();
+
+            const msg = aggiunti > 0
+                ? `✅ Scansione completata!\n\n🔧 Promemoria impostati: ${aggiunti} veicoli\n⏭️ Saltati (data futura già presente): ${saltati}`
+                : saltati > 0
+                    ? `Tutti i ${saltati} veicoli con tagliando in storico hanno già una data futura impostata. Nessuna modifica.`
+                    : `Nessun lavoro con la parola "Tagliando" o "Cambio olio" trovato nello storico.`;
+            alert(msg);
+
+            if (currentView === 'tagliandi') refreshTagliandi();
+        }
+
     </script>
+
+    <!-- MODAL TAGLIANDO — solo data/km/note, senza tutta l'anagrafica -->
+    <div id="modal-tagliando" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:480px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="color:#fb923c; margin:0;">🔧 Promemoria Tagliando</h2>
+                <button onclick="closeModal('modal-tagliando')" style="background:none; border:none; color:var(--muted); font-size:1.8rem; cursor:pointer; line-height:1;">&times;</button>
+            </div>
+
+            <input type="hidden" id="mt_targa">
+
+            <!-- Info veicolo (sola lettura) -->
+            <div id="mt-veicolo-info" style="background:rgba(0,0,0,0.2); border-radius:10px; padding:12px 16px; margin-bottom:20px; border-left:4px solid #fb923c;"></div>
+
+            <!-- Ultimo tagliando rilevato dallo storico -->
+            <div id="mt-ultimo-panel" style="display:none; background:rgba(34,197,94,0.07); border:1px solid rgba(34,197,94,0.2); border-radius:10px; padding:12px 16px; margin-bottom:20px;">
+                <div style="font-size:0.75rem; color:var(--success); font-weight:bold; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">📋 Ultimo tagliando trovato in archivio</div>
+                <div id="mt-ultimo-testo" style="font-size:0.88rem; color:var(--text); line-height:1.6;"></div>
+            </div>
+
+            <!-- Campi -->
+            <label style="color:#fb923c;">📅 Data prossimo tagliando</label>
+            <input type="date" id="mt_data" style="border-color:#fb923c; margin-bottom:15px;">
+
+            <label>🏁 KM scadenza (opzionale)</label>
+            <input type="number" id="mt_km" placeholder="es. 15000" style="margin-bottom:15px;">
+
+            <label>📝 Note (es. tipo olio)</label>
+            <input type="text" id="mt_note" placeholder="es. Olio 10W40, filtro aria..." style="margin-bottom:20px;">
+
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-dark" onclick="closeModal('modal-tagliando')" style="flex:1;">Annulla</button>
+                <button class="btn" onclick="salvaTagliandoModal()" style="flex:2; background:#fb923c; color:white; font-weight:bold;">💾 Salva Promemoria</button>
+            </div>
+
+            <button onclick="eliminaTagliandoModal()" style="background:none; border:none; color:var(--accent); font-size:0.78rem; cursor:pointer; margin-top:12px; width:100%; text-align:center;">🗑️ Rimuovi promemoria per questo veicolo</button>
+        </div>
+    </div>
+
     </div><!-- fine app-shell -->
 
 </body>
