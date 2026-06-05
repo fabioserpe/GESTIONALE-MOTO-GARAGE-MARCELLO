@@ -647,7 +647,6 @@
                     <div class="flex-row" style="align-items:center;">
                         <span id="mag-cloud-status" style="font-size:0.75rem; font-weight:800; background:var(--card); padding:6px 14px; border-radius:20px; border:1px solid #334155; color:#fbbf24; white-space:nowrap;">🟡 Connessione...</span>
                         <button class="btn btn-dark w-auto" onclick="esportaExcelMag()" title="Esporta lista magazzino in Excel">📊 Excel</button>
-                        <button class="btn w-auto" onclick="apriScannerBarcode()" title="Scansiona barcode con la fotocamera" style="background:linear-gradient(135deg,#0d9488,#14b8a6); color:white; font-weight:bold;">📷 Scanner</button>
                     </div>
                 </div>
                 <input type="text" id="mag-search-input" placeholder="🔍 Cerca articolo per codice, descrizione o marca..." oninput="magFiltroSottosoglia=false; renderTableMag(); renderSummaryMag();" style="background:var(--card); border:2px solid var(--warning); margin-bottom:0;">
@@ -711,12 +710,13 @@
                 <table style="width:100%; border-collapse:collapse;">
                     <thead style="position:sticky; top:0; z-index:2;">
                         <tr style="background:var(--card);">
-                            <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:130px; letter-spacing:0.5px;">CODICE SKU</th>
+                            <th onclick="sortMag('codice')" style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:130px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">CODICE SKU <span id="mag-sort-codice"></span></th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; letter-spacing:0.5px;">DESCRIZIONE</th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:140px; letter-spacing:0.5px;">MARCA</th>
-                            <th style="text-align:center; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:130px; letter-spacing:0.5px;">STOCK</th>
-                            <th style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:105px; letter-spacing:0.5px;">PREZZO</th>
-                            <th style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:110px; letter-spacing:0.5px;">VALORE STOCK</th>
+                            <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:155px; letter-spacing:0.5px;">CATEGORIA</th>
+                            <th onclick="sortMag('giacenza')" style="text-align:center; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:130px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">STOCK <span id="mag-sort-giacenza"></span></th>
+                            <th onclick="sortMag('prezzo')" style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:105px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">PREZZO <span id="mag-sort-prezzo"></span></th>
+                            <th onclick="sortMag('valore')" style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:110px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">VALORE STOCK <span id="mag-sort-valore"></span></th>
                             <th style="border-bottom:2px solid #334155; width:45px;"></th>
                         </tr>
                     </thead>
@@ -1018,7 +1018,6 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -3341,6 +3340,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         const MAG_SOGLIA = 3;
         const MAG_IVA = 0.22;
         let inventarioMag = [];
+        let magSortField = 'codice';
+        let magSortDir = 'asc';
         let categorieAperteMag = new Set();
         let magInitDone = false;
         let magPollTimer = null;
@@ -3459,6 +3460,40 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
         function renderAllMag() { renderTableMag(); renderSummaryMag(); renderDatalistMag(); }
 
+        function sortMag(field) {
+            if (magSortField === field) {
+                magSortDir = magSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                magSortField = field;
+                // Numerici: default desc (i più grandi prima); testo: default asc (A→Z)
+                magSortDir = (field === 'codice') ? 'asc' : 'desc';
+            }
+            // Apri tutte le categorie quando si ordina (il sort non ha senso coi gruppi chiusi)
+            inventarioMag.forEach(i => { if (i.categoria) categorieAperteMag.add(i.categoria); });
+            updateSortIndicators();
+            renderTableMag();
+        }
+
+        function updateSortIndicators() {
+            const fields = ['codice', 'giacenza', 'prezzo', 'valore'];
+            fields.forEach(f => {
+                const el = document.getElementById('mag-sort-' + f);
+                if (!el) return;
+                if (magSortField === f) {
+                    el.textContent = magSortDir === 'asc' ? ' ▲' : ' ▼';
+                    el.style.color = 'white';
+                } else {
+                    el.textContent = ' ⇅';
+                    el.style.color = '#475569';
+                }
+            });
+            // Evidenzia header attivo
+            fields.forEach(f => {
+                const th = document.getElementById('mag-sort-' + f);
+                if (th) th.closest('th').style.color = magSortField === f ? 'white' : '';
+            });
+        }
+
         function toggleCategoriaMag(cat) {
             if ($('mag-search-input') && $('mag-search-input').value !== '') return;
             const header = document.querySelector(`.mag-cat-hdr[data-cat="${CSS.escape(cat)}"]`);
@@ -3480,6 +3515,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const search = ($('mag-search-input') ? $('mag-search-input').value : '').toUpperCase();
             const isSearch = search !== '';
             tbody.innerHTML = '';
+            updateSortIndicators();
 
             let filtered = inventarioMag.filter(i =>
                 Object.values(i).some(v => String(v).toUpperCase().includes(search))
@@ -3523,7 +3559,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 trH.onclick = () => toggleCategoriaMag(cat);
                 const catBg = 'background:rgba(0,0,0,0.25); border-top:2px solid #334155; border-bottom:1px solid #334155;';
                 trH.innerHTML = `
-                    <td colspan="3" style="${catBg} padding:11px 14px;">
+                    <td colspan="4" style="${catBg} padding:11px 14px;">
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span class="mag-ic" style="display:inline-block; transition:transform 0.25s; font-size:0.7rem; color:var(--muted); transform:rotate(${isOpen?'0':'-90'}deg);">▶</span>
                             <span style="font-weight:800; font-size:0.88rem; color:white; text-transform:uppercase; letter-spacing:0.5px;">${catEmoji[cat]||'📂'} ${cat}</span>
@@ -3540,7 +3576,15 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     <td style="${catBg} padding:11px 14px;"></td>`;
                 tbody.appendChild(trH);
 
-                items.sort((a,b) => a.codice.localeCompare(b.codice)).forEach(item => {
+                items.sort((a, b) => {
+                    let va, vb;
+                    if (magSortField === 'codice')    { va = a.codice || ''; vb = b.codice || ''; return magSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
+                    if (magSortField === 'giacenza')  { va = a.giacenza || 0; vb = b.giacenza || 0; }
+                    else if (magSortField === 'prezzo')  { va = a.prezzo || 0; vb = b.prezzo || 0; }
+                    else if (magSortField === 'valore')  { va = (a.giacenza||0) * (a.prezzo||0); vb = (b.giacenza||0) * (b.prezzo||0); }
+                    else { va = 0; vb = 0; }
+                    return magSortDir === 'asc' ? va - vb : vb - va;
+                }).forEach(item => {
                     const pIva = item.prezzo * (1 + MAG_IVA);
                     const totN = item.giacenza * item.prezzo;
                     let stockColor, stockLabel, rowBg;
@@ -3574,6 +3618,14 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                 style="width:100%; background:transparent; border:none; color:var(--muted); font-size:0.85rem; padding:4px 6px; border-radius:6px; transition:all 0.15s;"
                                 onfocus="this.style.background='var(--bg)'; this.style.outline='2px solid var(--info)'; this.style.color='white';"
                                 onblur="this.style.background='transparent'; this.style.outline='none'; this.style.color='var(--muted)'; modificaArticoloMag('${cod}','marca',this.value)">
+                        </td>
+                        <td style="padding:8px 14px;">
+                            <select onchange="modificaArticoloMag('${cod}','categoria',this.value); renderTableMag(); renderSummaryMag();"
+                                style="width:100%; background:transparent; border:1px solid transparent; color:var(--muted); font-size:0.78rem; padding:5px 4px; border-radius:6px; cursor:pointer; transition:all 0.15s; appearance:none; -webkit-appearance:none; background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E&quot;); background-repeat:no-repeat; background-position:right 6px center; padding-right:22px;"
+                                onfocus="this.style.borderColor='var(--info)'; this.style.background='var(--bg)'; this.style.color='white';"
+                                onblur="this.style.borderColor='transparent'; this.style.background='transparent'; this.style.color='var(--muted)';">
+                                ${catOpts(item.categoria)}
+                            </select>
                         </td>
                         <td style="padding:12px 14px; text-align:center;">
                             <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
@@ -3649,6 +3701,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const dlN=$('mag-lista-nomi'); if(dlN) dlN.innerHTML=[...new Set(inventarioMag.map(i=>i.nome))].sort().map(n=>`<option value="${n}">`).join('');
         }
 
+        // Timer debounce per campo: evita una scrittura Firebase per ogni lettera digitata
+        const _magDebounceTimers = {};
+
         async function modificaArticoloMag(codice, campo, valore) {
             const idx = inventarioMag.findIndex(i => i.codice === codice);
             if (idx === -1) return;
@@ -3659,7 +3714,19 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const aggiornato = { ...inventarioMag[idx], [campo]: v };
             inventarioMag[idx] = aggiornato;
             renderSummaryMag();
-            try { await magSave(codice, aggiornato); } catch(e) { console.error('Save error:', e); }
+
+            // Giacenza modificata dai pulsanti +/- → salva subito (è già un valore definitivo)
+            // Testo digitato (nome, marca) → debounce 600ms per non spammare Firebase
+            const timerKey = codice + '_' + campo;
+            if (campo === 'giacenza') {
+                try { await magSave(codice, aggiornato); } catch(e) { console.error('Save error:', e); }
+            } else {
+                clearTimeout(_magDebounceTimers[timerKey]);
+                _magDebounceTimers[timerKey] = setTimeout(async () => {
+                    try { await magSave(codice, aggiornato); } catch(e) { console.error('Save error:', e); }
+                    delete _magDebounceTimers[timerKey];
+                }, 600);
+            }
         }
 
         async function eliminaArticoloMag(cod) {
@@ -3699,313 +3766,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             reader.readAsText(e.target.files[0]);
         }
 
-    
-        // =====================================================================
-        // SCANNER BARCODE — ZXing.js
-        // =====================================================================
-        let scannerActive = false;
-        let scannerReader = null;
-        let scannerDevices = [];
-        let scannerDeviceIndex = 0;
-
-        async function apriScannerBarcode() {
-            $('modal-scanner').classList.remove('hidden');
-            $('scanner-result-panel').style.display = 'none';
-            $('scanner-status').innerHTML = '<span style="background:rgba(0,0,0,0.7); color:#14b8a6; padding:6px 16px; border-radius:20px; font-size:0.8rem; font-weight:bold;">🔍 Avvio fotocamera...</span>';
-
-            try {
-                // Verifica disponibilità ZXing
-                if (typeof ZXing === 'undefined') {
-                    throw new Error('Libreria ZXing non caricata. Controlla la connessione internet.');
-                }
-
-                scannerReader = new ZXing.BrowserMultiFormatReader();
-
-                // Enumera le fotocamere disponibili
-                scannerDevices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
-                const sel = $('scanner-camera-select');
-                if (sel) {
-                    sel.innerHTML = scannerDevices.map((d, i) =>
-                        `<option value="${i}">${d.label || 'Fotocamera ' + (i+1)}</option>`
-                    ).join('');
-                    // Preferisce fotocamera posteriore (quella con "back" o "environment" nel nome)
-                    const backIdx = scannerDevices.findIndex(d =>
-                        d.label.toLowerCase().includes('back') ||
-                        d.label.toLowerCase().includes('posteriore') ||
-                        d.label.toLowerCase().includes('environment')
-                    );
-                    if (backIdx >= 0) {
-                        sel.value = backIdx;
-                        scannerDeviceIndex = backIdx;
-                    }
-                }
-
-                avviaScannerConDispositivo(scannerDeviceIndex);
-
-            } catch(err) {
-                $('scanner-status').innerHTML = `<span style="background:rgba(239,68,68,0.8); color:white; padding:6px 16px; border-radius:20px; font-size:0.8rem; font-weight:bold;">❌ ${err.message}</span>`;
-                console.error('Scanner error:', err);
-            }
-        }
-
-        function avviaScannerConDispositivo(idx) {
-            if (!scannerReader || !scannerDevices.length) return;
-            const deviceId = scannerDevices[idx] ? scannerDevices[idx].deviceId : undefined;
-
-            $('scanner-status').innerHTML = '<span style="background:rgba(0,0,0,0.7); color:#14b8a6; padding:6px 16px; border-radius:20px; font-size:0.8rem; font-weight:bold;">🔍 Scansione in corso...</span>';
-            $('scanner-result-panel').style.display = 'none';
-            scannerActive = true;
-
-            scannerReader.decodeFromVideoDevice(deviceId, 'scanner-video', (result, err) => {
-                if (!scannerActive) return;
-                if (result) {
-                    const codice = result.getText();
-                    onBarcodeLetto(codice);
-                }
-                // Ignoriamo gli errori di "nessun barcode trovato" (sono continui)
-            });
-        }
-
-        function onBarcodeLetto(codice) {
-            if (!scannerActive) return;
-            scannerActive = false; // blocca ulteriori letture
-
-            // Feedback audio (beep)
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.frequency.value = 880;
-                osc.type = 'sine';
-                gain.gain.setValueAtTime(0.3, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-                osc.start(ctx.currentTime);
-                osc.stop(ctx.currentTime + 0.3);
-            } catch(e) {}
-
-            // Feedback visivo
-            const frame = $('scanner-frame');
-            if (frame) { frame.style.borderColor = '#22c55e'; setTimeout(() => { if(frame) frame.style.borderColor = ''; }, 800); }
-
-            // Cerca il codice nel magazzino
-            const codiceUp = codice.toUpperCase().trim();
-            const trovato = inventarioMag.find(i =>
-                i.codice === codiceUp ||
-                (i.barcode && i.barcode === codiceUp)
-            );
-
-            const panel = $('scanner-result-panel');
-            const icon  = $('scanner-result-icon');
-            const title = $('scanner-result-title');
-            const sub   = $('scanner-result-sub');
-            const acts  = $('scanner-result-actions');
-            panel.style.display = 'block';
-
-            if (trovato) {
-                // Articolo trovato → mostra info e azioni rapide
-                icon.style.background = 'rgba(34,197,94,0.15)';
-                icon.innerHTML = '✅';
-                title.textContent = trovato.nome || trovato.codice;
-                sub.innerHTML = `<b style="font-family:monospace;">${trovato.codice}</b> · ${trovato.categoria || ''} · Stock: <b style="color:${trovato.giacenza <= MAG_SOGLIA ? 'var(--warning)' : 'var(--success)'};">${trovato.giacenza}</b> pz`;
-                acts.innerHTML = `
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <button onclick="scannerCaricaUno('${trovato.codice.replace(/'/g,"\'")}', 1)" class="btn btn-success" style="flex:1; padding:9px; font-size:0.82rem;">+1 Carico</button>
-                        <button onclick="scannerScaricoUno('${trovato.codice.replace(/'/g,"\'")}', 1)" class="btn btn-warning" style="flex:1; padding:9px; font-size:0.82rem; color:black;">-1 Scarico</button>
-                        <button onclick="riaviaScannerBarcode()" class="btn btn-dark" style="flex:1; padding:9px; font-size:0.82rem;">🔄 Nuova scansione</button>
-                    </div>
-                    <div style="font-size:0.72rem; color:var(--muted); margin-top:8px; text-align:center;">oppure associa questo barcode (${codice}) in modo permanente → <button onclick="associaBarcode('${trovato.codice.replace(/'/g,"\'")}','${codice.replace(/'/g,"\'")}');" style="background:none;border:none;color:var(--info);cursor:pointer;font-size:0.72rem;font-weight:bold;text-decoration:underline;">Associa SKU</button></div>
-                `;
-                $('scanner-status').innerHTML = '<span style="background:rgba(34,197,94,0.8); color:white; padding:6px 16px; border-radius:20px; font-size:0.8rem; font-weight:bold;">✅ Articolo trovato!</span>';
-            } else {
-                // Non trovato → pre-compila il form aggiunta
-                icon.style.background = 'rgba(245,158,11,0.15)';
-                icon.innerHTML = '⚠️';
-                title.textContent = 'Codice non in magazzino';
-                sub.innerHTML = `Barcode letto: <b style="font-family:monospace; color:white;">${codice}</b>`;
-                acts.innerHTML = `
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <button onclick="scannerPrecompila('${codice.replace(/'/g,"\'")}'); chiudiScannerBarcode();" class="btn btn-accent" style="flex:2; padding:9px; font-size:0.82rem;">➕ Aggiungi come nuovo articolo</button>
-                        <button onclick="riaviaScannerBarcode()" class="btn btn-dark" style="flex:1; padding:9px; font-size:0.82rem;">🔄 Riscannerizza</button>
-                    </div>
-                `;
-                $('scanner-status').innerHTML = '<span style="background:rgba(245,158,11,0.8); color:black; padding:6px 16px; border-radius:20px; font-size:0.8rem; font-weight:bold;">⚠️ Non trovato — aggiungi nuovo</span>';
-            }
-        }
-
-        async function scannerCaricaUno(codice, qty) {
-            const idx = inventarioMag.findIndex(i => i.codice === codice);
-            if (idx === -1) return;
-            const nuovaQ = inventarioMag[idx].giacenza + qty;
-            await modificaArticoloMag(codice, 'giacenza', nuovaQ);
-            // Aggiorna display
-            const sub = $('scanner-result-sub');
-            if (sub) {
-                const item = inventarioMag[idx];
-                sub.innerHTML = `<b style="font-family:monospace;">${item.codice}</b> · ${item.categoria || ''} · Stock: <b style="color:${item.giacenza <= MAG_SOGLIA ? 'var(--warning)' : 'var(--success)'};">${item.giacenza}</b> pz`;
-            }
-            // Toast
-            const toast = document.createElement('div');
-            toast.innerHTML = `+${qty} → Stock: ${nuovaQ}`;
-            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#22c55e;color:white;padding:10px 20px;border-radius:10px;font-weight:bold;z-index:99999;font-size:0.9rem;';
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 2000);
-        }
-
-        async function scannerScaricoUno(codice, qty) {
-            const idx = inventarioMag.findIndex(i => i.codice === codice);
-            if (idx === -1) return;
-            const nuovaQ = Math.max(0, inventarioMag[idx].giacenza - qty);
-            await modificaArticoloMag(codice, 'giacenza', nuovaQ);
-            const sub = $('scanner-result-sub');
-            if (sub) {
-                const item = inventarioMag[idx];
-                sub.innerHTML = `<b style="font-family:monospace;">${item.codice}</b> · ${item.categoria || ''} · Stock: <b style="color:${item.giacenza <= MAG_SOGLIA ? 'var(--warning)' : 'var(--success)'};">${item.giacenza}</b> pz`;
-            }
-            const toast = document.createElement('div');
-            toast.innerHTML = `-${qty} → Stock: ${nuovaQ}`;
-            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#f59e0b;color:black;padding:10px 20px;border-radius:10px;font-weight:bold;z-index:99999;font-size:0.9rem;';
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 2000);
-        }
-
-        async function associaBarcode(codice, barcode) {
-            const idx = inventarioMag.findIndex(i => i.codice === codice);
-            if (idx === -1) return;
-            inventarioMag[idx].barcode = barcode;
-            await magSave(codice, inventarioMag[idx]);
-            alert(`Barcode ${barcode} associato a ${codice} ✅`);
-        }
-
-        function scannerPrecompila(codice) {
-            // Porta il focus sul form aggiunta e pre-compila SKU con il barcode letto
-            switchView('magazzino');
-            setTimeout(() => {
-                const input = $('mag-new-codice');
-                if (input) {
-                    input.value = codice.toUpperCase();
-                    input.style.borderColor = 'var(--warning)';
-                    input.focus();
-                    $('mag-new-nome').focus();
-                    // Scroll al form
-                    const form = $('mag-new-item-form');
-                    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 300);
-        }
-
-        function riaviaScannerBarcode() {
-            if (scannerReader) {
-                try { scannerReader.reset(); } catch(e) {}
-            }
-            scannerActive = false;
-            $('scanner-result-panel').style.display = 'none';
-            const idx = parseInt($('scanner-camera-select')?.value || '0');
-            avviaScannerConDispositivo(idx);
-        }
-
-        function cambiaCameraScanner() {
-            const idx = parseInt($('scanner-camera-select').value || '0');
-            scannerDeviceIndex = idx;
-            if (scannerReader) {
-                try { scannerReader.reset(); } catch(e) {}
-            }
-            scannerActive = false;
-            avviaScannerConDispositivo(idx);
-        }
-
-        function chiudiScannerBarcode() {
-            scannerActive = false;
-            if (scannerReader) {
-                try { scannerReader.reset(); } catch(e) {}
-                scannerReader = null;
-            }
-            // Ferma lo stream video
-            const video = $('scanner-video');
-            if (video && video.srcObject) {
-                video.srcObject.getTracks().forEach(t => t.stop());
-                video.srcObject = null;
-            }
-            $('modal-scanner').classList.add('hidden');
-            $('scanner-result-panel').style.display = 'none';
-        }
-
-        function scannerManuale() {
-            const codice = prompt('Inserisci il codice SKU o barcode manualmente:');
-            if (codice && codice.trim()) {
-                onBarcodeLetto(codice.trim().toUpperCase());
-            }
-        }
-
-
     </script>
-
-    <!-- MODAL SCANNER BARCODE -->
-    <div id="modal-scanner" class="modal hidden no-print">
-        <div class="modal-content" style="max-width:520px; padding:0; overflow:hidden; border:2px solid #14b8a6;">
-
-            <!-- Header -->
-            <div style="background:linear-gradient(135deg,#0d9488,#14b8a6); padding:18px 22px; display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <h2 style="color:white; margin:0; font-size:1.1rem;">📷 Scanner Barcode</h2>
-                    <p style="color:rgba(255,255,255,0.8); font-size:0.78rem; margin:3px 0 0 0;">Punta la fotocamera sul codice a barre del ricambio</p>
-                </div>
-                <button onclick="chiudiScannerBarcode()" style="background:rgba(255,255,255,0.2); border:none; color:white; font-size:1.4rem; cursor:pointer; border-radius:8px; width:36px; height:36px; display:flex; align-items:center; justify-content:center;">&times;</button>
-            </div>
-
-            <!-- Viewfinder video -->
-            <div style="position:relative; background:#000; width:100%; aspect-ratio:4/3; overflow:hidden;">
-                <video id="scanner-video" style="width:100%; height:100%; object-fit:cover; display:block;"></video>
-                <!-- Mirino animato -->
-                <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;">
-                    <div id="scanner-frame" style="width:65%; height:35%; border:none; position:relative;">
-                        <!-- Angoli del mirino -->
-                        <div style="position:absolute; top:0; left:0; width:24px; height:24px; border-top:3px solid #14b8a6; border-left:3px solid #14b8a6; border-radius:3px 0 0 0;"></div>
-                        <div style="position:absolute; top:0; right:0; width:24px; height:24px; border-top:3px solid #14b8a6; border-right:3px solid #14b8a6; border-radius:0 3px 0 0;"></div>
-                        <div style="position:absolute; bottom:0; left:0; width:24px; height:24px; border-bottom:3px solid #14b8a6; border-left:3px solid #14b8a6; border-radius:0 0 0 3px;"></div>
-                        <div style="position:absolute; bottom:0; right:0; width:24px; height:24px; border-bottom:3px solid #14b8a6; border-right:3px solid #14b8a6; border-radius:0 0 3px 0;"></div>
-                        <!-- Linea di scansione animata -->
-                        <div id="scanner-line" style="position:absolute; left:5%; right:5%; height:2px; background:linear-gradient(90deg,transparent,#14b8a6,transparent); top:50%; animation:scanLine 2s ease-in-out infinite;"></div>
-                    </div>
-                </div>
-                <!-- Overlay stato -->
-                <div id="scanner-status" style="position:absolute; bottom:12px; left:0; right:0; text-align:center;">
-                    <span style="background:rgba(0,0,0,0.7); color:#14b8a6; padding:6px 16px; border-radius:20px; font-size:0.8rem; font-weight:bold;">🔍 Scansione in corso...</span>
-                </div>
-            </div>
-
-            <!-- Risultato scansione -->
-            <div id="scanner-result-panel" style="display:none; padding:18px 22px; background:var(--card); border-top:1px solid #334155;">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <div id="scanner-result-icon" style="width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;"></div>
-                    <div>
-                        <div id="scanner-result-title" style="font-weight:bold; font-size:0.95rem; color:white;"></div>
-                        <div id="scanner-result-sub" style="font-size:0.8rem; color:var(--muted); margin-top:2px;"></div>
-                    </div>
-                </div>
-                <div id="scanner-result-actions"></div>
-            </div>
-
-            <!-- Selezione fotocamera (se multiple) -->
-            <div style="padding:12px 22px 18px; background:rgba(0,0,0,0.2); border-top:1px solid #1e293b; display:flex; align-items:center; gap:10px;">
-                <label style="font-size:0.75rem; color:var(--muted); white-space:nowrap; margin:0;">📷 Fotocamera:</label>
-                <select id="scanner-camera-select" onchange="cambiaCameraScanner()" style="flex:1; margin:0; padding:7px 10px; font-size:0.82rem; border-color:#334155;">
-                    <option>Caricamento...</option>
-                </select>
-                <button onclick="scannerManuale()" style="background:#334155; border:none; color:var(--muted); padding:7px 12px; border-radius:8px; cursor:pointer; font-size:0.78rem; font-weight:bold; white-space:nowrap;">✍️ Manuale</button>
-            </div>
-        </div>
-    </div>
-
-    <style>
-        @keyframes scanLine {
-            0%   { top: 15%; opacity: 0; }
-            10%  { opacity: 1; }
-            90%  { opacity: 1; }
-            100% { top: 85%; opacity: 0; }
-        }
-    </style>
-
     </div><!-- fine app-shell -->
 
 </body>
