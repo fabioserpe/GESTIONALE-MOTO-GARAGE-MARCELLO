@@ -246,8 +246,33 @@
         <div id="print-area"></div> 
 
         <div id="view-board" class="view">
-            <div style="position: sticky; top: 0; background: var(--bg); padding-bottom: 15px; z-index: 5;">
-                <input type="text" id="board-search-input" placeholder="🔍 Cerca in Officina per Targa, Cliente o Moto..." oninput="refreshBoard()" style="background:var(--card); border: 2px solid var(--warning); margin-bottom: 0;">
+            <div style="position: sticky; top: 0; background: var(--bg); z-index: 5;">
+
+                <!-- Header row con titolo + toggle ricerca -->
+                <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px;">
+                    <h2 style="margin:0; color:var(--text); font-size:1.1rem; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; opacity:0.5;">📊 Officina</h2>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span id="board-search-query-badge" style="display:none; font-size:0.75rem; font-weight:bold; color:var(--warning); background:rgba(245,158,11,0.15); padding:3px 10px; border-radius:20px; border:1px solid rgba(245,158,11,0.3);"></span>
+                        <button id="board-search-toggle"
+                            onclick="toggleBoardSearch()"
+                            title="Cerca per Targa, Cliente o Moto"
+                            style="background:transparent; border:1px solid #334155; color:var(--muted); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:0.85rem; font-weight:bold; transition:all 0.2s; display:flex; align-items:center; gap:6px;"
+                            onmouseover="this.style.borderColor='var(--warning)'; this.style.color='var(--warning)';"
+                            onmouseout="if(!document.getElementById('board-search-input').value) { this.style.borderColor='#334155'; this.style.color='var(--muted)'; }">
+                            🔍 Cerca
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Barra di ricerca collassabile -->
+                <div id="board-search-wrapper" style="display:none; overflow:hidden; transition:max-height 0.25s ease; padding-bottom:12px;">
+                    <input type="text" id="board-search-input"
+                        placeholder="Cerca per Targa, Cliente o Moto..."
+                        oninput="refreshBoard(); aggiornaSearchBadge();"
+                        onkeydown="if(event.key==='Escape') chiudiBoardSearch();"
+                        style="background:var(--card); border: 2px solid var(--warning); margin-bottom:0;">
+                </div>
+
             </div>
             <div class="board">
                 <div class="col" ondragover="allowDropBoard(event)" ondragleave="leaveDropBoard(event)" ondrop="dropBoard(event, 'todo')">
@@ -4206,6 +4231,58 @@ A presto!`;
             alert(msg);
 
             if (currentView === 'tagliandi') refreshTagliandi();
+        }
+
+    
+        // =====================================================================
+        // BOARD SEARCH — collassabile
+        // =====================================================================
+        function toggleBoardSearch() {
+            const wrapper = $('board-search-wrapper');
+            const input   = $('board-search-input');
+            const btn     = $('board-search-toggle');
+            const isOpen  = wrapper.style.display !== 'none';
+
+            if (isOpen) {
+                chiudiBoardSearch();
+            } else {
+                wrapper.style.display = 'block';
+                btn.style.borderColor = 'var(--warning)';
+                btn.style.color       = 'var(--warning)';
+                btn.style.background  = 'rgba(245,158,11,0.08)';
+                setTimeout(() => input.focus(), 50);
+            }
+        }
+
+        function chiudiBoardSearch() {
+            const wrapper = $('board-search-wrapper');
+            const input   = $('board-search-input');
+            const btn     = $('board-search-toggle');
+            const badge   = $('board-search-query-badge');
+
+            wrapper.style.display = 'none';
+            btn.style.borderColor = '#334155';
+            btn.style.color       = 'var(--muted)';
+            btn.style.background  = 'transparent';
+
+            // Svuota la ricerca solo se non c'era testo attivo
+            if (input.value) {
+                input.value = '';
+                if (badge) badge.style.display = 'none';
+                refreshBoard();
+            }
+        }
+
+        function aggiornaSearchBadge() {
+            const input = $('board-search-input');
+            const badge = $('board-search-query-badge');
+            if (!badge) return;
+            if (input.value.trim()) {
+                badge.style.display = 'inline-block';
+                badge.innerText = '🔍 ' + input.value.trim().toUpperCase();
+            } else {
+                badge.style.display = 'none';
+            }
         }
 
     </script>
