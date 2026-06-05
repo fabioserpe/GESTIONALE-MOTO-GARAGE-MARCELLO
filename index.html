@@ -3933,7 +3933,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     v.tag.note ? `<span style="color:var(--info); font-size:0.72rem;">📝 ${v.tag.note}</span>` : ''
                 ].filter(Boolean).join('');
 
-                return `<div style="background:var(--card); border-left:4px solid ${ss.border}; ${ss.bg?'background:'+ss.bg+';':''} border-radius:10px; padding:10px 16px; display:grid; grid-template-columns: 120px 1fr auto auto; gap:12px; align-items:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">
+                return `<div style="background:var(--card); border-left:4px solid ${ss.border}; ${ss.bg?'background:'+ss.bg+';':''} border-radius:10px; padding:10px 16px; display:grid; grid-template-columns: 120px 1fr auto auto auto; gap:10px; align-items:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">
 
                     <!-- Col 1: Targa + moto -->
                     <div>
@@ -3956,11 +3956,18 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     <!-- Col 3: WA -->
                     ${hasTel
                         ? `<button onclick="sendWhatsAppTagliando('${safeEncodedTarga}')" class="btn btn-wa w-auto" style="padding:7px 12px; font-size:0.8rem; white-space:nowrap;">📲 WA</button>`
-                        : `<span style="font-size:0.72rem; color:var(--muted); text-align:center; width:60px;">No tel.</span>`
+                        : `<span style="font-size:0.72rem; color:var(--muted); text-align:center; width:52px;">No tel.</span>`
                     }
 
-                    <!-- Col 4: Modifica -->
-                    <button onclick="openEditClienteCognome('${safeChiave}')" class="btn btn-dark w-auto" style="padding:7px 12px; font-size:0.8rem; white-space:nowrap;">✏️</button>
+                    <!-- Col 4: Storico lavori -->
+                    <button onclick="viewHistoryCognome('${safeChiave}')"
+                        title="Vedi storico interventi — utile per calcolare la prossima scadenza"
+                        class="btn btn-info w-auto" style="padding:7px 12px; font-size:0.8rem; white-space:nowrap;">📂 Storico</button>
+
+                    <!-- Col 5: Modifica tagliando -->
+                    <button onclick="openEditClienteCognome('${safeChiave}')"
+                        title="Modifica dati veicolo e data tagliando"
+                        class="btn btn-dark w-auto" style="padding:7px 12px; font-size:0.8rem; white-space:nowrap;">✏️ Data</button>
 
                 </div>`;
             }).join('');
