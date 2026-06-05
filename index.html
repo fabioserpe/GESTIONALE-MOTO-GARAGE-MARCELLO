@@ -492,6 +492,7 @@
                             <div class="flex-row mt-10">
                                 <input id="app_marca" placeholder="Marca moto">
                                 <input id="app_modello" placeholder="Modello">
+                                <input id="app_km" type="number" placeholder="KM" style="max-width:90px;">
                             </div>
                             <input id="app_targa" placeholder="Targa" style="margin-top:10px; text-transform:uppercase;">
                         </div>
@@ -760,6 +761,7 @@
                     <div class="flex-row">
                         <input id="m_app_marca" placeholder="Marca">
                         <input id="m_app_modello" placeholder="Modello">
+                        <input id="m_app_km" type="number" placeholder="KM" style="max-width:90px; margin:0;">
                     </div>
                     <div class="flex-row">
                         <input id="m_app_targa" placeholder="Targa o Cliente 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillAgenda('m')">
@@ -1472,6 +1474,7 @@
                 $(p+'_marca').value = c.marca||'';
                 $(p+'_modello').value = c.modello||'';
                 if (c.targa) $(p+'_targa').value = c.targa;
+                if (c.km && $(p+'_km')) $(p+'_km').value = c.km;
             }
         }
         function sincronizzaAnagrafica(targa, nome, cognome, tel, marca, modello) { if (!targa || String(targa).trim() === '') return; targa = String(targa).toUpperCase().trim(); const ex = db.filter(j => j.targa === targa); if (ex.length > 0) { db.forEach(j => { if (j.targa === targa) { if(nome) j.nome = nome; if(cognome) j.cognome = cognome; if(tel) j.tel = tel; if(marca) j.marca = marca; if(modello) j.modello = modello; } }); } else { db.push({ id: Date.now() + Math.floor(Math.random() * 1000), data: getOggiLocale(), nome: nome || '', cognome: cognome || '', tel: tel || '', marca: marca || '', modello: modello || '', targa: targa, km: '', acconti: [], lavori_richiesti: 'Inserimento rapido', stato: 'archived', conto: [], totale_lordo: 0 }); } }
@@ -2528,7 +2531,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function apriModalApp(dataPreimpostata) {
             $('app_id').value = ''; $('app_job_id').value = ''; $('app_tipo').value = 'officina';
             $('app_data').value = dataPreimpostata || getOggiLocale(); $('app_ora').value = '09:00';
-            $('app_nome').value = ''; $('app_cognome').value = ''; $('app_marca').value = ''; $('app_modello').value = ''; $('app_targa').value = ''; $('app_tel').value = ''; $('app_note').value = '';
+            $('app_nome').value = ''; $('app_cognome').value = ''; $('app_marca').value = ''; $('app_modello').value = ''; $('app_targa').value = ''; $('app_tel').value = ''; $('app_note').value = ''; if($('app_km')) $('app_km').value = '';
             if($('app-form-title')) $('app-form-title').innerText = '📅 Nuovo Appuntamento';
             toggleAppFields();
             refreshMiniAppAgenda();
@@ -2556,20 +2559,22 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const clienteStr = tipoVal === 'officina' ? `${cognome} ${nome}`.trim() : cognome; 
             const motoStr = tipoVal === 'officina' ? `${marca} ${modello} - ${targa}`.trim() : ''; 
             
-            const app = { id: idVal ? parseInt(idVal) : Date.now(), tipo: tipoVal, jobId: (tipoVal === 'officina' && jobIdVal) ? parseInt(jobIdVal) : null, data: dataVal, ora: oraVal, cliente: clienteStr, moto: motoStr, tel: tel, note: note, raw_nome: nome, raw_cognome: cognome, raw_marca: marca, raw_modello: modello, raw_targa: targa }; 
+            const kmVal = $(p+'_km') ? ($(p+'_km').value || '') : '';
+            const app = { id: idVal ? parseInt(idVal) : Date.now(), tipo: tipoVal, jobId: (tipoVal === 'officina' && jobIdVal) ? parseInt(jobIdVal) : null, data: dataVal, ora: oraVal, cliente: clienteStr, moto: motoStr, tel: tel, note: note, km: kmVal, raw_nome: nome, raw_cognome: cognome, raw_marca: marca, raw_modello: modello, raw_targa: targa }; 
             
             if(!app.data || !cognome) return alert("Data e Cognome/Oggetto sono obbligatori!"); 
             
             if(tipoVal === 'officina' && !jobIdVal) { 
                 const nJobId = Date.now() + 1; 
-                db.push({ id: nJobId, data: app.data, nome: nome, cognome: cognome, tel: tel, marca: marca, modello: modello, targa: targa, km: "", acconti: [], lavori_richiesti: note, stato: 'todo', conto: [], totale_lordo: 0 }); 
+                db.push({ id: nJobId, data: app.data, nome: nome, cognome: cognome, tel: tel, marca: marca, modello: modello, targa: targa, km: kmVal || "", acconti: [], lavori_richiesti: note, stato: 'todo', conto: [], totale_lordo: 0 }); 
                 app.jobId = nJobId; 
             } else if(app.jobId) { 
                 const iJ = db.findIndex(x => String(x.id) === String(app.jobId)); 
                 if(iJ > -1) { 
                     // Aggiorna la data della commessa SOLO se è ancora in attesa (todo)
                     if(db[iJ].stato === 'todo') { db[iJ].data = app.data; }
-                    db[iJ].nome = nome; db[iJ].cognome = cognome; db[iJ].tel = tel; db[iJ].marca = marca; db[iJ].modello = modello; db[iJ].targa = targa; db[iJ].lavori_richiesti = note; 
+                    db[iJ].nome = nome; db[iJ].cognome = cognome; db[iJ].tel = tel; db[iJ].marca = marca; db[iJ].modello = modello; db[iJ].targa = targa; db[iJ].lavori_richiesti = note;
+                    if(kmVal) db[iJ].km = kmVal;
                 } 
             } 
             
@@ -2617,7 +2622,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function modificaApp(id) { 
             const a = agendaDB.find(x => String(x.id) === String(id)); if(!a) return; 
             const tipoApp = a.tipo || 'officina'; 
-            $('m_app_id').value = a.id; $('m_app_job_id').value = a.jobId||''; $('m_app_tipo').value = tipoApp; $('m_app_data').value = a.data; $('m_app_ora').value = a.ora; $('m_app_nome').value = a.raw_nome || ''; $('m_app_cognome').value = a.raw_cognome || a.cliente || ''; $('m_app_marca').value = a.raw_marca || ''; $('m_app_modello').value = a.raw_modello || ''; $('m_app_targa').value = a.raw_targa || (a.moto ? a.moto.split('-').pop().trim() : ''); $('m_app_tel').value = a.tel||''; $('m_app_note').value = a.note||''; toggleAppFields('m'); 
+            $('m_app_id').value = a.id; $('m_app_job_id').value = a.jobId||''; $('m_app_tipo').value = tipoApp; $('m_app_data').value = a.data; $('m_app_ora').value = a.ora; $('m_app_nome').value = a.raw_nome || ''; $('m_app_cognome').value = a.raw_cognome || a.cliente || ''; $('m_app_marca').value = a.raw_marca || ''; $('m_app_modello').value = a.raw_modello || ''; $('m_app_targa').value = a.raw_targa || (a.moto ? a.moto.split('-').pop().trim() : ''); $('m_app_tel').value = a.tel||''; $('m_app_note').value = a.note||'';
+            // Carica km: prima dall'appuntamento, poi dalla commessa collegata
+            const kmJob = a.km || (a.jobId ? (db.find(j=>String(j.id)===String(a.jobId))?.km || '') : '');
+            if($('m_app_km')) $('m_app_km').value = kmJob;
+            toggleAppFields('m'); 
             
             const btnDel = $('m_btn-elimina-app'); btnDel.classList.remove('hidden'); 
             btnDel.onclick = () => { if(confirm("Eliminare dall'agenda?")) { if(typeof saveSnapshot === 'function') saveSnapshot(); if(a.jobId) { const ji = db.findIndex(j=>String(j.id)===String(a.jobId)); if(ji>-1 && db[ji].stato==='todo') db.splice(ji, 1); } agendaDB = agendaDB.filter(x => String(x.id) !== String(id)); saveDBAgenda(); closeModal('modal-appuntamento'); refreshAgenda(); } }; 
