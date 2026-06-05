@@ -229,6 +229,7 @@
         <button class="nav-link" style="color: var(--purple);" onclick="switchView('preventivi', this)">📝 Preventivi</button>
         <button class="nav-link" onclick="switchView('stats', this)">📈 Statistiche</button>
         <button class="nav-link" style="color:#14b8a6;" onclick="switchView('magazzino', this)">📦 Magazzino Ricambi</button>
+        <button class="nav-link" style="color:#fb923c;" onclick="switchView('tagliandi', this)">🔧 Scadenze Tagliando</button>
         
         <button class="nav-link" style="color: var(--warning); border: 1px dashed var(--warning); margin-top: 15px; margin-bottom: 8px;" onclick="document.getElementById('notes-panel').classList.toggle('show')">📝 Appunti Rapidi</button>
         <button class="nav-link" style="color: #60a5fa; border: 1px dashed #60a5fa; margin-bottom: 15px;" onclick="switchView('rubrica', this)">📞 Rubrica Utile</button>
@@ -725,6 +726,35 @@
             </div>
         </div>
 
+
+        <div id="view-tagliandi" class="view hidden">
+
+            <!-- Header -->
+            <div style="position:sticky; top:0; background:var(--bg); padding-bottom:15px; z-index:5;">
+                <div class="flex-between mb-15">
+                    <h2 style="color:#fb923c; margin:0;">🔧 Scadenze Tagliando</h2>
+                    <div class="flex-row" style="align-items:center; gap:8px;">
+                        <div id="tag-stats-scadute"  style="background:rgba(239,68,68,0.1); border:1px solid var(--accent); color:var(--accent); padding:6px 14px; border-radius:8px; font-size:0.8rem; font-weight:bold;"></div>
+                        <div id="tag-stats-presto"   style="background:rgba(245,158,11,0.1); border:1px solid var(--warning); color:var(--warning); padding:6px 14px; border-radius:8px; font-size:0.8rem; font-weight:bold;"></div>
+                        <div id="tag-stats-ok"       style="background:rgba(34,197,94,0.1); border:1px solid var(--success); color:var(--success); padding:6px 14px; border-radius:8px; font-size:0.8rem; font-weight:bold;"></div>
+                    </div>
+                </div>
+                <div class="flex-row" style="gap:8px;">
+                    <input type="text" id="tag-search-input" placeholder="🔍 Cerca per targa, cliente o moto..." oninput="refreshTagliandi()" style="background:var(--card); border:2px solid #fb923c; margin:0; flex:1;">
+                    <select id="tag-filter-stato" onchange="refreshTagliandi()" style="width:180px; margin:0; border-color:#fb923c;">
+                        <option value="tutti">Tutti i veicoli</option>
+                        <option value="scaduto">🔴 Scaduti</option>
+                        <option value="presto">🟡 Scadono presto (30gg)</option>
+                        <option value="ok">🟢 In regola</option>
+                        <option value="nessuno">⚪ Senza data</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Lista veicoli -->
+            <div id="tagliandi-results" style="display:flex; flex-direction:column; gap:10px; overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
+        </div>
+
     </main>
 
     <div class="notes-panel no-print" id="notes-panel">
@@ -1135,7 +1165,7 @@
 
         const MGM_INFO = { nome: "MOTO GARAGE MARCELLO", tel: "0932 644902", piva: "01622620886", via: "Ragusa (RG)" };
         let db = [], agendaDB = [], ledgerDB = [], ordiniDB = [], rubricaDB = [];
-        let noteDB = "", billingDB = {};
+        let noteDB = "", billingDB = {}, taggliandiDB = {};
         let currentJobId = null, currentEditStoricoId = null, currentEditStoricoPlate = null, isEditing = false, currentView = 'board', currentArchiveFilter = 'all';
         let currentCollabView = null;
         let dataInizioSettimana = new Date(); dataInizioSettimana.setHours(0,0,0,0); const gDay = dataInizioSettimana.getDay(); dataInizioSettimana = new Date(dataInizioSettimana.setDate(dataInizioSettimana.getDate() - gDay + (gDay === 0 ? -6 : 1)));
@@ -1204,6 +1234,11 @@
                 billingDB = snap.val() || {};
             });
 
+            database.ref('/tagliandi').on('value', (snap) => {
+                taggliandiDB = snap.val() || {};
+                if (currentView === 'tagliandi') refreshTagliandi();
+            });
+
         } // fine initFirebaseListeners
 
         function showCloudCheck() {
@@ -1247,6 +1282,7 @@
         function saveRubrica()  { database.ref('/').update({ rubrica: rubricaDB }).then(showCloudCheck).catch(_onSaveError); }
         function saveNote()     { database.ref('/').update({ note: noteDB }).then(showCloudCheck).catch(_onSaveError); }
         function saveBilling()  { database.ref('/').update({ billing: billingDB }).then(showCloudCheck).catch(_onSaveError); }
+        function saveTagliandi() { database.ref('/tagliandi').set(taggliandiDB).then(showCloudCheck).catch(_onSaveError); }
 
         function openBillingModal(chiave, clienteLabel) {
             $('billing_chiave').value = chiave;
@@ -1313,13 +1349,13 @@
 
         function switchView(viewId, el) {
             if (viewId === 'magazzino') initMagazzino();
-            ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
+            ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             const t = $('view-' + viewId); if(t) t.classList.remove('hidden'); if(el) el.classList.add('active');
             if(viewId !== 'nuova' && viewId !== 'crea-prev') currentView = viewId;
             if(viewId === 'nuova' && !isEditing) clearForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
-            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials();
+            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi();
         }
 
         function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); refreshMiniAgenda(); }
@@ -2921,7 +2957,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if(vContainer) {
                 vContainer.innerHTML = '<h3 class="mb-15" style="color:var(--info); font-size:0.9rem;">VEICOLI ASSOCIATI (Modifica per aggiornare tutto lo storico)</h3>';
                 Object.values(vehiclesMap).forEach(v => {
-                    vContainer.innerHTML += `<div class="section-dark mb-15 vehicle-edit-row" style="border-left: 3px solid var(--info); padding: 10px;"><input type="hidden" class="edit_v_old_targa" value="${safeEncode(v.targa)}"><label>Targa Veicolo</label><input class="edit_v_targa" placeholder="Targa" value="${(v.targa||'').replace(/"/g, '&quot;')}" style="margin-bottom:10px;"><div class="flex-row"><div style="flex:1"><label>Marca</label><input class="edit_v_marca" placeholder="Marca" value="${(v.marca||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:1"><label>Modello</label><input class="edit_v_modello" placeholder="Modello" value="${(v.modello||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div></div></div>`;
+                    const tagData = taggliandiDB[v.targa] || {};
+                    vContainer.innerHTML += `<div class="section-dark mb-15 vehicle-edit-row" style="border-left: 3px solid var(--info); padding: 10px;"><input type="hidden" class="edit_v_old_targa" value="${safeEncode(v.targa)}"><label>Targa Veicolo</label><input class="edit_v_targa" placeholder="Targa" value="${(v.targa||'').replace(/"/g, '&quot;')}" style="margin-bottom:10px;"><div class="flex-row"><div style="flex:1"><label>Marca</label><input class="edit_v_marca" placeholder="Marca" value="${(v.marca||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:1"><label>Modello</label><input class="edit_v_modello" placeholder="Modello" value="${(v.modello||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div></div><div style="margin-top:10px; padding-top:10px; border-top:1px dashed #334155;"><label style="color:#fb923c;">🔧 Prossimo Tagliando</label><div class="flex-row"><div style="flex:1"><label style="font-size:0.7rem;">Data scadenza</label><input type="date" class="edit_v_tagliando_data" value="${tagData.data||''}" style="margin-bottom:0;"></div><div style="flex:1"><label style="font-size:0.7rem;">KM scadenza (opz.)</label><input type="number" class="edit_v_tagliando_km" placeholder="es. 15000" value="${tagData.km||''}" style="margin-bottom:0;"></div><div style="flex:1.5"><label style="font-size:0.7rem;">Note (es. tipo olio)</label><input type="text" class="edit_v_tagliando_note" placeholder="es. Olio 10W40, filtri..." value="${(tagData.note||'').replace(/"/g,'&quot;')}" style="margin-bottom:0; text-transform:uppercase;"></div></div></div></div>`;
                 });
                 if (Object.keys(vehiclesMap).length === 0) vContainer.innerHTML += `<p style="color:var(--muted); font-size:0.8rem; font-style:italic;">Nessun veicolo registrato per questo cliente.</p>`;
             }
@@ -2957,7 +2994,34 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const oC = $('edit_old_chiave').value, nCognome = $('edit_cognome').value.toUpperCase().trim(), nNome = $('edit_nome').value.toUpperCase().trim(), nTel = $('edit_tel').value.trim();
             if(!nCognome) return alert("Cognome obbligatorio!"); 
             const vehiclesUpdates = [];
-            document.querySelectorAll('.vehicle-edit-row').forEach(row => { vehiclesUpdates.push({ oldTarga: safeDecode(row.querySelector('.edit_v_old_targa').value).toUpperCase().trim(), newTarga: row.querySelector('.edit_v_targa').value.toUpperCase().trim(), newMarca: row.querySelector('.edit_v_marca').value.toUpperCase().trim(), newModello: row.querySelector('.edit_v_modello').value.toUpperCase().trim() }); });
+            document.querySelectorAll('.vehicle-edit-row').forEach(row => {
+                const newTarga = row.querySelector('.edit_v_targa').value.toUpperCase().trim();
+                vehiclesUpdates.push({
+                    oldTarga:  safeDecode(row.querySelector('.edit_v_old_targa').value).toUpperCase().trim(),
+                    newTarga:  newTarga,
+                    newMarca:  row.querySelector('.edit_v_marca').value.toUpperCase().trim(),
+                    newModello: row.querySelector('.edit_v_modello').value.toUpperCase().trim()
+                });
+                // Salva dati tagliando per questa targa
+                const tagData = {
+                    data:  row.querySelector('.edit_v_tagliando_data').value || '',
+                    km:    row.querySelector('.edit_v_tagliando_km').value || '',
+                    note:  row.querySelector('.edit_v_tagliando_note').value.trim() || ''
+                };
+                const oldT = safeDecode(row.querySelector('.edit_v_old_targa').value).toUpperCase().trim();
+                if (oldT && oldT !== newTarga && taggliandiDB[oldT]) {
+                    taggliandiDB[newTarga] = taggliandiDB[oldT];
+                    delete taggliandiDB[oldT];
+                }
+                if (newTarga) {
+                    if (tagData.data || tagData.km || tagData.note) {
+                        taggliandiDB[newTarga] = tagData;
+                    } else {
+                        delete taggliandiDB[newTarga];
+                    }
+                }
+            });
+            saveTagliandi();
             let modified = false;
             db.forEach(j => { 
                 const jC = `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim();
@@ -3765,6 +3829,178 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             };
             reader.readAsText(e.target.files[0]);
         }
+
+    
+        // =====================================================================
+        // SCADENZE TAGLIANDO
+        // =====================================================================
+        function refreshTagliandi() {
+            const container = $('tagliandi-results');
+            if (!container) return;
+
+            const oggi = getOggiLocale();
+            const query = ($('tag-search-input')?.value || '').toLowerCase().trim();
+            const filtroStato = $('tag-filter-stato')?.value || 'tutti';
+
+            // Raccoglie tutti i veicoli unici con i loro dati cliente
+            const veicoliMap = {};
+            db.forEach(j => {
+                if (!j.targa || j.stato === 'preventivo') return;
+                const t = j.targa.toUpperCase().trim();
+                if (!veicoliMap[t]) {
+                    veicoliMap[t] = {
+                        targa: t, marca: j.marca || '', modello: j.modello || '',
+                        cognome: j.cognome || '', nome: j.nome || '', tel: j.tel || ''
+                    };
+                }
+                // Aggiorna sempre con i dati più recenti
+                if (j.tel) veicoliMap[t].tel = j.tel;
+                if (j.cognome) veicoliMap[t].cognome = j.cognome;
+                if (j.nome) veicoliMap[t].nome = j.nome;
+            });
+
+            let veicoli = Object.values(veicoliMap);
+            let scadute = 0, presto = 0, ok = 0;
+
+            // Arricchisce con dati tagliando e calcola stato
+            veicoli = veicoli.map(v => {
+                const tag = taggliandiDB[v.targa] || {};
+                const dataTag = tag.data || '';
+                let stato = 'nessuno';
+                let giorniAllaScadenza = null;
+
+                if (dataTag) {
+                    const diff = (new Date(dataTag) - new Date(oggi)) / 864e5;
+                    giorniAllaScadenza = Math.round(diff);
+                    if (diff < 0)       { stato = 'scaduto'; scadute++; }
+                    else if (diff <= 30) { stato = 'presto';  presto++; }
+                    else                 { stato = 'ok';      ok++; }
+                }
+                return { ...v, tag, dataTag, stato, giorniAllaScadenza };
+            });
+
+            // Aggiorna badge contatori
+            if ($('tag-stats-scadute')) $('tag-stats-scadute').innerText = `🔴 Scaduti: ${scadute}`;
+            if ($('tag-stats-presto'))  $('tag-stats-presto').innerText  = `🟡 In scadenza: ${presto}`;
+            if ($('tag-stats-ok'))      $('tag-stats-ok').innerText      = `🟢 In regola: ${ok}`;
+
+            // Filtri
+            if (filtroStato !== 'tutti') veicoli = veicoli.filter(v => v.stato === filtroStato);
+            if (query) {
+                veicoli = veicoli.filter(v => {
+                    const h = `${v.targa} ${v.marca} ${v.modello} ${v.cognome} ${v.nome} ${v.tel}`.toLowerCase();
+                    return query.split(/\s+/).every(t => h.includes(t));
+                });
+            }
+
+            // Ordina: scaduti → presto → ok → nessuno, poi per data
+            const statoOrd = { scaduto: 0, presto: 1, ok: 2, nessuno: 3 };
+            veicoli.sort((a, b) => {
+                const so = statoOrd[a.stato] - statoOrd[b.stato];
+                if (so !== 0) return so;
+                if (a.dataTag && b.dataTag) return a.dataTag.localeCompare(b.dataTag);
+                return 0;
+            });
+
+            if (!veicoli.length) {
+                container.innerHTML = `<div style="color:var(--muted); text-align:center; padding:40px; font-size:1rem;">Nessun veicolo trovato${filtroStato !== 'tutti' ? ' con questo filtro' : '. Aggiungi le date tagliando aprendo un cliente in Anagrafica → ✏️ Modifica Dati Veicoli'}.</div>`;
+                return;
+            }
+
+            const statoStyle = {
+                scaduto: { border: 'var(--accent)',   bg: 'rgba(239,68,68,0.06)',    badge: 'background:rgba(239,68,68,0.2); color:var(--accent);' },
+                presto:  { border: 'var(--warning)',  bg: 'rgba(245,158,11,0.04)',   badge: 'background:rgba(245,158,11,0.2); color:var(--warning);' },
+                ok:      { border: 'var(--success)',  bg: 'rgba(34,197,94,0.03)',    badge: 'background:rgba(34,197,94,0.2); color:var(--success);' },
+                nessuno: { border: '#334155',          bg: '',                        badge: 'background:#334155; color:var(--muted);' },
+            };
+
+            container.innerHTML = veicoli.map(v => {
+                const ss = statoStyle[v.stato];
+                const cliente = `${v.cognome} ${v.nome}`.trim();
+                const tw = formatPhoneForWa(v.tel);
+                const hasTel = !!tw;
+
+                let badgeLabel = '⚪ Nessuna data';
+                if (v.stato === 'scaduto') badgeLabel = `🔴 Scaduto ${Math.abs(v.giorniAllaScadenza)}gg fa`;
+                else if (v.stato === 'presto') badgeLabel = v.giorniAllaScadenza === 0 ? '🟡 Scade OGGI' : `🟡 Scade tra ${v.giorniAllaScadenza}gg`;
+                else if (v.stato === 'ok') badgeLabel = `🟢 Scade ${formattaData(v.dataTag)} (tra ${v.giorniAllaScadenza}gg)`;
+
+                const safeEncodedTarga = safeEncode(v.targa);
+                const safeChiave = safeEncode(`${v.cognome} ${v.nome}`.trim().toUpperCase());
+
+                return `<div class="card" style="border-left:5px solid ${ss.border}; ${ss.bg ? 'background:'+ss.bg+';' : ''} padding:15px 20px; margin:0;">
+                    <div style="display:grid; grid-template-columns: auto 1fr auto auto; gap:15px; align-items:center;">
+
+                        <!-- Targa + moto -->
+                        <div>
+                            <span class="targa-badge" style="font-size:0.95rem;">${v.targa}</span>
+                            <div style="font-size:0.82rem; color:var(--muted); margin-top:5px; white-space:nowrap;">${v.marca} ${v.modello}</div>
+                        </div>
+
+                        <!-- Cliente + stato tagliando -->
+                        <div>
+                            <div style="font-weight:bold; font-size:1rem; color:white;">${cliente || 'N/D'}</div>
+                            <div style="font-size:0.82rem; color:var(--muted); margin-top:2px;">📞 ${v.tel || 'Nessun numero'}</div>
+                            <div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <span style="font-size:0.78rem; font-weight:bold; padding:3px 10px; border-radius:20px; ${ss.badge}">${badgeLabel}</span>
+                                ${v.tag.km ? `<span style="font-size:0.78rem; color:var(--muted);">🏁 KM scadenza: ${v.tag.km}</span>` : ''}
+                                ${v.tag.note ? `<span style="font-size:0.78rem; color:var(--info);">📝 ${v.tag.note}</span>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Bottone WA -->
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            ${hasTel ? `
+                            <button onclick="sendWhatsAppTagliando('${safeEncodedTarga}')" class="btn btn-wa" style="padding:8px 14px; font-size:0.82rem; white-space:nowrap;">
+                                📲 WA Promemoria
+                            </button>` : `<span style="font-size:0.75rem; color:var(--muted); text-align:center;">Nessun<br>numero</span>`}
+                        </div>
+
+                        <!-- Bottone modifica -->
+                        <div>
+                            <button onclick="openEditClienteCognome('${safeChiave}')" class="btn btn-dark" style="padding:8px 14px; font-size:0.82rem; white-space:nowrap;">
+                                ✏️ Modifica
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function sendWhatsAppTagliando(encodedTarga) {
+            const targa = safeDecode(encodedTarga);
+
+            // Trova i dati del veicolo e del cliente
+            const job = db.filter(j => j.targa === targa && j.stato !== 'preventivo').pop();
+            if (!job) return alert('Nessun cliente trovato per questa targa.');
+            const tel = formatPhoneForWa(job.tel);
+            if (!tel) return alert('Nessun numero di telefono salvato per questo cliente.');
+
+            const tag = taggliandiDB[targa] || {};
+            const nome = (job.nome || '').trim() || (job.cognome || '').trim() || 'cliente';
+            const moto = `${job.marca || ''} ${job.modello || ''}`.trim() || 'moto';
+            const dataTag = tag.data ? formattaData(tag.data) : null;
+            const kmTag = tag.km ? `entro i ${tag.km} km` : null;
+            const noteTag = tag.note ? `\n\n📝 _Nota: ${tag.note}_` : '';
+
+            let scadenzaStr = '';
+            if (dataTag && kmTag) scadenzaStr = `entro il *${dataTag}* o ${kmTag}`;
+            else if (dataTag)     scadenzaStr = `entro il *${dataTag}*`;
+            else if (kmTag)       scadenzaStr = kmTag;
+            else                  scadenzaStr = 'a breve';
+
+            const txt = `Ciao ${nome} 👋,
+
+ti ricordiamo che per la tua *${moto}* (targa *${targa}*) è in scadenza il prossimo tagliando${scadenzaStr ? ` ${scadenzaStr}` : ''}.${noteTag}
+
+Prenota subito il tuo appuntamento presso *${MGM_INFO.nome}*! 🏍️
+📞 ${MGM_INFO.tel}
+
+A presto!`;
+
+            window.open(`https://wa.me/${tel}?text=${encodeURIComponent(txt)}`, '_blank');
+        }
+
 
     </script>
     </div><!-- fine app-shell -->
