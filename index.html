@@ -2258,8 +2258,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                             ${j.tel ? `<span style="color:var(--muted); font-size:0.72rem;">📞 ${j.tel}</span>` : ''}
                         </div>
                         ${accTot>0 ? `<div style="font-size:0.72rem; color:var(--info); font-weight:bold; margin-bottom:3px;">Acconti: €${accTot.toFixed(2)}</div>` : ''}
-                        <div style="font-size:0.78rem; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;">${(j.lavori_richiesti||'...').replace(/
-/g,' · ')}</div>
+                        <div style="font-size:0.78rem; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;">${(j.lavori_richiesti||'...').split('\n').join(' · ')}</div>
                     </div>
 
                     <!-- Col 3: Ponte -->
