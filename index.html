@@ -548,7 +548,7 @@
             <div class="flex-between mb-20">
                 <h2 style="color:#d8b4fe">Lavori Lunghi / Specials / Restauri</h2>
             </div>
-            <div id="specials-results" class="grid-cards" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-items: start;"></div>
+            <div id="specials-results" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
         </div>
 
         <div id="view-preventivi" class="view hidden">
@@ -2238,45 +2238,43 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     </div>`;
 
                 const card = document.createElement('div');
-                card.className = 'card-compact';
-                card.style.borderLeftColor = '#d8b4fe';
-                card.style.display = 'flex';
-                card.style.flexDirection = 'column';
+                card.style.cssText = `background:var(--card); border-left:4px solid #d8b4fe; border-radius:10px; padding:12px 16px; display:grid; grid-template-columns:110px 1fr auto auto auto; gap:12px; align-items:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);`;
 
-                const priceBadge = lordo > 0 ? `<span style="background:rgba(34,197,94,0.2); color:#22c55e; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.78rem;">€ ${lordo.toFixed(2)}</span>` : '';
+                const priceBadge = lordo > 0 ? `<span style="background:rgba(34,197,94,0.2); color:#22c55e; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">€ ${lordo.toFixed(2)}</span>` : '';
 
                 card.innerHTML = `
-                <div style="cursor:pointer;" onclick="previewJob(${j.id})" title="Clicca per leggere dettagli">
+                    <!-- Col 1: targa + data -->
+                    <div>
+                        <span class="targa-badge" style="font-size:0.82rem; padding:3px 8px; display:block; margin-bottom:4px;">${j.targa||'N/D'}</span>
+                        <div style="font-size:0.7rem; color:var(--muted);">${formattaData(j.data)}</div>
+                        ${priceBadge}
+                    </div>
 
-                    <!-- Riga 1: targa + data + prezzo -->
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                        <span class="targa-badge">${j.targa||'NO TARGA'}</span>
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            ${priceBadge}
-                            <small style="color:var(--muted); font-size:0.72rem;">${formattaData(j.data)}</small>
+                    <!-- Col 2: moto + cliente + note -->
+                    <div style="min-width:0; cursor:pointer;" onclick="previewJob(${j.id})" title="Clicca per dettagli">
+                        <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:2px;">
+                            <b style="color:white; font-size:0.9rem;">${j.marca||''} ${j.modello||''}</b>
+                            <span style="color:var(--muted); font-size:0.8rem;">${(j.cognome||'').toUpperCase()} ${j.nome||''}</span>
+                            ${j.tel ? `<span style="color:var(--muted); font-size:0.72rem;">📞 ${j.tel}</span>` : ''}
                         </div>
+                        ${accTot>0 ? `<div style="font-size:0.72rem; color:var(--info); font-weight:bold; margin-bottom:3px;">Acconti: €${accTot.toFixed(2)}</div>` : ''}
+                        <div style="font-size:0.78rem; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;">${(j.lavori_richiesti||'...').replace(/
+/g,' · ')}</div>
                     </div>
 
-                    <!-- Riga 2: moto + cliente + tel inline -->
-                    <div style="margin-bottom:4px;">
-                        <b style="color:white; font-size:0.9rem;">${j.marca||''} ${j.modello||''}</b>
-                        <span style="color:var(--muted); font-size:0.8rem; margin-left:6px;">${(j.cognome||'').toUpperCase()} ${j.nome||''}</span>
-                        ${j.tel ? `<span style="color:var(--muted); font-size:0.75rem; margin-left:6px;">· 📞 ${j.tel}</span>` : ''}
-                    </div>
+                    <!-- Col 3: Ponte -->
+                    <button class="btn btn-warning w-auto" style="padding:7px 12px; font-size:0.8rem; white-space:nowrap; color:black;"
+                        onclick="moveStatus(${j.id}, 'doing'); refreshSpecials(); switchView('board');"
+                        title="Sposta sul Ponte in Officina">⚙️ Ponte</button>
 
-                    <!-- Acconti -->
-                    ${accTot>0 ? `<div style="font-size:0.72rem; color:var(--info); font-weight:bold; margin-bottom:4px;">Acconti: €${accTot.toFixed(2)}</div>` : ''}
+                    <!-- Col 4: Conto -->
+                    <button class="btn btn-info w-auto" style="padding:7px 12px; font-size:0.8rem; white-space:nowrap;"
+                        onclick="openClosingModal(${j.id})"
+                        title="Gestisci conto e acconti">💰 Conto</button>
 
-                    <!-- Note lavori — altezza fissa, no flex-grow -->
-                    <div class="work-box-compact" style="margin-top:6px; pointer-events:none; max-height:72px; overflow:hidden;">${j.lavori_richiesti||'...'}</div>
-                </div>
-
-                <!-- Bottoni: 2 primari + ⋯ -->
-                <div style="display:flex; gap:5px; margin-top:8px; align-items:center;">
-                    <button class="btn-icon btn-warning" style="flex:1;" onclick="event.stopPropagation(); moveStatus(${j.id}, 'doing'); refreshSpecials(); switchView('board');" title="Sposta sul Ponte">⚙️ Ponte</button>
-                    <button class="btn-icon btn-info"    style="flex:1;" onclick="event.stopPropagation(); openClosingModal(${j.id})" title="Gestisci conto e acconti">💰 Conto</button>
+                    <!-- Col 5: Menu ⋯ -->
                     ${moreMenu}
-                </div>`;
+                `;
 
                 container.appendChild(card);
             });
