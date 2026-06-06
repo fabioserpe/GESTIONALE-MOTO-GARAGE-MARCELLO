@@ -2239,94 +2239,97 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             Object.values(cols).forEach(c => { c.innerHTML = ''; });
             const counts = { incidentate: 0, restauri: 0, specials: 0 };
 
-            const specials = db.filter(j => j.stato === 'special').sort((a,b) => new Date(b.data||0) - new Date(a.data||0));
+            const specials = db.filter(j => j.stato === 'special')
+                               .sort((a,b) => new Date(b.data||0) - new Date(a.data||0));
 
-            const colConfig = {
-                incidentate: { border: '#f87171', accent: '#fca5a5' },
-                restauri:    { border: '#fbbf24', accent: '#fcd34d' },
-                specials:    { border: '#a78bfa', accent: '#d8b4fe' }
-            };
+            const borderCol = { incidentate: '#f87171', restauri: '#fbbf24', specials: '#a78bfa' };
 
             if (specials.length === 0) {
                 Object.values(cols).forEach(c => {
                     c.innerHTML = '<div style="color:#475569; text-align:center; padding:20px; font-size:0.82rem;">Nessuna scheda</div>';
                 });
                 ['incidentate','restauri','specials'].forEach(k => {
-                    const el = $('sp-count-' + k); if(el) el.style.display = 'none';
+                    const el = $('sp-count-' + k); if (el) el.style.display = 'none';
                 });
                 return;
             }
 
             specials.forEach(j => {
-                const cat = (j.special_cat || 'specials').toLowerCase();
-                const colKey = ['incidentate','restauri','specials'].includes(cat) ? cat : 'specials';
-                counts[colKey]++;
-                const cfg = colConfig[colKey];
+                const cat    = (['incidentate','restauri','specials'].includes(j.special_cat||'')) ? (j.special_cat||'specials') : 'specials';
+                const col    = cols[cat];
+                const border = borderCol[cat];
+                counts[cat]++;
 
                 const accTot = (j.acconti||[]).reduce((a,b) => a + (parseFloat(b.val)||0), 0);
                 const lordo  = parseFloat(j.totale_lordo) || 0;
                 const menuId = 'smenu-' + j.id;
 
                 const card = document.createElement('div');
-                card.style.cssText = 'background:var(--card); border-radius:10px; border:1px solid rgba(255,255,255,0.06); border-top:3px solid ' + cfg.border + '; padding:12px; cursor:pointer; transition:box-shadow 0.15s;';
-                card.onmouseover = function() { this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'; };
-                card.onmouseout  = function() { this.style.boxShadow = 'none'; };
+                card.style.cssText = 'background:var(--card); border-radius:10px; border:1px solid rgba(255,255,255,0.06); border-top:3px solid ' + border + '; padding:12px; transition:box-shadow 0.15s;';
+                card.onmouseover = function(){ this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'; };
+                card.onmouseout  = function(){ this.style.boxShadow = 'none'; };
 
-                const priceHtml = lordo > 0
-                    ? '<span style="background:rgba(34,197,94,0.15); color:#86efac; padding:1px 7px; border-radius:4px; font-size:0.72rem; font-weight:bold;">€ ' + lordo.toFixed(2) + '</span>'
-                    : '';
-                const accHtml = accTot > 0
-                    ? '<div style="font-size:0.72rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €' + accTot.toFixed(2) + '</div>'
-                    : '';
+                // Build card content with template literals — safe, no quote mixing
+                const priceHtml = lordo > 0 ? `<span style="background:rgba(34,197,94,0.15); color:#86efac; padding:1px 7px; border-radius:4px; font-size:0.72rem; font-weight:bold;">€ ${lordo.toFixed(2)}</span>` : '';
+                const accHtml   = accTot > 0 ? `<div style="font-size:0.72rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €${accTot.toFixed(2)}</div>` : '';
+                const telHtml   = j.tel ? ` · 📞 ${j.tel}` : '';
+                const noteText  = (j.lavori_richiesti||'...').split('
+').join(' · ');
 
-                card.innerHTML =
-                    '<div onclick="previewJob(' + j.id + ')">' +
-                        '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">' +
-                            '<span class="targa-badge" style="font-size:0.78rem; padding:2px 7px;">' + (j.targa||'N/D') + '</span>' +
-                            '<div style="display:flex; align-items:center; gap:5px;">' + priceHtml +
-                                '<span style="font-size:0.68rem; color:var(--muted);">' + formattaData(j.data) + '</span>' +
-                            '</div>' +
-                        '</div>' +
-                        '<div style="font-weight:bold; font-size:0.88rem; color:white; margin-bottom:2px;">' + (j.marca||'') + ' ' + (j.modello||'') + '</div>' +
-                        '<div style="font-size:0.78rem; color:var(--muted); margin-bottom:2px;">' + (j.cognome||'').toUpperCase() + ' ' + (j.nome||'') + (j.tel ? ' · 📞 ' + j.tel : '') + '</div>' +
-                        accHtml +
-                        '<div style="font-size:0.75rem; color:#64748b; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (j.lavori_richiesti||'...').split('\n').join(' · ') + '</div>' +
-                    '</div>' +
-                    '<div style="display:flex; gap:5px; margin-top:10px; align-items:center;">' +
-                        '<button class="btn btn-warning w-auto" style="flex:1; padding:6px; font-size:0.78rem; color:black;" onclick="event.stopPropagation(); moveStatus(' + j.id + ','doing'); refreshSpecials(); switchView('board');">⚙️ Ponte</button>' +
-                        '<button class="btn btn-info w-auto"    style="flex:1; padding:6px; font-size:0.78rem;" onclick="event.stopPropagation(); openClosingModal(' + j.id + ')">💰 Conto</button>' +
-                        '<div style="position:relative; flex-shrink:0;">' +
-                            '<button onclick="event.stopPropagation(); toggleMenuBoard('' + menuId + '', event)" style="background:#334155; border:none; color:var(--muted); border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:1rem; font-weight:bold; display:flex; align-items:center; justify-content:center; transition:0.15s; line-height:1;" title="Altre azioni" onmouseover="this.style.background='#475569'; this.style.color='white';" onmouseout="this.style.background='#334155'; this.style.color='var(--muted)';">⋯</button>' +
-                            '<div id="' + menuId + '" style="display:none; position:absolute; bottom:calc(100% + 4px); right:0; background:var(--card); border:1px solid #334155; border-radius:10px; min-width:185px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:50; overflow:hidden;">' +
-                                '<div style="padding:6px 8px; border-bottom:1px solid #334155;">' +
-                                    '<div style="font-size:0.7rem; color:var(--muted); font-weight:bold; margin-bottom:4px; padding:2px 6px;">SPOSTA IN</div>' +
-                                    '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px;">' +
-                                        '<button onclick="event.stopPropagation(); cambiaCategoriaSp(' + j.id + ','incidentate')" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; border-radius:5px; padding:4px 2px; font-size:0.65rem; font-weight:bold; cursor:pointer; text-align:center;">🚗 Incidentate</button>' +
-                                        '<button onclick="event.stopPropagation(); cambiaCategoriaSp(' + j.id + ','restauri')" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; border-radius:5px; padding:4px 2px; font-size:0.65rem; font-weight:bold; cursor:pointer; text-align:center;">🔨 Restauri</button>' +
-                                        '<button onclick="event.stopPropagation(); cambiaCategoriaSp(' + j.id + ','specials')" style="background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.3); color:#d8b4fe; border-radius:5px; padding:4px 2px; font-size:0.65rem; font-weight:bold; cursor:pointer; text-align:center;">⚡ Specials</button>' +
-                                    '</div>' +
-                                '</div>' +
-                                '<button onclick="editJob(' + j.id + '); chiudiMenuBoard('' + menuId + '')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">✏️ Modifica scheda</button>' +
-                                '<button onclick="printJobSheet(' + j.id + '); chiudiMenuBoard('' + menuId + '')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🖨️ Stampa scheda</button>' +
-                                '<div style="border-top:1px solid #334155; margin:4px 0;"></div>' +
-                                '<button onclick="deleteJob(' + j.id + '); setTimeout(refreshSpecials,500); chiudiMenuBoard('' + menuId + '')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--accent); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">🗑️ Elimina</button>' +
-                            '</div>' +
-                        '</div>' +
-                    '</div>';
+                card.innerHTML = `
+                    <div style="cursor:pointer;" onclick="previewJob(${j.id})" title="Clicca per dettagli">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                            <span class="targa-badge" style="font-size:0.78rem; padding:2px 7px;">${j.targa||'N/D'}</span>
+                            <div style="display:flex; align-items:center; gap:5px;">
+                                ${priceHtml}
+                                <span style="font-size:0.68rem; color:var(--muted);">${formattaData(j.data)}</span>
+                            </div>
+                        </div>
+                        <div style="font-weight:bold; font-size:0.88rem; color:white; margin-bottom:2px;">${j.marca||''} ${j.modello||''}</div>
+                        <div style="font-size:0.78rem; color:var(--muted); margin-bottom:2px;">${(j.cognome||'').toUpperCase()} ${j.nome||''}${telHtml}</div>
+                        ${accHtml}
+                        <div style="font-size:0.75rem; color:#64748b; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${noteText}</div>
+                    </div>
+                    <div style="display:flex; gap:5px; margin-top:10px; align-items:center;">
+                        <button class="btn btn-warning w-auto" style="flex:1; padding:6px; font-size:0.78rem; color:black;"
+                            onclick="event.stopPropagation(); moveStatus(${j.id},'doing'); refreshSpecials(); switchView('board');">⚙️ Ponte</button>
+                        <button class="btn btn-info w-auto" style="flex:1; padding:6px; font-size:0.78rem;"
+                            onclick="event.stopPropagation(); openClosingModal(${j.id})">💰 Conto</button>
+                        <div style="position:relative; flex-shrink:0;">
+                            <button onclick="event.stopPropagation(); toggleMenuBoard('${menuId}', event)"
+                                style="background:#334155; border:none; color:var(--muted); border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:1rem; font-weight:bold; display:flex; align-items:center; justify-content:center; transition:0.15s; line-height:1;"
+                                title="Altre azioni"
+                                onmouseover="this.style.background='#475569'; this.style.color='white';"
+                                onmouseout="this.style.background='#334155'; this.style.color='var(--muted)';">⋯</button>
+                            <div id="${menuId}" style="display:none; position:absolute; bottom:calc(100% + 4px); right:0; background:var(--card); border:1px solid #334155; border-radius:10px; min-width:190px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:50; overflow:hidden;">
+                                <div style="padding:6px 8px; border-bottom:1px solid #334155;">
+                                    <div style="font-size:0.7rem; color:var(--muted); font-weight:bold; margin-bottom:5px; padding:2px 6px;">SPOSTA IN</div>
+                                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px;">
+                                        <button onclick="event.stopPropagation(); cambiaCategoriaSp(${j.id},'incidentate')" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; border-radius:5px; padding:4px 2px; font-size:0.65rem; font-weight:bold; cursor:pointer; text-align:center;">🚗 Incidentate</button>
+                                        <button onclick="event.stopPropagation(); cambiaCategoriaSp(${j.id},'restauri')" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; border-radius:5px; padding:4px 2px; font-size:0.65rem; font-weight:bold; cursor:pointer; text-align:center;">🔨 Restauri</button>
+                                        <button onclick="event.stopPropagation(); cambiaCategoriaSp(${j.id},'specials')" style="background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.3); color:#d8b4fe; border-radius:5px; padding:4px 2px; font-size:0.65rem; font-weight:bold; cursor:pointer; text-align:center;">⚡ Specials</button>
+                                    </div>
+                                </div>
+                                <button onclick="editJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">✏️ Modifica scheda</button>
+                                <button onclick="printJobSheet(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🖨️ Stampa scheda</button>
+                                <div style="border-top:1px solid #334155; margin:4px 0;"></div>
+                                <button onclick="deleteJob(${j.id}); setTimeout(refreshSpecials,500); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--accent); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">🗑️ Elimina</button>
+                            </div>
+                        </div>
+                    </div>`;
 
-                cols[colKey].appendChild(card);
+                col.appendChild(card);
             });
 
-            // Aggiorna contatori badge header
+            // Badge contatori
             const labels = { incidentate: '🚗 Incidentate', restauri: '🔨 Restauri', specials: '⚡ Specials' };
             Object.entries(counts).forEach(([k, n]) => {
                 const el = $('sp-count-' + k);
                 if (el) { el.innerText = labels[k] + ': ' + n; el.style.display = n > 0 ? 'block' : 'none'; }
             });
-
             // Colonne vuote
-            Object.entries(cols).forEach(([k, col]) => {
-                if (counts[k] === 0) col.innerHTML = '<div style="color:#475569; text-align:center; padding:20px; font-size:0.82rem;">Nessuna scheda</div>';
+            Object.entries(cols).forEach(([k, c]) => {
+                if (counts[k] === 0) c.innerHTML = '<div style="color:#475569; text-align:center; padding:20px; font-size:0.82rem;">Nessuna scheda</div>';
             });
         }
 
@@ -2335,9 +2338,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (!j) return;
             j.special_cat = nuovaCat;
             saveDB();
-            // Chiudi il menu
             document.querySelectorAll('[id^="smenu-"]').forEach(m => { m.style.display = 'none'; });
         }
+
 
         function refreshBoard() {
             const lists = { todo: $('list-todo'), doing: $('list-doing'), done: $('list-done') }; Object.values(lists).forEach(l => { if(l) l.innerHTML = ''; });
