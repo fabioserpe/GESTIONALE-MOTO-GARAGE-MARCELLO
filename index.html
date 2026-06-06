@@ -1239,11 +1239,17 @@
 
             database.ref('/db').on('value', (snap) => {
                 db = snap.val() || [];
-                // Migrazione silenziosa: aggiungi data_chiusura ai lavori già chiusi che non ce l'hanno
+                // Migrazione silenziosa: pulizie varie
                 let needsSave = false;
                 db.forEach(j => {
+                    // Aggiungi data_chiusura ai lavori già chiusi che non ce l'hanno
                     if (['done','archived'].includes(j.stato) && !j.data_chiusura && j.data) {
-                        j.data_chiusura = j.data; // usa data apertura come fallback
+                        j.data_chiusura = j.data;
+                        needsSave = true;
+                    }
+                    // Pulisce special_cat da lavori che non sono più nei Lavori Lunghi
+                    if (j.stato !== 'special' && j.special_cat) {
+                        delete j.special_cat;
                         needsSave = true;
                     }
                 });
@@ -1976,22 +1982,44 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // =====================================================================
         // 8. BOARD OFFICINA E AGENDA
         // =====================================================================
-        function moveStatus(id, newStatus) { 
-            const j = db.find(x => String(x.id) === String(id)); 
-            if(j) { 
-                saveSnapshot(); // <--- MACCHINA DEL TEMPO
-                j.stato = newStatus;
-                
-                // Mantiene la tua logica di aggiornamento data agenda
-                if(newStatus === 'todo') { 
-                    j.data = getOggiLocale(); 
-                    const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); 
-                    if(appIdx > -1) agendaDB[appIdx].data = j.data; 
-                } 
-                
-                saveDBAgenda(); 
-                if (currentView === 'board') refreshBoard(); 
-            } 
+        function moveStatus(id, newStatus) {
+            const j = db.find(x => String(x.id) === String(id));
+            if (!j) return;
+            saveSnapshot();
+            const wasSpecial = j.stato === 'special';
+            j.stato = newStatus;
+
+            // Se esce dai Lavori Lunghi: pulisce special_cat e aggiunge in agenda
+            if (wasSpecial && newStatus !== 'special') {
+                delete j.special_cat;
+                const oggi = getOggiLocale();
+                j.data = oggi;
+                const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(j.id));
+                if (appIdx === -1) {
+                    agendaDB.push({
+                        id: Date.now() + Math.floor(Math.random() * 1000),
+                        tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00',
+                        cliente: `${j.cognome||''} ${j.nome||''}`.trim(),
+                        moto: `${j.marca||''} ${j.modello||''} - ${j.targa||''}`.trim(),
+                        tel: j.tel||'', note: j.lavori_richiesti||'',
+                        raw_nome: j.nome||'', raw_cognome: j.cognome||'',
+                        raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||''
+                    });
+                } else {
+                    agendaDB[appIdx].data = oggi;
+                }
+            }
+
+            // Se torna a todo (dalla board) aggiorna anche la data agenda
+            if (newStatus === 'todo' && !wasSpecial) {
+                j.data = getOggiLocale();
+                const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(j.id));
+                if (appIdx > -1) agendaDB[appIdx].data = j.data;
+            }
+
+            saveDBAgenda();
+            if (currentView === 'board') refreshBoard();
+            if (currentView === 'specials') refreshSpecials();
         }
         function revertJobToToday(encodedPlate) { const plate = safeDecode(encodedPlate); if(confirm(`Spostare in "Da Fare" per OGGI i lavori di ${plate}?`)) { let mod = false; const oggi = getOggiLocale(); db.filter(j => j.targa === plate && ['todo','doing'].includes(j.stato)).forEach(j => { j.stato = 'todo'; j.data = oggi; mod = true; const appIndex = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if(appIndex > -1) { agendaDB[appIndex].data = oggi; } else { agendaDB.push({ id: Date.now() + Math.floor(Math.random() * 1000), tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00', cliente: `${j.cognome||''} ${j.nome||''}`.trim(), moto: `${j.marca||''} ${j.modello||''} - ${j.targa||''}`.trim(), tel: j.tel || '', note: j.lavori_richiesti || '', raw_nome: j.nome || '', raw_cognome: j.cognome || '', raw_marca: j.marca || '', raw_modello: j.modello || '', raw_targa: j.targa || '' }); } }); if(mod) { saveDBAgenda(); alert("Lavoro riportato a OGGI!"); } } }
         function saveJob(stato) { 
