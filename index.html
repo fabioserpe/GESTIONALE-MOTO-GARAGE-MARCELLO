@@ -4403,8 +4403,8 @@ A presto!`;
             const menu = $(menuId);
             if (!menu) return;
             const isOpen = menu.style.display !== 'none';
-            // Chiudi tutti gli altri menu aperti
-            document.querySelectorAll('[id^="menu-"]').forEach(m => { m.style.display = 'none'; });
+            // Chiudi tutti gli altri menu aperti (sia menu- che smenu-)
+            document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => { m.style.display = 'none'; });
             if (!isOpen) menu.style.display = 'block';
         }
 
@@ -4415,8 +4415,8 @@ A presto!`;
 
         // Chiudi menu al click fuori
         document.addEventListener('click', function(e) {
-            if (!e.target.closest('[id^="menu-"]') && !e.target.closest('button[onclick*="toggleMenuBoard"]')) {
-                document.querySelectorAll('[id^="menu-"]').forEach(m => { m.style.display = 'none'; });
+            if (!e.target.closest('[id^="menu-"]') && !e.target.closest('[id^="smenu-"]') && !e.target.closest('button[onclick*="toggleMenuBoard"]')) {
+                document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => { m.style.display = 'none'; });
             }
         });
 
