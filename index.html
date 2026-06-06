@@ -2292,28 +2292,57 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const printFn = j.stato === 'done' ? 'printInvoice' : 'printJobSheet';
                 const printTitle = j.stato === 'done' ? 'Stampa Ricevuta / Conto' : 'Stampa scheda accettazione';
 
-                let secondaryBtns = `
-                    <button class="btn-icon" style="background:var(--purple); color:white; flex:1;" onclick="moveStatus(${j.id}, 'special')" title="Parcheggia nei Lavori Lunghi / Specials">🕰️</button>
-                    <button class="btn-icon btn-dark" style="flex:1;" onclick="editJob(${j.id})" title="Modifica questa scheda">✏️</button>
-                    <button class="btn-icon btn-dark" style="flex:1;" onclick="${printFn}(${j.id})" title="${printTitle}">🖨️</button>
-                    <button class="btn-icon" style="background:transparent; border:1px solid rgba(239,68,68,0.3); color:var(--accent); flex:1;" onclick="deleteJob(${j.id})" title="Elimina definitivamente">🗑️</button>
+                // Menu secondario ⋯ — azioni rare in dropdown
+                const menuId = `menu-${j.id}`;
+                let menuItems = `
+                    <button onclick="editJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">✏️ Modifica scheda</button>
+                    <button onclick="${printFn}(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🖨️ Stampa</button>
+                    <button onclick="moveStatus(${j.id}, 'special'); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#d8b4fe; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🕰️ Lavori Lunghi</button>
+                    <div style="border-top:1px solid #334155; margin:4px 0;"></div>
+                    <button onclick="deleteJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--accent); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">🗑️ Elimina</button>
                 `;
-                
+
+                // Per 'done' aggiungi azioni di cassa nel menu
+                if (j.stato === 'done') {
+                    menuItems = `
+                        <button onclick="moveStatus(${j.id}, 'archived'); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--warning); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">⚠️ Archivia (da saldare)</button>
+                        <button onclick="moveStatus(${j.id}, 'doing'); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--muted); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">⬅️ Rimanda sul Ponte</button>
+                        <div style="border-top:1px solid #334155; margin:4px 0;"></div>
+                    ` + menuItems;
+                }
+
+                const moreMenu = `
+                    <div style="position:relative; flex-shrink:0;">
+                        <button onclick="toggleMenuBoard('${menuId}', event)"
+                            style="background:#334155; border:none; color:var(--muted); border-radius:6px; width:30px; height:30px; cursor:pointer; font-size:1.1rem; font-weight:bold; display:flex; align-items:center; justify-content:center; transition:0.15s; line-height:1;"
+                            title="Altre azioni"
+                            onmouseover="this.style.background='#475569'; this.style.color='white';"
+                            onmouseout="this.style.background='#334155'; this.style.color='var(--muted)';">⋯</button>
+                        <div id="${menuId}" style="display:none; position:absolute; bottom:calc(100% + 4px); right:0; background:var(--card); border:1px solid #334155; border-radius:10px; min-width:190px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:50; overflow:hidden;">
+                            ${menuItems}
+                        </div>
+                    </div>`;
+
                 let primaryBtns = '';
                 if(j.stato === 'todo') {
-                    primaryBtns = `<button class="btn-icon btn-purple" style="flex:1;" onclick="prenotaDaOfficina(${j.id})" title="Sposta ad un'altra data in Agenda">📅 Fissa App.</button><button class="btn-icon btn-warning" style="flex:1;" onclick="moveStatus(${j.id}, 'doing')" title="Metti il veicolo sul Ponte">⚙️ Ponte</button>`;
+                    primaryBtns = `
+                        <button class="btn-icon btn-purple" style="flex:1;" onclick="prenotaDaOfficina(${j.id})" title="Sposta ad un'altra data in Agenda">📅 Fissa App.</button>
+                        <button class="btn-icon btn-warning" style="flex:1;" onclick="moveStatus(${j.id}, 'doing')" title="Metti il veicolo sul Ponte">⚙️ Ponte</button>
+                        ${moreMenu}`;
                 }
                 else if(j.stato === 'doing') {
-                    primaryBtns = `<button class="btn-icon btn-purple" style="flex:1.5;" onclick="openClosingModal(${j.id})" title="Aggiungi ricambi o note senza chiudere">📝 Pre-Conto</button><button class="btn-icon btn-success" style="flex:1.5;" onclick="openClosingModal(${j.id})" title="Lavoro finito, prepara la scheda conto">✅ Fine</button><button class="btn-icon" style="background:#475569; flex:0.5;" onclick="moveStatus(${j.id}, 'todo')" title="Riporta a: Appuntamenti Oggi">⬅️</button>`;
+                    primaryBtns = `
+                        <button class="btn-icon btn-purple" style="flex:1;" onclick="openClosingModal(${j.id})" title="Pre-Conto: aggiungi ricambi senza chiudere">📝 Pre-Conto</button>
+                        <button class="btn-icon btn-success" style="flex:1;" onclick="openClosingModal(${j.id})" title="Lavoro finito">✅ Fine</button>
+                        <button class="btn-icon" style="background:#475569; flex:0;" onclick="moveStatus(${j.id}, 'todo')" title="Riporta a: Appuntamenti Oggi">⬅️</button>
+                        ${moreMenu}`;
                 }
                 else {
                     primaryBtns = `
-                        <button class="btn-icon btn-info" style="flex:1;" onclick="openClosingModal(${j.id})" title="Gestisci i pagamenti e gli acconti">💰 Conto</button>
+                        <button class="btn-icon btn-info" style="flex:1;" onclick="openClosingModal(${j.id})" title="Gestisci pagamenti">💰 Conto</button>
                         <button class="btn-icon btn-wa" style="flex:0.8;" onclick="sendWhatsApp(${j.id})" title="Avvisa il cliente via WhatsApp">📲 WA</button>
-                        <button class="btn-icon btn-success" style="flex:1.2;" onclick="saldaEArchivia(${j.id})" title="Saldato completamente e archiviato">✅ Salda</button>
-                        <button class="btn-icon btn-warning" style="flex:1.5;" onclick="moveStatus(${j.id}, 'archived')" title="Sfoltisci colonna: sposta in archivio lasciando il debito aperto">⚠️ Da Saldare</button>
-                        <button class="btn-icon" style="background:#475569; flex:0.5;" onclick="moveStatus(${j.id}, 'doing')" title="Riporta sul Ponte">⬅️</button>
-                    `;
+                        <button class="btn-icon btn-success" style="flex:1;" onclick="saldaEArchivia(${j.id})" title="Saldato e archiviato">✅ Salda</button>
+                        ${moreMenu}`;
                 }
                 
                 const card = document.createElement('div'); 
@@ -2343,9 +2372,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     ${accTot>0?`<div style="font-size:0.75rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €${accTot.toFixed(2)}</div>`:''}
                     <div class="work-box-compact" style="margin-top:8px; pointer-events:none; max-height:55px; overflow:hidden;">${j.lavori_richiesti||'...'}</div>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:5px; margin-top:8px;">
-                    <div style="display:flex; gap:5px; width:100%;">${primaryBtns}</div>
-                    <div style="display:flex; gap:5px; width:100%;">${secondaryBtns}</div>
+                <div style="display:flex; gap:5px; margin-top:8px; align-items:center;">
+                    ${primaryBtns}
                 </div>`;
                 
                 if(lists[j.stato]) lists[j.stato].appendChild(card);
@@ -4284,6 +4312,32 @@ A presto!`;
                 badge.style.display = 'none';
             }
         }
+
+    
+        // =====================================================================
+        // MENU ⋯ AZIONI SECONDARIE BOARD
+        // =====================================================================
+        function toggleMenuBoard(menuId, event) {
+            event.stopPropagation();
+            const menu = $(menuId);
+            if (!menu) return;
+            const isOpen = menu.style.display !== 'none';
+            // Chiudi tutti gli altri menu aperti
+            document.querySelectorAll('[id^="menu-"]').forEach(m => { m.style.display = 'none'; });
+            if (!isOpen) menu.style.display = 'block';
+        }
+
+        function chiudiMenuBoard(menuId) {
+            const menu = $(menuId);
+            if (menu) menu.style.display = 'none';
+        }
+
+        // Chiudi menu al click fuori
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('[id^="menu-"]') && !e.target.closest('button[onclick*="toggleMenuBoard"]')) {
+                document.querySelectorAll('[id^="menu-"]').forEach(m => { m.style.display = 'none'; });
+            }
+        });
 
     </script>
 
