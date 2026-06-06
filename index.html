@@ -4482,30 +4482,39 @@ A presto!`;
         // =====================================================================
         // PULIZIA ORFANI LAVORI LUNGHI
         // =====================================================================
-        async function pulisciOrfaniSpecials() {
-            let count = 0;
-            const promises = [];
+        function pulisciOrfaniSpecials() {
+            // Legge il DB raw da Firebase per trovare gli indici esatti
+            database.ref('/db').once('value').then(snap => {
+                const raw = snap.val() || [];
+                const updates = {};
+                let count = 0;
 
-            db.forEach((j, idx) => {
-                // Rimuovi special_cat da qualsiasi lavoro che non è più in stato 'special'
-                if (j.stato !== 'special' && j.special_cat !== undefined) {
-                    delete j.special_cat;
-                    promises.push(database.ref('/db/' + idx + '/special_cat').remove());
-                    count++;
+                raw.forEach((j, idx) => {
+                    if (j && j.stato !== 'special' && j.hasOwnProperty('special_cat')) {
+                        // Imposta null = cancella il campo su Firebase
+                        updates[idx + '/special_cat'] = null;
+                        count++;
+                    }
+                });
+
+                if (count === 0) {
+                    alert('Nessun orfano trovato — tutto in ordine!');
+                    return;
                 }
-            });
 
-            if (count > 0) {
-                await Promise.all(promises);
-                refreshSpecials();
-                const toast = document.createElement('div');
-                toast.innerHTML = '🧹 Pulizia completata: ' + count + ' schede rimosse dai Lavori Lunghi';
-                toast.style.cssText = 'position:fixed;bottom:80px;left:30px;background:#8b5cf6;color:white;padding:10px 18px;border-radius:10px;font-weight:bold;z-index:9999;font-size:0.85rem;';
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
-            } else {
-                alert('Nessun orfano trovato — tutto in ordine!');
-            }
+                database.ref('/db').update(updates).then(() => {
+                    // Aggiorna anche la copia locale
+                    db.forEach(j => {
+                        if (j.stato !== 'special') delete j.special_cat;
+                    });
+                    refreshSpecials();
+                    const toast = document.createElement('div');
+                    toast.innerHTML = '🧹 Pulizia completata: ' + count + ' schede rimosse dai Lavori Lunghi';
+                    toast.style.cssText = 'position:fixed;bottom:80px;left:30px;background:#8b5cf6;color:white;padding:10px 18px;border-radius:10px;font-weight:bold;z-index:9999;font-size:0.85rem;box-shadow:0 4px 15px rgba(0,0,0,0.4);';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3000);
+                }).catch(e => alert('Errore: ' + e.message));
+            });
         }
 
     </script>
