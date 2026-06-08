@@ -4438,7 +4438,7 @@ A presto!`;
             const isOpen = menu.style.display !== 'none';
             // Chiudi tutti gli altri menu aperti (sia menu- che smenu-)
             document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => { m.style.display = 'none'; });
-            if (!isOpen) { const btn = event.currentTarget; const rect = btn.getBoundingClientRect(); menu.style.display = 'block'; menu.style.position = 'fixed'; menu.style.top = (rect.bottom + 4) + 'px'; menu.style.left = Math.max(0, rect.right - 190) + 'px'; menu.style.zIndex = '9998'; }
+            if (!isOpen) menu.style.display = 'block';
         }
 
         function chiudiMenuBoard(menuId) {
