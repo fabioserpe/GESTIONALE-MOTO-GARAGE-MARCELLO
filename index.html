@@ -2478,7 +2478,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         <b style="color:white; font-size:0.95rem;">${j.marca||''} ${j.modello||''}</b>
         <span class="customer-info">${(j.cognome||'').toUpperCase()} ${j.nome||''}</span>
     </div>
-    ${j.tel ? `<span style="color:var(--muted); font-size:0.75rem; margin-left:6px;">📞 ${j.tel}</span>` : ''}
+    ${j.tel ? `<a href="tel:${j.tel}" onclick="event.stopPropagation();" style="display:inline-flex; align-items:center; gap:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.35); color:#93c5fd; font-size:0.88rem; font-weight:700; padding:3px 9px; border-radius:20px; margin-left:6px; text-decoration:none; letter-spacing:0.3px;">📞 ${j.tel}</a>` : ''}
 </div>
                     ${accTot>0?`<div style="font-size:0.75rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €${accTot.toFixed(2)}</div>`:''}
                     <div class="work-box-compact" style="margin-top:8px; pointer-events:none; max-height:55px; overflow:hidden;">${j.lavori_richiesti||'...'}</div>
