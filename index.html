@@ -448,7 +448,7 @@
                     <input id="f_tel" placeholder="Telefono Cliente">
                     <div class="flex-row"><input id="f_marca" placeholder="Marca"> <input id="f_modello" placeholder="Modello"></div>
                     <div class="flex-row">
-                        <input id="f_targa" placeholder="Targa o Cliente 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('f')"> 
+                        <div style="display:flex; gap:5px; flex:1;">                             <input id="f_targa" placeholder="Targa o Cliente 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('f')" style="margin:0; flex:1;">                              <button class="btn btn-dark w-auto" onclick="$('f_targa').value=''" title="Lascia vuoto per assegnare targa mancante" style="margin:0; padding:10px 15px;">🚫 No Targa</button>                         </div> 
                         <input id="f_km" type="number" placeholder="KM">
                     </div>
                     
@@ -2473,7 +2473,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 card.innerHTML = `
                 <div style="cursor:pointer;" onclick="previewJob(${j.id})" title="Clicca per leggere dettagli e conto">
                     <div class="flex-between">
-                        <span class="targa-badge">${j.targa||'NO TARGA'}</span>
+                        ${(j.targa||'').startsWith('NOTARGA-') ? `<span class="targa-badge" style="background:#7f1d1d; color:#fecaca; border:1px dashed #ef4444; border-left:3px solid #ef4444; animation:pulse-orange 1.5s infinite;">⚠️ DA INSERIRE</span>` : `<span class="targa-badge">${j.targa||'NO TARGA'}</span>`}
                         <div>${billBadge}${priceBadge}<small style="color:var(--muted); font-size:0.75rem; margin-left:8px;">${formattaData(j.data)}</small></div>
                     </div>
                     <div class="flex-between" style="align-items:center; margin-top:5px;">
