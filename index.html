@@ -447,9 +447,12 @@
                     </div>
                     <input id="f_tel" placeholder="Telefono Cliente">
                     <div class="flex-row"><input id="f_marca" placeholder="Marca"> <input id="f_modello" placeholder="Modello"></div>
-                    <div class="flex-row">
-                        <div style="display:flex; gap:5px; flex:1;">                             <input id="f_targa" placeholder="Targa o Cliente 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('f')" style="margin:0; flex:1;">                              <button class="btn btn-dark w-auto" onclick="$('f_targa').value=''" title="Lascia vuoto per assegnare targa mancante" style="margin:0; padding:10px 15px;">🚫 No Targa</button>                         </div> 
-                        <input id="f_km" type="number" placeholder="KM">
+                   <div class="flex-row">
+                        <div style="display:flex; gap:5px; flex:1;">
+                            <input id="f_targa" placeholder="Targa o Cliente 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('f')" style="margin:0; flex:1;"> 
+                            <button type="button" class="btn btn-dark w-auto" onclick="document.getElementById('f_targa').value=''" title="Lascia vuoto per assegnare targa mancante" style="margin:0; padding:10px 15px; white-space:nowrap;">🚫 No Targa</button>
+                        </div>
+                        <input id="f_km" type="number" placeholder="KM" style="max-width: 120px;">
                     </div>
                     
                     <label style="color: var(--info)">Acconti Ricevuti (€)</label>
@@ -4436,7 +4439,7 @@ A presto!`;
             event.stopPropagation();
             const menu = $(menuId);
             if (!menu) return;
-            const isOpen = menu.style.display !== 'none';
+            const isOpen = menu.style.display === 'block';
             document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => { m.style.display = 'none'; });
             if (!isOpen) { 
                 menu.style.position = 'absolute'; 
