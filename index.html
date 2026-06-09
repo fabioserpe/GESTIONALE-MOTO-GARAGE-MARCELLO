@@ -1241,21 +1241,21 @@
             database.ref('/db').on('value', (snap) => {
                 db = snap.val() || [];
                 // Migrazione silenziosa: pulizie varie
-                let needsSave = false;
+                let needsSaveChiusura = false;
+                let needsCleanSpecialCat = false;
                 db.forEach(j => {
                     // Aggiungi data_chiusura ai lavori già chiusi che non ce l'hanno
                     if (['done','archived'].includes(j.stato) && !j.data_chiusura && j.data) {
                         j.data_chiusura = j.data;
-                        needsSave = true;
+                        needsSaveChiusura = true;
                     }
-                    // Pulisce special_cat da lavori che non sono più nei Lavori Lunghi
+                    // Pulisce special_cat — usa saveDB() atomico, evita db.indexOf() (path Firebase errati con buchi)
                     if (j.stato !== 'special' && j.special_cat !== undefined) {
-                        database.ref('/db/' + db.indexOf(j) + '/special_cat').remove();
                         delete j.special_cat;
-                        needsSave = false; // già salvato sopra per chiave
+                        needsCleanSpecialCat = true;
                     }
                 });
-                if (needsSave) saveDB();
+                if (needsSaveChiusura || needsCleanSpecialCat) saveDB();
                 updateDatalist();
                 const v = currentView;
                 if (v === 'board') refreshBoard();
@@ -2037,7 +2037,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (db[exIdx].conto) oldConto = db[exIdx].conto;
                 if (db[exIdx].totale_lordo) oldTotale = db[exIdx].totale_lordo;
                 // FIX CRITICO: Se la scheda esiste già, lasciala nella colonna in cui si trova!
-                if (db[exIdx].stato) finalStato = db[exIdx].stato; 
+                // ECCEZIONE: 'special' (Lavori Lunghi) può sempre spostare la scheda
+                if (db[exIdx].stato && stato !== 'special') finalStato = db[exIdx].stato; 
             }
 
             const data = { 
@@ -2386,7 +2387,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             // ----------------------------------
 
             db.filter(j => ['todo','doing','done'].includes(j.stato)).sort((a,b) => new Date(a.data||0) - new Date(b.data||0)).forEach(j => {
-                if(j.stato === 'todo' && j.data !== oggi) return; 
+                if(j.stato === 'todo' && j.data !== oggi && !query) return; 
                 
                 // Se c'è testo nella barra, nasconde le schede che non combaciano
                 if (query) {
@@ -2424,7 +2425,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
                 const moreMenu = `
                     <div style="position:relative; flex-shrink:0;" onmousedown="event.stopPropagation();">
-    <button onclick="toggleMenuBoard('${menuId}', event)" ...
+    <button onclick="toggleMenuBoard('${menuId}', event)" 
                             style="background:#334155; border:none; color:var(--muted); border-radius:6px; width:30px; height:30px; cursor:pointer; font-size:1.1rem; font-weight:bold; display:flex; align-items:center; justify-content:center; transition:0.15s; line-height:1;"
                             title="Altre azioni"
                             onmouseover="this.style.background='#475569'; this.style.color='white';"
@@ -3531,8 +3532,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 setTimeout(()=>window.print(), 100); 
             } 
         }
-        function printJobSheet(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("SCHEDA ACCETTAZIONE OFFICINA", formattaData(j.data)) + `<div class="p-grid"><div class="p-box"><h4>Dati Veicolo</h4><p>Targa: <b style="font-size:1.2em;">${j.targa||'N/D'}</b></p><p>Moto: <b>${j.marca||''} ${j.modello||''}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div><div class="p-box"><h4>Dati Cliente</h4><p>Nominativo: <b>${(j.cognome||'').toUpperCase()} ${j.nome||''}</b></p><p>Telefono: <b>${j.tel||''}</b></p></div></div><div class="p-box" style="margin-bottom:20px;"><h4>Note e Lavori Richiesti</h4><div style="min-height:100px; white-space:pre-wrap; font-size:11pt;">${j.lavori_richiesti||''}</div></div><div class="p-box"><h4>Appunti Meccanico</h4><br><hr style="border:0; border-bottom:1px solid #ccc; margin-bottom:20px;"><hr style="border:0; border-bottom:1px solid #ccc; margin-bottom:20px;"><hr style="border:0; border-bottom:1px solid #ccc;"></div><div class="p-signature"><div>Firma Cliente<br><br>___________________________</div><div>Firma Officina<br><br>___________________________</div></div>`; setTimeout(()=>window.print(), 100); } }
-        function printInvoice(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const tA = (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); const l = parseFloat(j.totale_lordo)||0; const dP = l - tA; let sH = dP > 0.01 ? `<h2 style="display:flex; justify-content:space-between; margin-top:10px;"><span>DA PAGARE:</span> <span>${dP.toFixed(2)} €</span></h2>` : `<h2 style="display:flex; justify-content:space-between; margin-top:10px; color:green;"><span>SALDATO:</span> <span>${l.toFixed(2)} €</span></h2>`; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("RICEVUTA INTERVENTO / MEMORANDUM", formattaData(j.data)) + `<div class="p-grid"><div class="p-box"><h4>Intestatario</h4><p><b>${(j.cognome||'').toUpperCase()} ${j.nome||''}</b></p></div><div class="p-box"><h4>Riferimento Veicolo</h4><p>Moto: <b>${j.marca||''} ${j.modello||''}</b></p><p>Targa: <b>${j.targa||'N/D'}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div></div><table class="p-table"><thead><tr><th>Descrizione Voci</th><th style="text-align:right; width:150px;">Importo</th></tr></thead><tbody>${(j.conto||[]).map(c=>`<tr><td>${c.desc}</td><td style="text-align:right;">${(parseFloat(c.price)||0).toFixed(2)} €</td></tr>`).join('')}</tbody></table><div class="p-totals"><p style="display:flex; justify-content:space-between;"><span>Intervento Lordo:</span> <span>${l.toFixed(2)} €</span></p>${(j.acconti||[]).map(a=>`<p style="display:flex; justify-content:space-between;"><span>Acconto (${formattaData(a.date)}):</span> <span>- ${(parseFloat(a.val)||0).toFixed(2)} €</span></p>`).join('')}${sH}</div><div style="text-align:center; margin-top:50px; font-size:9pt; color:#666;">I lavori eseguiti sono garantiti a norma di legge.</div>`; setTimeout(()=>window.print(), 100); } }
+        function printJobSheet(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("SCHEDA ACCETTAZIONE OFFICINA", formattaData(j.data || getOggiLocale())) + `<div class="p-grid"><div class="p-box"><h4>Dati Veicolo</h4><p>Targa: <b style="font-size:1.2em;">${j.targa||'N/D'}</b></p><p>Moto: <b>${j.marca||''} ${j.modello||''}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div><div class="p-box"><h4>Dati Cliente</h4><p>Nominativo: <b>${(j.cognome||'').toUpperCase()} ${j.nome||''}</b></p><p>Telefono: <b>${j.tel||''}</b></p></div></div><div class="p-box" style="margin-bottom:20px;"><h4>Note e Lavori Richiesti</h4><div style="min-height:100px; white-space:pre-wrap; font-size:11pt;">${j.lavori_richiesti||''}</div></div><div class="p-box"><h4>Appunti Meccanico</h4><br><hr style="border:0; border-bottom:1px solid #ccc; margin-bottom:20px;"><hr style="border:0; border-bottom:1px solid #ccc; margin-bottom:20px;"><hr style="border:0; border-bottom:1px solid #ccc;"></div><div class="p-signature"><div>Firma Cliente<br><br>___________________________</div><div>Firma Officina<br><br>___________________________</div></div>`; setTimeout(()=>window.print(), 100); } }
+        function printInvoice(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const tA = (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); const l = parseFloat(j.totale_lordo)||0; const dP = l - tA; let sH = dP > 0.01 ? `<h2 style="display:flex; justify-content:space-between; margin-top:10px;"><span>DA PAGARE:</span> <span>${dP.toFixed(2)} €</span></h2>` : `<h2 style="display:flex; justify-content:space-between; margin-top:10px; color:green;"><span>SALDATO:</span> <span>${l.toFixed(2)} €</span></h2>`; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("RICEVUTA INTERVENTO / MEMORANDUM", formattaData(j.data || getOggiLocale())) + `<div class="p-grid"><div class="p-box"><h4>Intestatario</h4><p><b>${(j.cognome||'').toUpperCase()} ${j.nome||''}</b></p></div><div class="p-box"><h4>Riferimento Veicolo</h4><p>Moto: <b>${j.marca||''} ${j.modello||''}</b></p><p>Targa: <b>${j.targa||'N/D'}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div></div><table class="p-table"><thead><tr><th>Descrizione Voci</th><th style="text-align:right; width:150px;">Importo</th></tr></thead><tbody>${(j.conto||[]).map(c=>`<tr><td>${c.desc}</td><td style="text-align:right;">${(parseFloat(c.price)||0).toFixed(2)} €</td></tr>`).join('')}</tbody></table><div class="p-totals"><p style="display:flex; justify-content:space-between;"><span>Intervento Lordo:</span> <span>${l.toFixed(2)} €</span></p>${(j.acconti||[]).map(a=>`<p style="display:flex; justify-content:space-between;"><span>Acconto (${formattaData(a.date)}):</span> <span>- ${(parseFloat(a.val)||0).toFixed(2)} €</span></p>`).join('')}${sH}</div><div style="text-align:center; margin-top:50px; font-size:9pt; color:#666;">I lavori eseguiti sono garantiti a norma di legge.</div>`; setTimeout(()=>window.print(), 100); } }
 
         function printGlobalLedger() {
             const sorted = [...ledgerDB].sort((a,b) => { const cA = a.collab || 'INTERNO', cB = b.collab || 'INTERNO'; if(cA !== cB) return cA.localeCompare(cB); if(a.cat !== b.cat) return catOrder.indexOf(a.cat || 'officina') - catOrder.indexOf(b.cat || 'officina'); return new Date(b.data) - new Date(a.data); });
@@ -4428,6 +4429,8 @@ A presto!`;
         // =====================================================================
         // MENU ⋯ AZIONI SECONDARIE BOARD
         // =====================================================================
+        function chiudiMenuBoard(menuId) { const menu = document.getElementById(menuId); if (menu) menu.style.display = 'none'; }
+
         function toggleMenuBoard(menuId, event) {
     // Blocchiamo tutto per evitare interferenze col drag & drop
     event.preventDefault();
