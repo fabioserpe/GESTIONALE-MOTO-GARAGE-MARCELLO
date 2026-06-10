@@ -164,6 +164,10 @@
             .agenda-panel { display: none !important; }
             h2 { font-size: 1.1rem !important; }
             h3 { font-size: 0.95rem !important; }
+            /* Agenda: una colonna al giorno con swipe */
+            .agenda-grid { display: flex !important; flex-direction: row; gap: 10px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; margin-top: 10px; }
+            .agenda-day { min-width: calc(100vw - 28px); max-width: calc(100vw - 28px); scroll-snap-align: start; flex-shrink: 0; overflow-y: auto; max-height: calc(100dvh - 200px); }
+            .agenda-card { font-size: 0.82rem; }
         }
 
         @media print {
