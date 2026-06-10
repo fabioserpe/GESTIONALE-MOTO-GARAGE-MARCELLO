@@ -132,6 +132,23 @@
         .dropdown.active .dropdown-content { display: block; }
 
         #print-area { display: none; }
+
+        /* ===== MOBILE ===== */
+        .hamburger-btn { display: none; background: none; border: none; color: var(--text); font-size: 1.5rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; line-height: 1; flex-shrink: 0; }
+        .mobile-header { display: none; align-items: center; gap: 10px; padding: 10px 0 12px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; flex-shrink: 0; }
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 998; cursor: pointer; }
+        .sidebar-overlay.show { display: block; }
+        @media (max-width: 768px) {
+            .hamburger-btn { display: flex; align-items: center; }
+            .mobile-header { display: flex; }
+            .sidebar { position: fixed; top: 0; left: 0; height: 100vh; transform: translateX(-100%); transition: transform 0.25s ease; overflow-y: auto; z-index: 1000; }
+            .sidebar.mobile-open { transform: translateX(0); }
+            .main-content { padding: 0 12px 12px; overflow-y: auto; }
+            .view { padding-right: 0; }
+            .board { display: flex; flex-direction: row; gap: 12px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; padding-bottom: 8px; }
+            .col { min-width: 85vw; scroll-snap-align: start; overflow-y: auto; flex-shrink: 0; }
+        }
+
         @media print {
             @page { size: A4 portrait; margin: 1cm; }
             html, body { background: white !important; display: block !important; height: auto !important; margin: 0 !important; }
@@ -212,6 +229,8 @@
 
     <datalist id="targhe-salvate"></datalist>
 
+    <div class="sidebar-overlay no-print" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
     <nav class="sidebar no-print">
         <div class="brand">MOTO GARAGE<br>MARCELLO</div>
         <button id="btn-logout" onclick="doLogout()" style="
@@ -249,6 +268,10 @@
     </nav>
 
     <main class="main-content">
+        <div class="mobile-header no-print">
+            <button class="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+            <span style="font-weight:900; color:var(--accent); font-size:0.9rem; text-transform:uppercase; letter-spacing:0.5px;">Garage Marcello</span>
+        </div>
         <div id="print-area"></div> 
 
         <div id="view-board" class="view">
@@ -1418,7 +1441,19 @@
         window.onclick = function(event) { if (!event.target.matches('.btn-outline-info') && !event.target.matches('.dropdown *')) { var dds = document.getElementsByClassName("dropdown"); for (var i = 0; i < dds.length; i++) { if (dds[i].classList.contains('active')) dds[i].classList.remove('active'); } } }
         function closeModal(id) { const m = $(id); if (m) m.classList.add('hidden'); }
 
+        function toggleSidebar() {
+            const s = document.querySelector('.sidebar');
+            const o = $('sidebar-overlay');
+            s.classList.toggle('mobile-open');
+            o.classList.toggle('show');
+        }
+        function closeSidebar() {
+            document.querySelector('.sidebar').classList.remove('mobile-open');
+            $('sidebar-overlay').classList.remove('show');
+        }
+
         function switchView(viewId, el) {
+            if (window.innerWidth <= 768) closeSidebar();
             if (viewId === 'magazzino') initMagazzino();
             ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
