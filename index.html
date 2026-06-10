@@ -187,8 +187,12 @@
 
             /* ---- MAGAZZINO: lista mobile ---- */
             #mag-table-wrap { display: none !important; }
-            #mag-mobile-container { display: block !important; padding-bottom: 30px; }
-            #mag-form-body { display: none; }
+            #mag-inv-section { display: none; }
+            #mag-inv-btn { display: flex !important; }
+            #mag-mobile-container { display: block; padding-bottom: 30px; }
+            #mag-form-body { display: block !important; }
+            #mag-form-toggle-icon { display: none !important; }
+            #mag-form-wrapper .flex-between { cursor: default !important; pointer-events: none !important; }
             #view-magazzino { overflow-y: auto !important; overflow-x: hidden !important; }
             #view-magazzino .flex-between { flex-wrap: wrap; gap: 6px; }
             #mag-cloud-status { display: none; }
@@ -793,9 +797,6 @@
                 <input type="text" id="mag-search-input" placeholder="🔍 Cerca articolo per codice, descrizione o marca..." oninput="magFiltroSottosoglia=false; renderTableMag(); renderSummaryMag();" style="background:var(--card); border:2px solid var(--warning); margin-bottom:0;">
             </div>
 
-            <!-- Statistiche -->
-            <div id="mag-summary-container" class="stats-grid mb-20"></div>
-
             <!-- Form aggiunta articolo -->
             <div id="mag-form-wrapper" class="card mb-20" style="border-top:3px solid var(--accent);">
                 <div class="flex-between mb-15" onclick="toggleMagForm()" style="cursor:pointer;">
@@ -849,8 +850,17 @@
                 </div><!-- fine mag-form-body -->
             </div>
 
-            <!-- Inventario mobile (card) -->
-            <div id="mag-mobile-container" style="display:none;"></div>
+            <!-- Pulsante toggle inventario (mobile only) -->
+            <button id="mag-inv-btn" onclick="toggleMagInventario()" class="btn btn-dark" style="display:none; width:100%; margin-bottom:14px; justify-content:center; align-items:center; gap:8px; font-size:0.88rem; padding:11px;">
+                📋 Inventario&nbsp;<span style="background:rgba(255,255,255,0.12); border-radius:10px; padding:1px 8px; font-weight:900;" id="mag-inv-count">0</span>&nbsp;<span id="mag-inv-arrow">▼</span>
+            </button>
+
+            <!-- Sezione inventario (stats + lista mobile) — visibile su desktop, toggle su mobile -->
+            <div id="mag-inv-section">
+                <div id="mag-summary-container" class="stats-grid mb-20"></div>
+                <!-- Inventario mobile (card) -->
+                <div id="mag-mobile-container" style="display:none;"></div>
+            </div>
 
             <!-- Tabella inventario (desktop) -->
             <div id="mag-table-wrap" style="flex-grow:1; overflow-y:auto;">
@@ -1514,7 +1524,12 @@
 
         function switchView(viewId, el) {
             if (window.innerWidth <= 768) closeSidebar();
-            if (viewId === 'magazzino') initMagazzino();
+            if (viewId === 'magazzino') {
+                magInvAperto = false;
+                const sec = $('mag-inv-section'); if (sec && window.innerWidth <= 768) sec.style.display = 'none';
+                const arrow = $('mag-inv-arrow'); if (arrow) arrow.textContent = '▼';
+                initMagazzino();
+            }
             ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             const t = $('view-' + viewId); if(t) t.classList.remove('hidden'); if(el) el.classList.add('active');
@@ -3752,6 +3767,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         let magInitDone = false;
         let magPollTimer = null;
         let magFiltroSottosoglia = false;
+        let magInvAperto = false;
 
         // ---- Realtime Database helpers (stesso DB dell'officina, nessuna quota giornaliera) ----
         function magFetch() {
@@ -3928,6 +3944,14 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const isHidden = body.style.display === 'none' || body.style.display === '';
             body.style.display = isHidden ? 'block' : 'none';
             if (icon) icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        function toggleMagInventario() {
+            magInvAperto = !magInvAperto;
+            const sec = $('mag-inv-section');
+            const arrow = $('mag-inv-arrow');
+            if (sec) sec.style.display = magInvAperto ? 'block' : 'none';
+            if (arrow) arrow.textContent = magInvAperto ? '▲' : '▼';
         }
 
         function renderTableMag() {
@@ -4170,6 +4194,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 });
             }
             c.innerHTML = html;
+            const badge = $('mag-inv-count'); if (badge) badge.textContent = totArticoli;
         }
 
                 function renderDatalistMag() {
