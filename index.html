@@ -3913,11 +3913,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (categorieAperteMag.has(cat)) {
                 categorieAperteMag.delete(cat);
                 rows.forEach(r => r.style.display = 'none');
-                if (header) { const ic = header.querySelector('.mag-ic'); if (ic) ic.style.transform = 'rotate(-90deg)'; }
+                if (header) { const ic = header.querySelector('.mag-ic'); if (ic) { if (isMob) ic.textContent = '▶'; else ic.style.transform = 'rotate(-90deg)'; } }
             } else {
                 categorieAperteMag.add(cat);
-                rows.forEach(r => r.style.display = '');
-                if (header) { const ic = header.querySelector('.mag-ic'); if (ic) ic.style.transform = 'rotate(0deg)'; }
+                rows.forEach(r => r.style.display = isMob ? 'flex' : '');
+                if (header) { const ic = header.querySelector('.mag-ic'); if (ic) { if (isMob) ic.textContent = '▼'; else ic.style.transform = 'rotate(0deg)'; } }
             }
         }
 
@@ -3938,7 +3938,13 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const search = ($('mag-search-input') ? $('mag-search-input').value : '').toUpperCase();
             const isSearch = search !== '';
             if (!isMob) { tbody.innerHTML = ''; updateSortIndicators(); }
-            else { mobCont.innerHTML = ''; }
+            else {
+                mobCont.innerHTML = '';
+                // Su mobile apri tutte le categorie di default
+                if (categorieAperteMag.size === 0) {
+                    inventarioMag.forEach(i => { if (i.categoria) categorieAperteMag.add(i.categoria); });
+                }
+            }
 
             let filtered = inventarioMag.filter(i =>
                 Object.values(i).some(v => String(v).toUpperCase().includes(search))
@@ -3981,7 +3987,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     hDiv.style.cssText = 'background:rgba(0,0,0,0.25); border-top:2px solid #334155; padding:9px 12px; margin:8px 0 0; cursor:pointer; display:flex; justify-content:space-between; align-items:center;';
                     hDiv.onclick = () => toggleCategoriaMag(cat);
                     hDiv.innerHTML = `<div style="display:flex;align-items:center;gap:8px;">
-                        <span class="mag-ic" style="display:inline-block;transition:transform 0.2s;font-size:0.65rem;color:var(--muted);transform:rotate(${isOpen?'0':'-90'}deg);">▶</span>
+                        <span class="mag-ic" style="display:inline-block;transition:transform 0.2s;font-size:0.75rem;color:var(--muted);">${isOpen?'▼':'▶'}</span>
                         <span style="font-weight:800;font-size:0.82rem;color:white;text-transform:uppercase;letter-spacing:0.5px;">${catEmoji[cat]||'📂'} ${cat} <span style="color:var(--muted);font-weight:400;">(${items.length})</span></span>
                         ${lowCount>0?`<span style="color:var(--warning);font-size:0.72rem;">⚠️${lowCount}</span>`:''}
                     </div>`;
@@ -4158,9 +4164,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 <div style="font-size:0.72rem; color:var(--muted); margin-top:4px;">${magFiltroSottosoglia ? '🔴 Filtro attivo — clicca per annullare' : 'Clicca per visualizzare'}</div>
             </div>
 `;
-            Object.entries(stats).sort((a,b)=>b[1]-a[1]).slice(0,2).forEach(([cat,val]) => {
-                if (val > 0) html += `<div class="stat-card"><div style="font-size:0.75rem;">${cat}</div><div class="stat-val" style="font-size:1.3rem;">€ ${val.toLocaleString('it-IT',{minimumFractionDigits:2})}</div></div>`;
-            });
+            if (window.innerWidth > 768) {
+                Object.entries(stats).sort((a,b)=>b[1]-a[1]).slice(0,2).forEach(([cat,val]) => {
+                    if (val > 0) html += `<div class="stat-card"><div style="font-size:0.75rem;">${cat}</div><div class="stat-val" style="font-size:1.3rem;">€ ${val.toLocaleString('it-IT',{minimumFractionDigits:2})}</div></div>`;
+                });
+            }
             c.innerHTML = html;
         }
 
