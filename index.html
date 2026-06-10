@@ -2907,14 +2907,22 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // 9. GESTIONE CONTO E CHIUSURA LAVORO
         // =====================================================================
         // Aggiunge una voce al conto con supporto IVA per voce
-        function addVoceConto(dStr='', pNum='', ivaVal=22, aF=false) {
+        function addVoceConto(dStr='', pNum='', ivaVal=22, aF=false, magCodice='') {
             const tr = document.createElement('tr');
             tr.className = 'voce-row';
+            if (magCodice) tr.dataset.magCodice = magCodice;
             const ivaOpts = [0,4,5,10,22].map(r => `<option value="${r}" ${r==ivaVal?'selected':''}>${r}%</option>`).join('');
+            const magBadgeHtml = magCodice ? `<span class="mag-link-badge" style="font-size:0.65rem;background:rgba(20,184,166,0.2);color:#14b8a6;border:1px solid #14b8a6;border-radius:4px;padding:1px 5px;font-weight:bold;white-space:nowrap;flex-shrink:0;">${magCodice}</span>` : '';
             tr.innerHTML = `
                 <td style="padding:2px 4px 2px 0;">
-                    <input type="text" class="r-desc" placeholder="Descrizione voce..." value="${dStr}" style="margin-bottom:0;"
-                        onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const p=this.closest('tr').querySelector('.r-price'); setTimeout(()=>p.focus(),0);}">
+                    <div style="position:relative;display:flex;align-items:center;gap:4px;">
+                        <input type="text" class="r-desc" placeholder="Descrizione voce o cerca magazzino..." value="${dStr}" style="margin-bottom:0;flex:1;"
+                            oninput="cercaMagPerConto(this)"
+                            onblur="setTimeout(()=>{const d=this.closest('tr').querySelector('.mag-conto-results');if(d)d.style.display='none';},200)"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const p=this.closest('tr').querySelector('.r-price'); setTimeout(()=>p.focus(),0);}">
+                        ${magBadgeHtml}
+                        <div class="mag-conto-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid #14b8a6;border-radius:0 0 8px 8px;max-height:160px;overflow-y:auto;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></div>
+                    </div>
                 </td>
                 <td style="width:100px; padding:2px 4px;">
                     <input type="number" class="r-price" value="${pNum}" step="0.01" placeholder="0.00" style="margin-bottom:0; text-align:right;" oninput="calcContoTotal()"
@@ -2936,6 +2944,60 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             calcContoTotal();
         }
 
+        function cercaMagPerConto(input) {
+            const tr = input.closest('tr');
+            const resDiv = tr.querySelector('.mag-conto-results');
+            if (!resDiv) return;
+            // Rimuovi il link precedente se l'utente sta riscrivendo
+            tr.dataset.magCodice = '';
+            const oldBadge = tr.querySelector('.mag-link-badge');
+            if (oldBadge) oldBadge.remove();
+            const q = input.value.toUpperCase().trim();
+            if (!q || q.length < 2) { resDiv.style.display = 'none'; return; }
+            // Carica magazzino se non ancora inizializzato
+            if (!inventarioMag.length) {
+                magFetch().then(data => { inventarioMag = data; cercaMagPerConto(input); });
+                return;
+            }
+            const matches = inventarioMag.filter(i =>
+                (i.nome||'').toUpperCase().includes(q) || (i.codice||'').toUpperCase().includes(q)
+            ).slice(0, 7);
+            if (!matches.length) { resDiv.style.display = 'none'; return; }
+            resDiv.style.display = 'block';
+            resDiv.innerHTML = matches.map(i => {
+                const stock = i.giacenza <= 0 ? '⛔' : i.giacenza <= 3 ? '⚠️' : '✅';
+                const codeSafe = (i.codice||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+                const nomeSafe = (i.nome||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+                return `<div onmousedown="selezionaMagPerConto(this.closest('.mag-conto-results').closest('tr'),'${codeSafe}','${nomeSafe}')"
+                    style="padding:8px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem;transition:background 0.1s;"
+                    onmouseover="this.style.background='rgba(20,184,166,0.15)'" onmouseout="this.style.background=''">
+                    <span style="color:#14b8a6;font-weight:bold;font-family:monospace;">${i.codice}</span>
+                    <span style="color:white;margin-left:8px;">${i.nome}</span>
+                    <span style="float:right;color:var(--muted);">${stock} ${i.giacenza} pz</span>
+                </div>`;
+            }).join('');
+        }
+
+        function selezionaMagPerConto(tr, codice, nome) {
+            tr.dataset.magCodice = codice;
+            const descInput = tr.querySelector('.r-desc');
+            const resDiv = tr.querySelector('.mag-conto-results');
+            if (descInput) descInput.value = nome;
+            if (resDiv) resDiv.style.display = 'none';
+            // Badge SKU
+            const oldBadge = tr.querySelector('.mag-link-badge');
+            if (oldBadge) oldBadge.remove();
+            const badge = document.createElement('span');
+            badge.className = 'mag-link-badge';
+            badge.style.cssText = 'font-size:0.65rem;background:rgba(20,184,166,0.2);color:#14b8a6;border:1px solid #14b8a6;border-radius:4px;padding:1px 5px;font-weight:bold;white-space:nowrap;flex-shrink:0;';
+            badge.textContent = codice;
+            const container = descInput?.parentElement;
+            if (container) container.appendChild(badge);
+            // Sposta il focus sul prezzo
+            const priceInput = tr.querySelector('.r-price');
+            if (priceInput) setTimeout(() => priceInput.focus(), 50);
+        }
+
         function openClosingModal(id) {
             currentJobId = id;
             const j = db.find(x => String(x.id) === String(id));
@@ -2945,7 +3007,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             (j.acconti||[]).forEach(a => addAcconto('conto-acconti-container', 'c_acc_val', 'c_acc_date', calcContoTotal, a.val, a.date));
             $('conto-rows').innerHTML = '';
             if (j.conto && j.conto.length > 0) {
-                j.conto.forEach(c => addVoceConto(c.desc, c.price, c.iva !== undefined ? c.iva : 22, false));
+                j.conto.forEach(c => addVoceConto(c.desc, c.price, c.iva !== undefined ? c.iva : 22, false, c.mag_codice || ''));
             } else {
                 addVoceConto('', '', 22, false);
             }
@@ -3002,17 +3064,28 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const j = db.find(x => String(x.id) === String(currentJobId));
             if(!j) return;
             j.acconti = extractList('#conto-acconti-container .acc-row', '.c_acc_val', '.c_acc_date', true);
+            const isFirstClose = (nuovoStato === 'done' || nuovoStato === 'archived') && !j.data_chiusura;
             j.conto = Array.from(document.querySelectorAll('#conto-rows tr.voce-row')).map(tr => ({
-                desc:  tr.querySelector('.r-desc')?.value  || '',
-                price: parseFloat(tr.querySelector('.r-price')?.value) || 0,
-                iva:   parseFloat(tr.querySelector('.r-iva')?.value)   || 0
+                desc:       tr.querySelector('.r-desc')?.value  || '',
+                price:      parseFloat(tr.querySelector('.r-price')?.value) || 0,
+                iva:        parseFloat(tr.querySelector('.r-iva')?.value)   || 0,
+                mag_codice: tr.dataset.magCodice || ''
             })).filter(i => i.price > 0 || i.desc.trim() !== '');
             j.totale_lordo = j.conto.reduce((a,b) => a + b.price, 0);
             j.stato = nuovoStato;
-            // Registra data di chiusura quando il lavoro passa a done o archived
             if (nuovoStato === 'done' || nuovoStato === 'archived') {
                 if (!j.data_chiusura) j.data_chiusura = getOggiLocale();
                 autoRilevaTagliando(j);
+            }
+            // Scala magazzino solo alla prima chiusura
+            if (isFirstClose) {
+                j.conto.forEach(item => {
+                    if (!item.mag_codice) return;
+                    const idx = inventarioMag.findIndex(i => i.codice === item.mag_codice);
+                    if (idx === -1) return;
+                    const nuovaGiacenza = Math.max(0, (inventarioMag[idx].giacenza || 0) - 1);
+                    modificaArticoloMag(item.mag_codice, 'giacenza', nuovaGiacenza);
+                });
             }
             saveDB();
             closeModal('modal-conto');
