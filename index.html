@@ -183,6 +183,15 @@
 
             /* ---- ORDINI RICAMBI / MAGAZZINO: form multi-colonna ---- */
             .mob-form-grid { grid-template-columns: 1fr 1fr !important; }
+            #mag-btn-add-submit { grid-column: 1 / -1; }
+
+            /* ---- MAGAZZINO: tabella scrollabile ---- */
+            #view-magazzino { overflow-x: visible !important; }
+            #mag-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; overflow-y: auto; flex-grow: 1; }
+            #mag-table-wrap table { min-width: 680px; }
+            #mag-table-wrap th, #mag-table-wrap td { padding: 8px 10px !important; font-size: 0.78rem !important; }
+            #view-magazzino .flex-between { flex-wrap: wrap; gap: 6px; }
+            #mag-cloud-status { display: none; }
 
             /* ---- STATS ---- */
             .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
@@ -837,7 +846,7 @@
             </div>
 
             <!-- Tabella inventario -->
-            <div style="flex-grow:1; overflow-y:auto;">
+            <div id="mag-table-wrap" style="flex-grow:1; overflow-y:auto;">
                 <table style="width:100%; border-collapse:collapse;">
                     <thead style="position:sticky; top:0; z-index:2;">
                         <tr style="background:var(--card);">
