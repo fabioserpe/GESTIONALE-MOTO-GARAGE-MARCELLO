@@ -148,6 +148,8 @@
             .view { padding-right: 0; }
             .board { display: flex; flex-direction: row; gap: 12px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; padding-bottom: 8px; flex-grow: 1; }
             .col { min-width: 85vw; scroll-snap-align: start; overflow-y: auto; flex-shrink: 0; }
+            .tel-link { max-width: 38px !important; overflow: hidden !important; padding: 5px 8px !important; gap: 0 !important; }
+            .card { padding: 14px; }
         }
 
         @media print {
@@ -2521,7 +2523,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         <b style="color:white; font-size:0.95rem;">${j.marca||''} ${j.modello||''}</b>
         <span class="customer-info">${(j.cognome||'').toUpperCase()} ${j.nome||''}</span>
     </div>
-    ${j.tel ? `<a href="tel:${j.tel}" onclick="event.stopPropagation();" style="display:inline-flex; align-items:center; gap:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.35); color:#93c5fd; font-size:0.88rem; font-weight:700; padding:3px 9px; border-radius:20px; margin-left:6px; text-decoration:none; letter-spacing:0.3px;">📞 ${j.tel}</a>` : ''}
+    ${j.tel ? `<a href="tel:${j.tel}" onclick="event.stopPropagation();" class="tel-link" style="display:inline-flex; align-items:center; gap:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.35); color:#93c5fd; font-size:0.88rem; font-weight:700; padding:3px 9px; border-radius:20px; margin-left:6px; text-decoration:none; letter-spacing:0.3px; flex-shrink:0;">📞 ${j.tel}</a>` : ''}
 </div>
                     ${accTot>0?`<div style="font-size:0.75rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €${accTot.toFixed(2)}</div>`:''}
                     <div class="work-box-compact" style="margin-top:8px; pointer-events:none; max-height:55px; overflow:hidden;">${j.lavori_richiesti||'...'}</div>
