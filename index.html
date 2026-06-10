@@ -524,10 +524,10 @@
 
         <!-- NUOVA VOCE AGENDA — vista dedicata -->
         <div id="view-nuova-app" class="view hidden">
-            <div style="display:flex; gap:25px; max-width:1400px; margin:auto; width:100%; align-items:flex-start;">
+            <div class="nuova-layout" style="display:flex; gap:25px; max-width:1400px; margin:auto; width:100%; align-items:flex-start;">
 
                 <!-- Form appuntamento -->
-                <div style="flex:1.2; max-width:650px; background:var(--card); padding:35px; border-radius:20px; border:1px solid var(--info);">
+                <div class="form-panel" style="flex:1.2; max-width:650px; background:var(--card); padding:35px; border-radius:20px; border:1px solid var(--info);">
                     <h2 id="app-form-title" style="color:var(--info);" class="mb-20">📅 Nuovo Appuntamento</h2>
                     <input type="hidden" id="app_id">
                     <input type="hidden" id="app_job_id">
@@ -584,7 +584,7 @@
                 </div>
 
                 <!-- Mini agenda giorno -->
-                <div style="flex:0.8; background:var(--card); padding:25px; border-radius:20px; border:1px solid var(--info); display:flex; flex-direction:column; max-height:85vh; position:sticky; top:20px;">
+                <div class="agenda-panel" style="flex:0.8; background:var(--card); padding:25px; border-radius:20px; border:1px solid var(--info); display:flex; flex-direction:column; max-height:85vh; position:sticky; top:20px;">
                     <h3 style="color:var(--info); margin-bottom:5px; text-align:center;">📅 Già in agenda quel giorno</h3>
                     <p style="font-size:0.8rem; color:var(--muted); text-align:center; margin-bottom:15px;">Gli appuntamenti esistenti nella data selezionata.</p>
                     <div id="mini-app-agenda-grid" style="display:flex; flex-direction:column; gap:10px; overflow-y:auto; flex-grow:1;"></div>
