@@ -3377,8 +3377,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     if (y === aC) opt.selected = true;
                     annoSel.appendChild(opt);
                 }
+                if (mesSel) mesSel.value = ora.getMonth() + 1;
             }
-            if (mesSel && !mesSel.value) mesSel.value = ora.getMonth() + 1;
 
             const mC = parseInt(mesSel ? mesSel.value : ora.getMonth() + 1);
             const aS = parseInt(annoSel ? annoSel.value : aC);
