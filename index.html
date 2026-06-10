@@ -802,7 +802,7 @@
                     <select id="tag-filter-stato" onchange="refreshTagliandi()" style="width:180px; margin:0; border-color:#fb923c;">
                         <option value="tutti">Tutti i veicoli</option>
                         <option value="scaduto">🔴 Scaduti</option>
-                        <option value="presto">🟡 Scadono presto (30gg)</option>
+                        <option value="presto">🟡 Scadono presto (60gg)</option>
                         <option value="ok">🟢 In regola</option>
                         <option value="nessuno">⚪ Senza data</option>
                     </select>
@@ -4041,7 +4041,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     const diff = (new Date(dataTag) - new Date(oggi)) / 864e5;
                     giorniAllaScadenza = Math.round(diff);
                     if (diff < 0)       { stato = 'scaduto'; scadute++; }
-                    else if (diff <= 30) { stato = 'presto';  presto++; }
+                    else if (diff <= 60) { stato = 'presto';  presto++; }
                     else                 { stato = 'ok';      ok++; }
                 }
                 return { ...v, tag, dataTag, stato, giorniAllaScadenza };
@@ -4090,7 +4090,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
                 let badgeLabel = '⚪ Nessuna data';
                 if (v.stato === 'scaduto') badgeLabel = `🔴 Scaduto ${Math.abs(v.giorniAllaScadenza)}gg fa`;
-                else if (v.stato === 'presto') badgeLabel = v.giorniAllaScadenza === 0 ? '🟡 Scade OGGI' : `🟡 Scade tra ${v.giorniAllaScadenza}gg`;
+                else if (v.stato === 'presto') badgeLabel = v.giorniAllaScadenza === 0 ? '🟡 Scade OGGI' : `🟡 Scade tra ${v.giorniAllaScadenza}gg (${Math.ceil(v.giorniAllaScadenza/30)} mes${Math.ceil(v.giorniAllaScadenza/30)===1?'e':'i'})`;
                 else if (v.stato === 'ok') badgeLabel = `🟢 ${formattaData(v.dataTag)} (${v.giorniAllaScadenza}gg)`;
 
                 const safeEncodedTarga = safeEncode(v.targa);
