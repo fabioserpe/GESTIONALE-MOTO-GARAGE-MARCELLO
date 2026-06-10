@@ -185,11 +185,9 @@
             .mob-form-grid { grid-template-columns: 1fr 1fr !important; }
             #mag-btn-add-submit { grid-column: 1 / -1; }
 
-            /* ---- MAGAZZINO: tabella scrollabile ---- */
-            #view-magazzino { overflow-x: visible !important; }
-            #mag-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; overflow-y: auto; flex-grow: 1; }
-            #mag-table-wrap table { min-width: 680px; }
-            #mag-table-wrap th, #mag-table-wrap td { padding: 8px 10px !important; font-size: 0.78rem !important; }
+            /* ---- MAGAZZINO: card su mobile ---- */
+            #mag-table-wrap { display: none !important; }
+            #mag-mobile-container { display: block !important; flex-grow: 1; overflow-y: auto; padding-bottom: 20px; }
             #view-magazzino .flex-between { flex-wrap: wrap; gap: 6px; }
             #mag-cloud-status { display: none; }
 
@@ -845,7 +843,10 @@
                 </form>
             </div>
 
-            <!-- Tabella inventario -->
+            <!-- Inventario mobile (card) -->
+            <div id="mag-mobile-container" style="display:none;"></div>
+
+            <!-- Tabella inventario (desktop) -->
             <div id="mag-table-wrap" style="flex-grow:1; overflow-y:auto;">
                 <table style="width:100%; border-collapse:collapse;">
                     <thead style="position:sticky; top:0; z-index:2;">
@@ -3895,8 +3896,14 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
         function toggleCategoriaMag(cat) {
             if ($('mag-search-input') && $('mag-search-input').value !== '') return;
-            const header = document.querySelector(`.mag-cat-hdr[data-cat="${CSS.escape(cat)}"]`);
-            const rows = document.querySelectorAll(`.mag-item-row[data-cat="${CSS.escape(cat)}"]`);
+            const isMob = window.innerWidth <= 768;
+            const esc = CSS.escape(cat);
+            const header = isMob
+                ? $('mag-mobile-container') && [...$('mag-mobile-container').children].find(el => el.getAttribute('data-cat') === cat && el.querySelector('.mag-ic'))
+                : document.querySelector(`.mag-cat-hdr[data-cat="${esc}"]`);
+            const rows = isMob
+                ? ($('mag-mobile-container') ? [...$('mag-mobile-container').children].filter(el => el.getAttribute('data-cat') === cat && !el.querySelector('.mag-ic')) : [])
+                : [...document.querySelectorAll(`.mag-item-row[data-cat="${esc}"]`)];
             if (categorieAperteMag.has(cat)) {
                 categorieAperteMag.delete(cat);
                 rows.forEach(r => r.style.display = 'none');
@@ -3909,12 +3916,14 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         function renderTableMag() {
+            const isMob = window.innerWidth <= 768;
             const tbody = $('mag-inventory-table');
-            if (!tbody) return;
+            const mobCont = $('mag-mobile-container');
+            if (!tbody && !mobCont) return;
             const search = ($('mag-search-input') ? $('mag-search-input').value : '').toUpperCase();
             const isSearch = search !== '';
-            tbody.innerHTML = '';
-            updateSortIndicators();
+            if (!isMob) { tbody.innerHTML = ''; updateSortIndicators(); }
+            else { mobCont.innerHTML = ''; }
 
             let filtered = inventarioMag.filter(i =>
                 Object.values(i).some(v => String(v).toUpperCase().includes(search))
@@ -3926,9 +3935,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             }
 
             if (!filtered.length) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:var(--muted); font-size:1rem;">
-                    ${magFiltroSottosoglia ? '✅ Nessun articolo sotto soglia. Magazzino in ordine!' : isSearch ? `Nessun articolo trovato per "<b style="color:white;">${search}</b>"` : 'Magazzino vuoto. Aggiungi il primo articolo qui sopra.'}
-                </td></tr>`;
+                const msg = magFiltroSottosoglia ? '✅ Nessun articolo sotto soglia. Magazzino in ordine!' : isSearch ? `Nessun articolo trovato per "<b style="color:white;">${search}</b>"` : 'Magazzino vuoto. Aggiungi il primo articolo qui sopra.';
+                if (isMob) { mobCont.innerHTML = `<div style="text-align:center; padding:40px; color:var(--muted);">${msg}</div>`; }
+                else { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:var(--muted); font-size:1rem;">${msg}</td></tr>`; }
                 return;
             }
 
@@ -3950,7 +3959,66 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const totCat = items.reduce((s, i) => s + i.giacenza * i.prezzo, 0);
                 const lowCount = items.filter(i => i.giacenza <= MAG_SOGLIA).length;
 
-                // Category header row
+                if (isMob) {
+                    // --- MOBILE: render card ---
+                    const hDiv = document.createElement('div');
+                    hDiv.setAttribute('data-cat', cat);
+                    hDiv.style.cssText = 'background:rgba(0,0,0,0.3); border-top:2px solid #334155; border-radius:10px; padding:10px 12px; margin-bottom:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;';
+                    hDiv.onclick = () => toggleCategoriaMag(cat);
+                    hDiv.innerHTML = `<div style="display:flex; align-items:center; gap:8px;">
+                        <span class="mag-ic" style="display:inline-block; transition:transform 0.25s; font-size:0.7rem; color:var(--muted); transform:rotate(${isOpen?'0':'-90'}deg);">▶</span>
+                        <span style="font-weight:800; font-size:0.88rem; color:white; text-transform:uppercase;">${catEmoji[cat]||'📂'} ${cat}</span>
+                        <span style="background:rgba(255,255,255,0.07); color:var(--muted); font-size:0.72rem; padding:2px 8px; border-radius:20px;">${items.length}</span>
+                        ${lowCount > 0 ? `<span style="background:rgba(245,158,11,0.12); color:var(--warning); font-size:0.7rem; padding:2px 7px; border-radius:20px;">⚠️ ${lowCount}</span>` : ''}
+                    </div>
+                    <span style="font-size:0.8rem; font-weight:800; color:white;">€ ${totCat.toLocaleString('it-IT',{minimumFractionDigits:2})}</span>`;
+                    mobCont.appendChild(hDiv);
+
+                    items.sort((a,b) => (a.codice||'').localeCompare(b.codice||'')).forEach(item => {
+                        const safe = s => (s||'').replace(/"/g,'&quot;').replace(/'/g,"\\'");
+                        const cod = safe(item.codice);
+                        const pIva = (item.prezzo||0) * (1 + MAG_IVA);
+                        const totN = (item.giacenza||0) * (item.prezzo||0);
+                        let sc, sl;
+                        if (item.giacenza <= 0) { sc='var(--accent)'; sl='⛔ ESAURITO'; }
+                        else if (item.giacenza <= MAG_SOGLIA) { sc='var(--warning)'; sl='⚠️ SCARSO'; }
+                        else { sc='var(--success)'; sl='✅ OK'; }
+                        const cDiv = document.createElement('div');
+                        cDiv.setAttribute('data-cat', cat);
+                        cDiv.style.cssText = `${isOpen?'':'display:none;'} background:var(--card); border-radius:10px; padding:12px; margin-bottom:8px; border-left:4px solid ${sc};`;
+                        cDiv.innerHTML = `
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <span style="font-family:monospace; background:rgba(255,255,255,0.07); border:1px solid #334155; padding:3px 8px; border-radius:5px; font-size:0.82rem;">${item.codice}</span>
+                                <span style="font-size:0.7rem; color:var(--muted); background:rgba(255,255,255,0.05); padding:2px 7px; border-radius:20px;">${catEmoji[item.categoria]||''} ${item.categoria||''}</span>
+                                <button onclick="eliminaArticoloMag('${cod}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:4px;">🗑️</button>
+                            </div>
+                            <input type="text" value="${safe(item.nome)}"
+                                style="width:100%; background:rgba(255,255,255,0.04); border:1px solid #334155; color:white; font-size:0.9rem; font-weight:600; padding:7px 10px; border-radius:8px; margin-bottom:8px;"
+                                onblur="modificaArticoloMag('${cod}','nome',this.value)">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <button onclick="event.stopPropagation(); const inp=this.nextElementSibling; inp.value=Math.max(0,parseInt(inp.value||0)-1); modificaArticoloMag('${cod}','giacenza',inp.value); renderTableMag(); renderSummaryMag();"
+                                        style="width:30px;height:30px;border-radius:50%;border:1px solid #334155;background:rgba(255,255,255,0.05);color:white;cursor:pointer;font-size:1.2rem;display:flex;align-items:center;justify-content:center;">−</button>
+                                    <input type="number" min="0" value="${item.giacenza}"
+                                        style="width:52px;text-align:center;font-weight:900;font-size:1.1rem;color:${sc};background:transparent;border:1px solid #334155;border-radius:6px;padding:4px;"
+                                        onchange="modificaArticoloMag('${cod}','giacenza',this.value)">
+                                    <button onclick="event.stopPropagation(); const inp=this.previousElementSibling; inp.value=parseInt(inp.value||0)+1; modificaArticoloMag('${cod}','giacenza',inp.value); renderTableMag(); renderSummaryMag();"
+                                        style="width:30px;height:30px;border-radius:50%;border:1px solid #334155;background:rgba(255,255,255,0.05);color:white;cursor:pointer;font-size:1.2rem;display:flex;align-items:center;justify-content:center;">+</button>
+                                    <span style="font-size:0.72rem;font-weight:700;color:${sc};">${sl}</span>
+                                </div>
+                                <div style="text-align:right;">
+                                    <input type="number" step="0.01" min="0" value="${(item.prezzo||0).toFixed(2)}"
+                                        style="width:72px;text-align:right;background:rgba(255,255,255,0.04);border:1px solid #334155;color:white;font-size:0.9rem;font-weight:600;padding:5px 8px;border-radius:6px;"
+                                        onblur="modificaArticoloMag('${cod}','prezzo',this.value)">
+                                    <div style="font-size:0.65rem;color:var(--muted);margin-top:2px;">€ ${totN.toFixed(2)} tot.</div>
+                                </div>
+                            </div>`;
+                        mobCont.appendChild(cDiv);
+                    });
+                    return; // skip desktop render for this cat
+                }
+
+                // --- DESKTOP: render table row ---
                 const trH = document.createElement('tr');
                 trH.className = 'mag-cat-hdr';
                 trH.setAttribute('data-cat', cat);
