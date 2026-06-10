@@ -185,11 +185,14 @@
             .mob-form-grid { grid-template-columns: 1fr 1fr !important; }
             #mag-btn-add-submit { grid-column: 1 / -1; }
 
-            /* ---- MAGAZZINO: card su mobile ---- */
+            /* ---- MAGAZZINO: lista mobile ---- */
             #mag-table-wrap { display: none !important; }
-            #mag-mobile-container { display: block !important; flex-grow: 1; overflow-y: auto; padding-bottom: 20px; }
+            #mag-mobile-container { display: block !important; padding-bottom: 30px; }
+            #mag-form-body { display: none; }
+            #view-magazzino { overflow-y: auto !important; overflow-x: hidden !important; }
             #view-magazzino .flex-between { flex-wrap: wrap; gap: 6px; }
             #mag-cloud-status { display: none; }
+            #mag-summary-container { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
 
             /* ---- STATS ---- */
             .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
@@ -794,10 +797,12 @@
             <div id="mag-summary-container" class="stats-grid mb-20"></div>
 
             <!-- Form aggiunta articolo -->
-            <div class="card mb-20" style="border-top:3px solid var(--accent);">
-                <div class="flex-between mb-15">
+            <div id="mag-form-wrapper" class="card mb-20" style="border-top:3px solid var(--accent);">
+                <div class="flex-between mb-15" onclick="toggleMagForm()" style="cursor:pointer;">
                     <h3 style="color:var(--accent); margin:0; font-size:0.95rem; font-weight:800;">➕ Aggiungi Nuovo Articolo</h3>
+                    <span id="mag-form-toggle-icon" style="color:var(--accent); font-size:1.2rem; transition:transform 0.2s;">▼</span>
                 </div>
+                <div id="mag-form-body">
                 <form id="mag-new-item-form">
                     <div class="mob-form-grid" style="display:grid; grid-template-columns: 110px 2fr 1fr 1fr 70px 110px auto; gap:10px; align-items:end;">
                         <div>
@@ -841,6 +846,7 @@
                         <button type="submit" id="mag-btn-add-submit" class="btn btn-accent" style="white-space:nowrap; margin-bottom:0; width:auto;">✚ Aggiungi</button>
                     </div>
                 </form>
+                </div><!-- fine mag-form-body -->
             </div>
 
             <!-- Inventario mobile (card) -->
@@ -3913,6 +3919,15 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 rows.forEach(r => r.style.display = '');
                 if (header) { const ic = header.querySelector('.mag-ic'); if (ic) ic.style.transform = 'rotate(0deg)'; }
             }
+        }
+
+        function toggleMagForm() {
+            const body = $('mag-form-body');
+            const icon = $('mag-form-toggle-icon');
+            if (!body) return;
+            const isHidden = body.style.display === 'none' || body.style.display === '';
+            body.style.display = isHidden ? 'block' : 'none';
+            if (icon) icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
         }
 
         function renderTableMag() {
