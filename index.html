@@ -144,12 +144,25 @@
             #app-shell { overflow: visible !important; }
             .sidebar { position: fixed; top: 0; left: 0; height: 100dvh; transform: translateX(-100%); transition: transform 0.25s ease; overflow-y: auto; z-index: 1000; }
             .sidebar.mobile-open { transform: translateX(0); }
-            .main-content { width: 100% !important; max-width: 100vw; padding: 0 12px 12px; overflow-y: auto; overflow-x: hidden; }
+            .main-content { width: 100% !important; max-width: 100vw; padding: 0 10px 12px; overflow-y: auto; overflow-x: hidden; }
             .view { padding-right: 0; }
-            .board { display: flex; flex-direction: row; gap: 12px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; padding-bottom: 8px; flex-grow: 1; }
-            .col { min-width: 85vw; scroll-snap-align: start; overflow-y: auto; flex-shrink: 0; }
+            /* Board kanban swipe */
+            .board { display: flex; flex-direction: row; gap: 10px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; padding-bottom: 8px; flex-grow: 1; }
+            .col { min-width: 88vw; scroll-snap-align: start; overflow-y: auto; flex-shrink: 0; }
+            /* Card compatta */
+            .card { padding: 12px; }
             .tel-link { max-width: 38px !important; overflow: hidden !important; padding: 5px 8px !important; gap: 0 !important; }
-            .card { padding: 14px; }
+            /* Input form compatti */
+            input, textarea, select { padding: 9px 10px !important; font-size: 0.88rem !important; margin-bottom: 8px !important; }
+            label { font-size: 0.7rem !important; margin-bottom: 3px !important; }
+            .btn { padding: 9px 10px !important; font-size: 0.8rem !important; }
+            .flex-row { gap: 6px !important; }
+            /* Form nuova commessa */
+            .nuova-layout { flex-direction: column !important; gap: 12px !important; }
+            .form-panel { max-width: 100% !important; padding: 15px !important; border-radius: 14px !important; }
+            .agenda-panel { display: none !important; }
+            h2 { font-size: 1.1rem !important; }
+            h3 { font-size: 0.95rem !important; }
         }
 
         @media print {
@@ -462,9 +475,9 @@
         </div>
 
         <div id="view-nuova" class="view hidden">
-            <div style="display:flex; gap:25px; max-width:1400px; margin:auto; width:100%; align-items:flex-start;">
-                
-                <div style="flex:1.2; max-width:650px; background:var(--card); padding:35px; border-radius:20px; border:1px solid #334155;">
+            <div class="nuova-layout" style="display:flex; gap:25px; max-width:1400px; margin:auto; width:100%; align-items:flex-start;">
+
+                <div class="form-panel" style="flex:1.2; max-width:650px; background:var(--card); padding:35px; border-radius:20px; border:1px solid #334155;">
                     <h2 id="form-title" style="color:var(--accent);" class="mb-20">Nuova Accettazione</h2>
                     <input type="hidden" id="f_id">
                     <label>Data di Riferimento</label>
@@ -494,7 +507,7 @@
                     </div>
                 </div>
 
-                <div style="flex:0.8; background:var(--card); padding:25px; border-radius:20px; border:1px solid var(--info); display:flex; flex-direction:column; max-height:85vh; position:sticky; top:20px;">
+                <div class="agenda-panel" style="flex:0.8; background:var(--card); padding:25px; border-radius:20px; border:1px solid var(--info); display:flex; flex-direction:column; max-height:85vh; position:sticky; top:20px;">
                     <h3 style="color:var(--info); margin-bottom: 5px; text-align:center;">📅 Impegni nei dintorni della Data</h3>
                     <p style="font-size:0.8rem; color:var(--muted); text-align:center; margin-bottom:15px;">Mostra il giorno precedente e i 4 giorni successivi alla data scelta.</p>
                     <div id="mini-agenda-grid" style="display:flex; flex-direction:column; gap:10px; overflow-y:auto; padding-right:5px; flex-grow:1;">
