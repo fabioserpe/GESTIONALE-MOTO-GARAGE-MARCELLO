@@ -1060,10 +1060,9 @@
                     <thead>
                         <tr style="border-bottom:1px solid #334155; font-size:0.75rem; color:var(--muted);">
                             <th style="text-align:left; padding:4px 6px; font-weight:bold;">Descrizione</th>
-                            <th style="text-align:center; padding:4px 6px; width:52px; font-weight:bold;">Qtà</th>
-                            <th style="text-align:right; padding:4px 6px; width:100px; font-weight:bold;">€ Unit.</th>
-                            <th style="text-align:center; padding:4px 6px; width:72px; font-weight:bold;">IVA %</th>
-                            <th style="text-align:right; padding:4px 6px; width:95px; font-weight:bold; color:#f59e0b;">Totale</th>
+                            <th style="text-align:center; padding:4px 6px; width:70px; font-weight:bold;">Qtà</th>
+                            <th style="text-align:right; padding:4px 6px; width:110px; font-weight:bold;">€ Unit.</th>
+                            <th style="text-align:right; padding:4px 6px; width:105px; font-weight:bold; color:#f59e0b;">Totale</th>
                             <th style="width:28px;"></th>
                         </tr>
                     </thead>
@@ -3061,7 +3060,6 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const tr = document.createElement('tr');
             tr.className = 'voce-row';
             if (magCodice) tr.dataset.magCodice = magCodice;
-            const ivaOpts = [0,4,5,10,22].map(r => `<option value="${r}" ${r==ivaVal?'selected':''}>${r}%</option>`).join('');
             const magBadgeHtml = magCodice ? `<span class="mag-link-badge" style="font-size:0.65rem;background:rgba(20,184,166,0.2);color:#14b8a6;border:1px solid #14b8a6;border-radius:4px;padding:1px 5px;font-weight:bold;white-space:nowrap;flex-shrink:0;">${magCodice}</span>` : '';
             tr.innerHTML = `
                 <td style="padding:2px 4px 2px 0;">
@@ -3074,21 +3072,15 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         <div class="mag-conto-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid #14b8a6;border-radius:0 0 8px 8px;max-height:160px;overflow-y:auto;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></div>
                     </div>
                 </td>
-                <td style="width:52px; padding:2px 4px;">
-                    <input type="number" class="r-qty" min="1" value="${qtyVal}" step="1" style="margin-bottom:0; text-align:center; width:100%;" oninput="calcContoTotal()"
+                <td style="width:70px; padding:2px 4px;">
+                    <input type="number" class="r-qty" min="1" value="${qtyVal}" step="1" style="margin-bottom:0; text-align:center; width:100%; font-size:1rem; font-weight:700;" oninput="calcContoTotal()"
                         onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const p=this.closest('tr').querySelector('.r-price'); setTimeout(()=>p.focus(),0);}">
                 </td>
-                <td style="width:100px; padding:2px 4px;">
+                <td style="width:110px; padding:2px 4px;">
                     <input type="number" class="r-price" value="${pNum}" step="0.01" placeholder="0.00" style="margin-bottom:0; text-align:right;" oninput="calcContoTotal()"
-                        onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const s=this.closest('tr').querySelector('.r-iva'); setTimeout(()=>s.focus(),0);}">
+                        onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const next=this.closest('tr').nextElementSibling; if(next) next.querySelector('.r-desc').focus(); else addVoceConto('','',22,true);}">
                 </td>
-                <td style="width:72px; padding:2px 4px;">
-                    <select class="r-iva" onchange="calcContoTotal()" style="margin-bottom:0; padding:10px 4px; font-size:0.85rem; text-align:center;"
-                        onkeydown="if(event.key==='Enter'){event.preventDefault(); const next=this.closest('tr').nextElementSibling; if(next) next.querySelector('.r-desc').focus(); else addVoceConto('','',22,true);}">
-                        ${ivaOpts}
-                    </select>
-                </td>
-                <td style="width:95px; padding:2px 0 2px 4px; text-align:right; font-size:0.85rem; color:#f59e0b; font-weight:bold; white-space:nowrap;" class="r-imp-display">—</td>
+                <td style="width:105px; padding:2px 0 2px 4px; text-align:right; font-size:0.85rem; color:#f59e0b; font-weight:bold; white-space:nowrap;" class="r-imp-display">—</td>
                 <td style="width:28px; text-align:right; padding:2px 0;">
                     <button tabindex="-1" onclick="this.parentElement.parentElement.remove(); calcContoTotal();" style="color:var(--accent); background:none; border:none; cursor:pointer; font-weight:bold; font-size:1.1rem;">×</button>
                 </td>`;
@@ -3182,8 +3174,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const unitPrice = parseFloat(tr.querySelector('.r-price')?.value) || 0;
                 const qty = parseFloat(tr.querySelector('.r-qty')?.value) || 1;
                 const price = unitPrice * qty;
-                const ivaRate = parseFloat(tr.querySelector('.r-iva')?.value) || 0;
-                const imponibile = ivaRate > 0 ? price / (1 + ivaRate / 100) : price;
+                const ivaRate = 22;
+                const imponibile = price / 1.22;
                 const ivaAmt = price - imponibile;
                 totLordo += price;
 
@@ -3229,7 +3221,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 desc:       tr.querySelector('.r-desc')?.value  || '',
                 price:      parseFloat(tr.querySelector('.r-price')?.value) || 0,
                 qty:        parseFloat(tr.querySelector('.r-qty')?.value)   || 1,
-                iva:        parseFloat(tr.querySelector('.r-iva')?.value)   || 0,
+                iva:        22,
                 mag_codice: tr.dataset.magCodice || ''
             })).filter(i => i.price > 0 || i.desc.trim() !== '');
             j.totale_lordo = j.conto.reduce((a,b) => a + b.price * (b.qty || 1), 0);
