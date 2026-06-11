@@ -4731,42 +4731,57 @@ A presto!`;
         // =====================================================================
         // MENU ⋯ AZIONI SECONDARIE BOARD
         // =====================================================================
-        function chiudiMenuBoard(menuId) { const menu = document.getElementById(menuId); if (menu) menu.style.display = 'none'; }
+        function chiudiTuttiMenuBoard() {
+            document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => { m.style.display = 'none'; });
+            const bd = document.getElementById('board-menu-backdrop'); if (bd) bd.style.display = 'none';
+        }
+
+        function chiudiMenuBoard(menuId) {
+            const menu = document.getElementById(menuId); if (menu) menu.style.display = 'none';
+            const bd = document.getElementById('board-menu-backdrop'); if (bd) bd.style.display = 'none';
+        }
 
         function toggleMenuBoard(menuId, event) {
-    event.preventDefault();
-    event.stopPropagation();
+            event.preventDefault();
+            event.stopPropagation();
 
-    const menu = document.getElementById(menuId);
-    if (!menu) return;
+            const menu = document.getElementById(menuId);
+            if (!menu) return;
 
-    const isOpen = menu.style.display === 'block';
+            const isOpen = menu.style.display === 'block';
+            chiudiTuttiMenuBoard();
 
-    document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => {
-        m.style.display = 'none';
-    });
+            if (!isOpen) {
+                // Portal: sposta il menu direttamente in <body> per sfuggire
+                // a overflow:hidden/auto e stacking context delle card
+                if (menu.parentElement !== document.body) {
+                    document.body.appendChild(menu);
+                }
 
-    if (!isOpen) {
-        menu.style.zIndex = '9999';
-        if (window.innerWidth <= 768) {
-            // Su mobile: position:fixed per sfuggire all'overflow della colonna
-            const btn = event.target.closest('button');
-            const rect = btn.getBoundingClientRect();
-            menu.style.position = 'fixed';
-            menu.style.top = (rect.bottom + 4) + 'px';
-            menu.style.right = (window.innerWidth - rect.right) + 'px';
-            menu.style.left = 'auto';
-            menu.style.bottom = 'auto';
-        } else {
-            menu.style.position = 'absolute';
-            menu.style.top = 'calc(100% + 4px)';
-            menu.style.right = '0';
-            menu.style.bottom = 'auto';
-            menu.style.left = 'auto';
+                const btn = event.target.closest('button');
+                const rect = btn.getBoundingClientRect();
+                const menuW = 200;
+                const left = Math.max(8, Math.min(rect.right - menuW, window.innerWidth - menuW - 8));
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const openUp = spaceBelow < 220;
+
+                menu.style.position = 'fixed';
+                menu.style.left = left + 'px';
+                menu.style.right = 'auto';
+                if (openUp) {
+                    menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+                    menu.style.top = 'auto';
+                } else {
+                    menu.style.top = (rect.bottom + 4) + 'px';
+                    menu.style.bottom = 'auto';
+                }
+                menu.style.zIndex = '9999';
+                menu.style.display = 'block';
+
+                const bd = document.getElementById('board-menu-backdrop');
+                if (bd) bd.style.display = 'block';
+            }
         }
-        menu.style.display = 'block';
-    }
-}
     
         // =====================================================================
         // DRAG & DROP LAVORI LUNGHI (SPECIALS KANBAN)
@@ -4884,5 +4899,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+<div id="board-menu-backdrop" onclick="chiudiTuttiMenuBoard()" style="display:none; position:fixed; inset:0; z-index:9998;"></div>
 </body>
 </html>
