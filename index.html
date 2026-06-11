@@ -1060,9 +1060,10 @@
                     <thead>
                         <tr style="border-bottom:1px solid #334155; font-size:0.75rem; color:var(--muted);">
                             <th style="text-align:left; padding:4px 6px; font-weight:bold;">Descrizione</th>
-                            <th style="text-align:right; padding:4px 6px; width:100px; font-weight:bold;">Totale Voce</th>
+                            <th style="text-align:center; padding:4px 6px; width:52px; font-weight:bold;">Qtà</th>
+                            <th style="text-align:right; padding:4px 6px; width:100px; font-weight:bold;">€ Unit.</th>
                             <th style="text-align:center; padding:4px 6px; width:72px; font-weight:bold;">IVA %</th>
-                            <th style="text-align:right; padding:4px 6px; width:95px; font-weight:bold; color:#f59e0b;">Imponibile</th>
+                            <th style="text-align:right; padding:4px 6px; width:95px; font-weight:bold; color:#f59e0b;">Totale</th>
                             <th style="width:28px;"></th>
                         </tr>
                     </thead>
@@ -3056,7 +3057,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // 9. GESTIONE CONTO E CHIUSURA LAVORO
         // =====================================================================
         // Aggiunge una voce al conto con supporto IVA per voce
-        function addVoceConto(dStr='', pNum='', ivaVal=22, aF=false, magCodice='') {
+        function addVoceConto(dStr='', pNum='', ivaVal=22, aF=false, magCodice='', qtyVal=1) {
             const tr = document.createElement('tr');
             tr.className = 'voce-row';
             if (magCodice) tr.dataset.magCodice = magCodice;
@@ -3068,10 +3069,14 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         <input type="text" class="r-desc" placeholder="Descrizione voce o cerca magazzino..." value="${dStr}" style="margin-bottom:0;flex:1;"
                             oninput="cercaMagPerConto(this)"
                             onblur="setTimeout(()=>{const d=this.closest('tr').querySelector('.mag-conto-results');if(d)d.style.display='none';},200)"
-                            onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const p=this.closest('tr').querySelector('.r-price'); setTimeout(()=>p.focus(),0);}">
+                            onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const q=this.closest('tr').querySelector('.r-qty'); setTimeout(()=>q.focus(),0);}">
                         ${magBadgeHtml}
                         <div class="mag-conto-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid #14b8a6;border-radius:0 0 8px 8px;max-height:160px;overflow-y:auto;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></div>
                     </div>
+                </td>
+                <td style="width:52px; padding:2px 4px;">
+                    <input type="number" class="r-qty" min="1" value="${qtyVal}" step="1" style="margin-bottom:0; text-align:center; width:100%;" oninput="calcContoTotal()"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const p=this.closest('tr').querySelector('.r-price'); setTimeout(()=>p.focus(),0);}">
                 </td>
                 <td style="width:100px; padding:2px 4px;">
                     <input type="number" class="r-price" value="${pNum}" step="0.01" placeholder="0.00" style="margin-bottom:0; text-align:right;" oninput="calcContoTotal()"
@@ -3117,17 +3122,18 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const stock = i.giacenza <= 0 ? '⛔' : i.giacenza <= 3 ? '⚠️' : '✅';
                 const codeSafe = (i.codice||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
                 const nomeSafe = (i.nome||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-                return `<div onmousedown="selezionaMagPerConto(this.closest('.mag-conto-results').closest('tr'),'${codeSafe}','${nomeSafe}')"
+                const prezzo = parseFloat(i.prezzo) || 0;
+                return `<div onmousedown="selezionaMagPerConto(this.closest('.mag-conto-results').closest('tr'),'${codeSafe}','${nomeSafe}',${prezzo})"
                     style="padding:8px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem;transition:background 0.1s;"
                     onmouseover="this.style.background='rgba(20,184,166,0.15)'" onmouseout="this.style.background=''">
                     <span style="color:#14b8a6;font-weight:bold;font-family:monospace;">${i.codice}</span>
                     <span style="color:white;margin-left:8px;">${i.nome}</span>
-                    <span style="float:right;color:var(--muted);">${stock} ${i.giacenza} pz</span>
+                    <span style="float:right;color:var(--muted);">${stock} ${i.giacenza} pz${prezzo > 0 ? ` · €${prezzo.toFixed(2)}` : ''}</span>
                 </div>`;
             }).join('');
         }
 
-        function selezionaMagPerConto(tr, codice, nome) {
+        function selezionaMagPerConto(tr, codice, nome, prezzo=0) {
             tr.dataset.magCodice = codice;
             const descInput = tr.querySelector('.r-desc');
             const resDiv = tr.querySelector('.mag-conto-results');
@@ -3142,9 +3148,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             badge.textContent = codice;
             const container = descInput?.parentElement;
             if (container) container.appendChild(badge);
-            // Sposta il focus sul prezzo
+            // Compila prezzo unitario dal magazzino e sposta focus su qtà
             const priceInput = tr.querySelector('.r-price');
-            if (priceInput) setTimeout(() => priceInput.focus(), 50);
+            if (priceInput && prezzo > 0) priceInput.value = prezzo.toFixed(2);
+            const qtyInput = tr.querySelector('.r-qty');
+            setTimeout(() => (qtyInput || priceInput)?.focus(), 50);
+            calcContoTotal();
         }
 
         function openClosingModal(id) {
@@ -3156,7 +3165,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             (j.acconti||[]).forEach(a => addAcconto('conto-acconti-container', 'c_acc_val', 'c_acc_date', calcContoTotal, a.val, a.date));
             $('conto-rows').innerHTML = '';
             if (j.conto && j.conto.length > 0) {
-                j.conto.forEach(c => addVoceConto(c.desc, c.price, c.iva !== undefined ? c.iva : 22, false, c.mag_codice || ''));
+                j.conto.forEach(c => addVoceConto(c.desc, c.price, c.iva !== undefined ? c.iva : 22, false, c.mag_codice || '', c.qty || 1));
             } else {
                 addVoceConto('', '', 22, false);
             }
@@ -3170,15 +3179,17 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const ivaGroups = {};
 
             rows.forEach(tr => {
-                const price = parseFloat(tr.querySelector('.r-price')?.value) || 0;
+                const unitPrice = parseFloat(tr.querySelector('.r-price')?.value) || 0;
+                const qty = parseFloat(tr.querySelector('.r-qty')?.value) || 1;
+                const price = unitPrice * qty;
                 const ivaRate = parseFloat(tr.querySelector('.r-iva')?.value) || 0;
                 const imponibile = ivaRate > 0 ? price / (1 + ivaRate / 100) : price;
                 const ivaAmt = price - imponibile;
                 totLordo += price;
 
-                // Update per-row imponibile display
+                // Update per-row totale display
                 const impDisplay = tr.querySelector('.r-imp-display');
-                if (impDisplay) impDisplay.innerHTML = price > 0 ? `${imponibile.toFixed(2)} €` : '—';
+                if (impDisplay) impDisplay.innerHTML = price > 0 ? `${price.toFixed(2)} €<span style="display:block;font-size:0.7rem;color:var(--muted);font-weight:normal;">imp. ${imponibile.toFixed(2)}</span>` : '—';
 
                 if (price > 0) {
                     if (!ivaGroups[ivaRate]) ivaGroups[ivaRate] = { imp: 0, iva: 0 };
@@ -3217,10 +3228,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             j.conto = Array.from(document.querySelectorAll('#conto-rows tr.voce-row')).map(tr => ({
                 desc:       tr.querySelector('.r-desc')?.value  || '',
                 price:      parseFloat(tr.querySelector('.r-price')?.value) || 0,
+                qty:        parseFloat(tr.querySelector('.r-qty')?.value)   || 1,
                 iva:        parseFloat(tr.querySelector('.r-iva')?.value)   || 0,
                 mag_codice: tr.dataset.magCodice || ''
             })).filter(i => i.price > 0 || i.desc.trim() !== '');
-            j.totale_lordo = j.conto.reduce((a,b) => a + b.price, 0);
+            j.totale_lordo = j.conto.reduce((a,b) => a + b.price * (b.qty || 1), 0);
             j.stato = nuovoStato;
             if (nuovoStato === 'done' || nuovoStato === 'archived') {
                 if (!j.data_chiusura) j.data_chiusura = getOggiLocale();
@@ -3232,7 +3244,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     if (!item.mag_codice) return;
                     const idx = inventarioMag.findIndex(i => i.codice === item.mag_codice);
                     if (idx === -1) return;
-                    const nuovaGiacenza = Math.max(0, (inventarioMag[idx].giacenza || 0) - 1);
+                    const nuovaGiacenza = Math.max(0, (inventarioMag[idx].giacenza || 0) - (item.qty || 1));
                     modificaArticoloMag(item.mag_codice, 'giacenza', nuovaGiacenza);
                 });
             }
