@@ -4734,30 +4734,36 @@ A presto!`;
         function chiudiMenuBoard(menuId) { const menu = document.getElementById(menuId); if (menu) menu.style.display = 'none'; }
 
         function toggleMenuBoard(menuId, event) {
-    // Blocchiamo tutto per evitare interferenze col drag & drop
     event.preventDefault();
     event.stopPropagation();
-    
+
     const menu = document.getElementById(menuId);
     if (!menu) return;
 
     const isOpen = menu.style.display === 'block';
 
-    // Chiudi tutti gli altri menu aperti (sia menu- che smenu-)
-    document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => { 
-        m.style.display = 'none'; 
+    document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => {
+        m.style.display = 'none';
     });
 
     if (!isOpen) {
-        // Rimuoviamo i calcoli complessi 'fixed'. 
-        // Usiamo 'absolute' così il menu ignora l'animazione 'transform' della scheda!
-        menu.style.position = 'absolute';
-        menu.style.top = 'calc(100% + 4px)'; // Si apre esattamente sotto il bottone
-        menu.style.right = '0';              // Allineato a destra
-        menu.style.bottom = 'auto';
-        menu.style.left = 'auto';
         menu.style.zIndex = '9999';
-        
+        if (window.innerWidth <= 768) {
+            // Su mobile: position:fixed per sfuggire all'overflow della colonna
+            const btn = event.target.closest('button');
+            const rect = btn.getBoundingClientRect();
+            menu.style.position = 'fixed';
+            menu.style.top = (rect.bottom + 4) + 'px';
+            menu.style.right = (window.innerWidth - rect.right) + 'px';
+            menu.style.left = 'auto';
+            menu.style.bottom = 'auto';
+        } else {
+            menu.style.position = 'absolute';
+            menu.style.top = 'calc(100% + 4px)';
+            menu.style.right = '0';
+            menu.style.bottom = 'auto';
+            menu.style.left = 'auto';
+        }
         menu.style.display = 'block';
     }
 }
