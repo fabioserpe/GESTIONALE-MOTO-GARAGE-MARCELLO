@@ -771,6 +771,11 @@
                     <div id="stat-crediti" class="stat-val" style="color:var(--accent);">0.00 €</div>
                     <div style="font-size:0.75rem; color:var(--muted); margin-top:4px;">Lavori non saldati</div>
                 </div>
+                <div class="stat-card" style="border-top-color:var(--purple)">
+                    <div style="font-size:0.82rem; color:var(--muted);">Clienti Registrati</div>
+                    <div id="stat-clienti" class="stat-val" style="color:var(--purple);">0</div>
+                    <div id="stat-clienti-sub" style="font-size:0.75rem; color:var(--muted); margin-top:4px;">0 moto distinte</div>
+                </div>
             </div>
 
             <!-- Grafici annuali -->
@@ -3643,6 +3648,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (debito > 0.01) crediti += debito;
             });
             if ($('stat-crediti')) $('stat-crediti').innerText = crediti.toFixed(2) + " €";
+
+            // Clienti unici (per cognome+nome) e moto distinte (per targa)
+            const clientiUnici = new Set(db.filter(j => j.cognome).map(j => `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim()));
+            const motoDistinte = new Set(db.filter(j => j.targa).map(j => j.targa.toUpperCase().trim()));
+            if ($('stat-clienti')) $('stat-clienti').innerText = clientiUnici.size;
+            if ($('stat-clienti-sub')) $('stat-clienti-sub').innerText = `${motoDistinte.size} moto distinte`;
 
             // ── Grafico incasso mensile anno corrente ────────────────────────
             const chartEl = $('stats-chart-mensile');
