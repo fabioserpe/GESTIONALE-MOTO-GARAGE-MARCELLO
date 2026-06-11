@@ -2535,7 +2535,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const searchTerms = query.split(/\s+/);
             // ----------------------------------
 
-            db.filter(j => ['todo','doing','done'].includes(j.stato)).sort((a,b) => new Date(a.data||0) - new Date(b.data||0)).forEach(j => {
+            db.filter(j => ['todo','doing','done'].includes(j.stato)).sort((a,b) => {
+                const da = a.stato === 'done' ? (a.data_chiusura || a.data || 0) : (a.data || 0);
+                const db_ = b.stato === 'done' ? (b.data_chiusura || b.data || 0) : (b.data || 0);
+                return new Date(da) - new Date(db_);
+            }).forEach(j => {
                 if(j.stato === 'todo' && j.data !== oggi && !query) return; 
                 
                 // Se c'è testo nella barra, nasconde le schede che non combaciano
