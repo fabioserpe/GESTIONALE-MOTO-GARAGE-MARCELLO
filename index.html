@@ -198,6 +198,15 @@
             #mag-cloud-status { display: none; }
             #mag-summary-container { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
 
+            /* ---- MODAL COLLAB ---- */
+            #modal-collab .modal-content { height: auto !important; max-height: 92dvh !important; overflow-y: hidden; display: flex; flex-direction: column; }
+            .mc-form-row { flex-wrap: wrap !important; gap: 8px !important; }
+            .mc-form-row input, .mc-form-row select { flex: 1 1 calc(50% - 4px) !important; width: auto !important; min-width: 0 !important; }
+            .mc-form-row #ld_desc { flex: 1 1 100% !important; }
+            #mc-table-section { display: none !important; }
+            #mc-mobile-list { display: block !important; flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 10px; border: 1px solid #334155; }
+            #btn-print-collab { display: none !important; }
+
             /* ---- STATS ---- */
             .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
             #view-stats > div { flex-wrap: wrap; }
@@ -992,7 +1001,7 @@
 
             <div class="section-dark mb-15" style="flex-shrink: 0;">
                 <input type="hidden" id="ld_edit_id">
-                <div class="flex-row" style="flex-wrap: nowrap; align-items: center;">
+                <div class="flex-row mc-form-row" style="flex-wrap: nowrap; align-items: center;">
                     <input type="date" id="ld_data" style="width:140px; margin:0;">
                     <select id="ld_tipo" style="width:140px; margin:0;">
                         <option value="in">🟢 Entrata (+)</option>
@@ -1014,7 +1023,7 @@
                 </div>
             </div>
 
-            <div style="flex-grow: 1; overflow-y: auto; background:rgba(0,0,0,0.2); border-radius:10px; border:1px solid #334155;">
+            <div id="mc-table-section" style="flex-grow: 1; overflow-y: auto; background:rgba(0,0,0,0.2); border-radius:10px; border:1px solid #334155;">
                 <table style="width:100%; color:white; border-collapse:collapse; font-size:1rem;">
                     <thead style="position: sticky; top: 0; background: var(--card); z-index: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">
                         <tr style="border-bottom:2px solid #334155;">
@@ -1029,6 +1038,7 @@
                     <tbody id="mc-rows"></tbody>
                 </table>
             </div>
+            <div id="mc-mobile-list" style="display:none;"></div>
 
             <div class="flex-row mt-15" style="flex-shrink: 0;">
                 <button class="btn" style="flex:1; background:none; border:1px solid var(--accent); color:var(--accent);" onclick="azzeraCassa()">🗑️ Svuota Scheda</button>
@@ -2060,15 +2070,38 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             });
             
             let ti = 0, to = 0; const tb = $('mc-rows'); if(!tb) return; tb.innerHTML = '';
-            
+            const isMob = window.innerWidth <= 768;
+            const mobList = $('mc-mobile-list'); if(mobList) mobList.innerHTML = '';
+
             list.forEach(m => {
                 const tot = (m.importo || 0) * (m.qta || 1);
                 if(m.tipo === 'in') ti += tot; else to += tot;
                 const pTxt = tot > 0 ? `€ ${tot.toFixed(2)}` : `<span style="color:var(--warning); font-size:0.8rem;">DA DEF.</span>`;
                 tb.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:12px;">${formattaData(m.data)}</td><td style="padding:12px;"><span class="cat-badge">${m.cat || 'OFF'}</span></td><td style="padding:12px;">${m.qta>1?m.qta+'x ':''}${m.desc}</td><td style="padding:12px; text-align:right; color:var(--success); font-weight:bold; font-size:1.1rem;">${m.tipo==='in'?'+ '+pTxt:''}</td><td style="padding:12px; text-align:right; color:var(--accent); font-weight:bold; font-size:1.1rem;">${m.tipo==='out'?'- '+pTxt:''}</td><td style="padding:12px; text-align:center;"><div class="flex-row flex-center" style="gap:5px;"><button class="btn-icon" style="background:transparent; color:var(--warning); border:1px solid var(--warning); padding:6px 10px; cursor:pointer;" onclick="editLedgerEntry(${m.id})">✏️</button><button class="btn-icon" style="background:transparent; color:var(--accent); border:1px solid var(--accent); padding:6px 10px; cursor:pointer;" onclick="deleteLedgerEntry(${m.id})">🗑️</button></div></td></tr>`;
+                if(isMob && mobList) {
+                    const colore = m.tipo === 'in' ? 'var(--success)' : 'var(--accent)';
+                    const segno = m.tipo === 'in' ? '+' : '−';
+                    mobList.innerHTML += `<div style="padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.06);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <div style="display:flex; gap:6px; align-items:center;">
+                                <span style="font-size:0.75rem; color:var(--muted);">${formattaData(m.data)}</span>
+                                <span class="cat-badge">${m.cat || 'OFF'}</span>
+                            </div>
+                            <div style="display:flex; gap:4px;">
+                                <button onclick="editLedgerEntry(${m.id})" style="background:transparent; border:1px solid var(--warning); color:var(--warning); padding:4px 8px; border-radius:6px; font-size:0.8rem; cursor:pointer;">✏️</button>
+                                <button onclick="deleteLedgerEntry(${m.id})" style="background:transparent; border:1px solid var(--accent); color:var(--accent); padding:4px 8px; border-radius:6px; font-size:0.8rem; cursor:pointer;">🗑️</button>
+                            </div>
+                        </div>
+                        <div style="font-size:0.88rem; color:white; margin-bottom:4px;">${m.qta>1?m.qta+'x ':''}${m.desc}</div>
+                        <div style="font-weight:900; font-size:1.05rem; color:${colore};">${segno} ${pTxt}</div>
+                    </div>`;
+                }
             });
-            
-            if(list.length === 0) tb.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:var(--muted);">Nessun movimento registrato.</td></tr>`;
+
+            if(list.length === 0) {
+                tb.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:var(--muted);">Nessun movimento registrato.</td></tr>`;
+                if(mobList) mobList.innerHTML = `<div style="text-align:center; padding:30px; color:var(--muted);">Nessun movimento registrato.</div>`;
+            }
             $('mc-in').innerText = "€ " + ti.toFixed(2); $('mc-out').innerText = "€ " + to.toFixed(2);
             const bal = ti - to; $('mc-bal').innerText = "€ " + bal.toFixed(2); $('mc-bal').style.color = bal >= 0 ? 'var(--info)' : 'var(--accent)';
             $('btn-print-collab').onclick = () => printCollabLedger(encName);
