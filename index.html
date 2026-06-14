@@ -42,11 +42,19 @@
         .brand { font-size: 1.2rem; font-weight: 900; color: var(--accent); text-transform: uppercase; margin-bottom: 40px; border-left: 4px solid var(--accent); padding-left: 15px; line-height: 1.3; }
         .nav-link { text-decoration: none; color: var(--muted); display: block; padding: 10px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; margin-bottom: 4px; transition: 0.3s; border: none; background: none; width: 100%; text-align: left; font-size: 0.9rem; }
         .nav-link:hover, .nav-link.active { background: var(--accent); color: white; }
-        .nav-group { margin-bottom: 6px; }
-        .nav-group-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; cursor: pointer; border-radius: 8px; color: var(--muted); font-size: 0.68rem; font-weight: 900; letter-spacing: 0.8px; text-transform: uppercase; transition: 0.2s; user-select: none; }
-        .nav-group-header:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-group-arrow { font-size: 0.6rem; transition: transform 0.2s; }
-        .nav-group-body { padding-left: 6px; overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s; max-height: 400px; opacity: 1; }
+        .nav-group { margin-bottom: 6px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); overflow: hidden; }
+        .nav-group-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px 8px 12px; cursor: pointer; color: rgba(255,255,255,0.42); font-size: 0.66rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; transition: all 0.2s; user-select: none; border-left: 3px solid rgba(255,255,255,0.12); }
+        .nav-group-header:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); }
+        .nav-group.grp-officina .nav-group-header { border-left-color: #f97316; }
+        .nav-group.grp-clienti  .nav-group-header { border-left-color: #60a5fa; }
+        .nav-group.grp-amm      .nav-group-header { border-left-color: #34d399; }
+        .nav-group.grp-tools    .nav-group-header { border-left-color: #a78bfa; }
+        .nav-group.grp-officina .nav-group-header.grp-has-active { color: #f97316; }
+        .nav-group.grp-clienti  .nav-group-header.grp-has-active { color: #60a5fa; }
+        .nav-group.grp-amm      .nav-group-header.grp-has-active { color: #34d399; }
+        .nav-group.grp-tools    .nav-group-header.grp-has-active { color: #a78bfa; }
+        .nav-group-arrow { font-size: 0.55rem; transition: transform 0.25s ease; opacity: 0.5; line-height: 1; }
+        .nav-group-body { padding: 3px 6px 6px; overflow: hidden; transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.2s; max-height: 400px; opacity: 1; }
         .nav-group-body.collapsed { max-height: 0 !important; opacity: 0; }
         .main-content { flex-grow: 1; display: flex; flex-direction: column; padding: 20px 30px; position: relative; overflow: hidden; z-index: 1; }
         .view { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; padding-right: 10px; }
@@ -319,7 +327,7 @@
             🚪 Esci
         </button>
         <!-- Gruppo OFFICINA -->
-        <div class="nav-group">
+        <div class="nav-group grp-officina">
             <div class="nav-group-header" onclick="toggleNavGroup('grp-officina')">
                 <span>🔧 OFFICINA</span><span class="nav-group-arrow" id="arr-grp-officina">▼</span>
             </div>
@@ -332,7 +340,7 @@
         </div>
 
         <!-- Gruppo CLIENTI -->
-        <div class="nav-group">
+        <div class="nav-group grp-clienti">
             <div class="nav-group-header" onclick="toggleNavGroup('grp-clienti')">
                 <span>👥 CLIENTI</span><span class="nav-group-arrow" id="arr-grp-clienti">▼</span>
             </div>
@@ -345,7 +353,7 @@
         </div>
 
         <!-- Gruppo AMMINISTRAZIONE -->
-        <div class="nav-group">
+        <div class="nav-group grp-amm">
             <div class="nav-group-header" onclick="toggleNavGroup('grp-amm')">
                 <span>💼 AMMINISTRAZIONE</span><span class="nav-group-arrow" id="arr-grp-amm">▼</span>
             </div>
@@ -358,7 +366,7 @@
         </div>
 
         <!-- Gruppo STRUMENTI -->
-        <div class="nav-group">
+        <div class="nav-group grp-tools">
             <div class="nav-group-header" onclick="toggleNavGroup('grp-tools')">
                 <span>⚙️ STRUMENTI</span><span class="nav-group-arrow" id="arr-grp-tools">▼</span>
             </div>
@@ -1386,6 +1394,7 @@
             if (lp) lp.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
             const le = document.getElementById('login-email');
             if (le) le.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-pass').focus(); });
+            initNavGroups();
         });
 
         // Listener principale — mostra/nasconde l'app in base allo stato auth
@@ -1650,6 +1659,36 @@
             if (!body) return;
             const collapsed = body.classList.toggle('collapsed');
             if (arrow) arrow.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+            try { const s = JSON.parse(localStorage.getItem('mgNavGroups') || '{}'); s[id] = collapsed; localStorage.setItem('mgNavGroups', JSON.stringify(s)); } catch(e) {}
+        }
+        function initNavGroups() {
+            try {
+                const s = JSON.parse(localStorage.getItem('mgNavGroups') || '{}');
+                Object.entries(s).forEach(([id, collapsed]) => {
+                    const body = $(id); const arrow = $('arr-' + id);
+                    if (!body) return;
+                    if (collapsed) { body.classList.add('collapsed'); if (arrow) arrow.style.transform = 'rotate(-90deg)'; }
+                    else { body.classList.remove('collapsed'); if (arrow) arrow.style.transform = 'rotate(0deg)'; }
+                });
+            } catch(e) {}
+            updateNavGroupHighlight();
+        }
+        function updateNavGroupHighlight() {
+            document.querySelectorAll('.nav-group').forEach(grp => {
+                const header = grp.querySelector('.nav-group-header');
+                if (!header) return;
+                const hasActive = !!grp.querySelector('.nav-link.active');
+                header.classList.toggle('grp-has-active', hasActive);
+                if (hasActive) {
+                    const body = grp.querySelector('.nav-group-body');
+                    const arrow = grp.querySelector('.nav-group-arrow');
+                    if (body && body.classList.contains('collapsed')) {
+                        body.classList.remove('collapsed');
+                        if (arrow) arrow.style.transform = 'rotate(0deg)';
+                        try { const id = body.id; const sv = JSON.parse(localStorage.getItem('mgNavGroups') || '{}'); sv[id] = false; localStorage.setItem('mgNavGroups', JSON.stringify(sv)); } catch(e) {}
+                    }
+                }
+            });
         }
 
         function switchView(viewId, el) {
@@ -1663,6 +1702,7 @@
             ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             const t = $('view-' + viewId); if(t) t.classList.remove('hidden'); if(el) el.classList.add('active');
+            updateNavGroupHighlight();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') currentView = viewId;
             if(viewId === 'nuova' && !isEditing) clearForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
