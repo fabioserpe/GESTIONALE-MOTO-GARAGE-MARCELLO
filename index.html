@@ -323,6 +323,7 @@
         <button class="nav-link" onclick="switchView('stats', this)">📈 Statistiche</button>
         <button class="nav-link" style="color:#14b8a6;" onclick="switchView('magazzino', this)">📦 Magazzino Ricambi</button>
         <button class="nav-link" style="color:#fb923c;" onclick="switchView('tagliandi', this)">🔧 Scadenze Tagliando</button>
+        <button class="nav-link" style="color:#f43f5e;" onclick="switchView('scadenze', this)">📅 Scadenzario Pagamenti <span id="scadenze-badge" style="display:none; background:#f43f5e; color:white; border-radius:10px; padding:1px 7px; font-size:0.7rem; font-weight:900; margin-left:4px;"></span></button>
         
         <button class="nav-link" style="color: var(--warning); border: 1px dashed var(--warning); margin-top: 15px; margin-bottom: 8px;" onclick="document.getElementById('notes-panel').classList.toggle('show')">📝 Appunti Rapidi</button>
         <button class="nav-link" style="color: #60a5fa; border: 1px dashed #60a5fa; margin-bottom: 15px;" onclick="switchView('rubrica', this)">📞 Rubrica Utile</button>
@@ -927,6 +928,67 @@
             <div id="tagliandi-results" style="display:flex; flex-direction:column; gap:6px; overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
         </div>
 
+        <!-- ═══════════════ SCADENZARIO PAGAMENTI ═══════════════ -->
+        <div id="view-scadenze" class="view hidden">
+            <div class="flex-between mb-20" style="flex-shrink:0; flex-wrap:wrap; gap:10px;">
+                <h2 style="color:#f43f5e; margin:0;">📅 Scadenzario Pagamenti</h2>
+                <button class="btn w-auto" style="background:#f43f5e; color:white;" onclick="apriFormScadenza()">➕ Nuova Scadenza</button>
+            </div>
+
+            <!-- KPI -->
+            <div class="stats-grid mb-20" style="flex-shrink:0;" id="scad-kpi"></div>
+
+            <!-- Form nuova/modifica (collassabile) -->
+            <div id="scad-form-wrap" class="card mb-20" style="display:none; border-top:3px solid #f43f5e; flex-shrink:0;">
+                <h3 style="color:#f43f5e; margin:0 0 15px 0;">➕ <span id="scad-form-title">Nuova Scadenza</span></h3>
+                <input type="hidden" id="scad-edit-id">
+                <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:10px; align-items:end;">
+                    <div><label>Descrizione</label><input type="text" id="scad-desc" placeholder="es. IMU 1° rata 2026" style="margin:0;"></div>
+                    <div><label>Categoria</label>
+                        <select id="scad-cat" style="margin:0;">
+                            <option value="F24">💰 F24</option>
+                            <option value="IMU">🏠 IMU</option>
+                            <option value="TARI">🗑️ TARI</option>
+                            <option value="RIBA">🏦 RIBA</option>
+                            <option value="INPS">👤 INPS</option>
+                            <option value="CAMERA">🏛️ Camera Commercio</option>
+                            <option value="BOLLETTA">⚡ Bolletta</option>
+                            <option value="ALTRO">📄 Altro</option>
+                        </select>
+                    </div>
+                    <div><label>Importo €</label><input type="number" id="scad-importo" placeholder="0.00" step="0.01" min="0" style="margin:0;"></div>
+                    <div><label>Scadenza</label><input type="date" id="scad-data" style="margin:0;"></div>
+                </div>
+                <div style="display:grid; grid-template-columns:2fr 1fr; gap:10px; align-items:end; margin-top:10px;">
+                    <div><label>Note (opzionale)</label><input type="text" id="scad-note" placeholder="Note..." style="margin:0;"></div>
+                    <div><label>Ricorrenza</label>
+                        <select id="scad-ricorrenza" style="margin:0;">
+                            <option value="una-tantum">Una tantum</option>
+                            <option value="mensile">Mensile</option>
+                            <option value="trimestrale">Trimestrale</option>
+                            <option value="semestrale">Semestrale</option>
+                            <option value="annuale">Annuale</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex-row mt-15" style="gap:8px;">
+                    <button class="btn btn-dark" onclick="chiudiFormScadenza()">Annulla</button>
+                    <button class="btn w-auto" style="background:#f43f5e; color:white; flex:1;" onclick="salvaScadenza()">💾 Salva</button>
+                </div>
+            </div>
+
+            <!-- Filtri -->
+            <div class="flex-row mb-15" style="flex-shrink:0; flex-wrap:wrap; gap:8px;">
+                <button id="scad-filt-tutte"  class="btn w-auto" style="background:#f43f5e; color:white;" onclick="scadFiltro='tutte'; refreshScadenze()">Tutte</button>
+                <button id="scad-filt-aperte" class="btn btn-dark w-auto" onclick="scadFiltro='aperte'; refreshScadenze()">Da pagare</button>
+                <button id="scad-filt-scadute" class="btn btn-dark w-auto" onclick="scadFiltro='scadute'; refreshScadenze()">⚠️ Scadute</button>
+                <button id="scad-filt-pagate" class="btn btn-dark w-auto" onclick="scadFiltro='pagate'; refreshScadenze()">✅ Pagate</button>
+            </div>
+
+            <!-- Lista -->
+            <div id="scad-list" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
+        </div>
+
     </main>
 
     <div class="notes-panel no-print" id="notes-panel">
@@ -1338,7 +1400,7 @@
 
         const MGM_INFO = { nome: "MOTO GARAGE MARCELLO", tel: "0932 644902", piva: "01622620886", via: "Ragusa (RG)" };
         let db = [], agendaDB = [], ledgerDB = [], ordiniDB = [], rubricaDB = [];
-        let noteDB = "", billingDB = {}, taggliandiDB = {};
+        let noteDB = "", billingDB = {}, taggliandiDB = {}, scadenzeDB = [];
         let currentJobId = null, currentEditStoricoId = null, currentEditStoricoPlate = null, isEditing = false, currentView = 'board', currentArchiveFilter = 'all';
         let currentCollabView = null;
         let dataInizioSettimana = new Date(); dataInizioSettimana.setHours(0,0,0,0); const gDay = dataInizioSettimana.getDay(); dataInizioSettimana = new Date(dataInizioSettimana.setDate(dataInizioSettimana.getDate() - gDay + (gDay === 0 ? -6 : 1)));
@@ -1412,6 +1474,13 @@
 
             database.ref('/billing').on('value', (snap) => {
                 billingDB = snap.val() || {};
+            });
+
+            database.ref('/scadenze').on('value', (snap) => {
+                scadenzeDB = snap.val() || [];
+                if (!Array.isArray(scadenzeDB)) scadenzeDB = Object.values(scadenzeDB);
+                aggiornaScadenzeBadge();
+                if (currentView === 'scadenze') refreshScadenze();
             });
 
             database.ref('/tagliandi').on('value', (snap) => {
@@ -1546,13 +1615,13 @@
                 const arrow = $('mag-inv-arrow'); if (arrow) arrow.textContent = '▼';
                 initMagazzino();
             }
-            ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
+            ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             const t = $('view-' + viewId); if(t) t.classList.remove('hidden'); if(el) el.classList.add('active');
             if(viewId !== 'nuova' && viewId !== 'crea-prev') currentView = viewId;
             if(viewId === 'nuova' && !isEditing) clearForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
-            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi();
+            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze();
         }
 
         function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); refreshMiniAgenda(); }
@@ -4923,6 +4992,203 @@ if ('serviceWorker' in navigator) {
       .catch(() => {});
   });
 }
+
+        // =====================================================================
+        // SCADENZARIO PAGAMENTI
+        // =====================================================================
+        let scadFiltro = 'tutte';
+        const SCAD_CAT_EMOJI = { F24:'💰', IMU:'🏠', TARI:'🗑️', RIBA:'🏦', INPS:'👤', CAMERA:'🏛️', BOLLETTA:'⚡', ALTRO:'📄' };
+        const SCAD_RICORRENZA_MESI = { mensile:1, trimestrale:3, semestrale:6, annuale:12 };
+
+        function saveScadenzeDB() { database.ref('/scadenze').set(scadenzeDB).then(showCloudCheck).catch(_onSaveError); }
+
+        function aggiornaScadenzeBadge() {
+            const oggi = getOggiLocale();
+            const urgenti = scadenzeDB.filter(s => s.stato === 'aperta' && s.scadenza <= oggi).length;
+            const badge = $('scadenze-badge');
+            if (!badge) return;
+            if (urgenti > 0) { badge.style.display = 'inline'; badge.textContent = urgenti; }
+            else badge.style.display = 'none';
+        }
+
+        function refreshScadenze() {
+            const oggi = getOggiLocale();
+            const tra7 = new Date(); tra7.setDate(tra7.getDate() + 7);
+            const tra30 = new Date(); tra30.setDate(tra30.getDate() + 30);
+            const fmt7 = tra7.toISOString().slice(0,10);
+            const fmt30 = tra30.toISOString().slice(0,10);
+
+            // KPI
+            const aperte = scadenzeDB.filter(s => s.stato === 'aperta');
+            const scadute = aperte.filter(s => s.scadenza < oggi);
+            const imminenti = aperte.filter(s => s.scadenza >= oggi && s.scadenza <= fmt7);
+            const entro30 = aperte.filter(s => s.scadenza >= oggi && s.scadenza <= fmt30);
+            const totAperte = aperte.reduce((a,s) => a + (parseFloat(s.importo)||0), 0);
+            const kpi = $('scad-kpi');
+            if (kpi) kpi.innerHTML = `
+                <div class="stat-card" style="border-top-color:#f43f5e;">
+                    <div style="font-size:0.82rem;color:var(--muted);">Da Pagare</div>
+                    <div class="stat-val" style="color:#f43f5e;">€ ${totAperte.toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">${aperte.length} scadenze aperte</div>
+                </div>
+                <div class="stat-card" style="border-top-color:var(--accent); cursor:pointer;" onclick="scadFiltro='scadute'; refreshScadenze()">
+                    <div style="font-size:0.82rem;color:var(--muted);">Scadute non pagate</div>
+                    <div class="stat-val" style="color:var(--accent);">${scadute.length}</div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">€ ${scadute.reduce((a,s)=>a+(parseFloat(s.importo)||0),0).toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
+                </div>
+                <div class="stat-card" style="border-top-color:var(--warning);">
+                    <div style="font-size:0.82rem;color:var(--muted);">Entro 7 giorni</div>
+                    <div class="stat-val" style="color:var(--warning);">${imminenti.length}</div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">€ ${imminenti.reduce((a,s)=>a+(parseFloat(s.importo)||0),0).toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
+                </div>
+                <div class="stat-card" style="border-top-color:var(--success);">
+                    <div style="font-size:0.82rem;color:var(--muted);">Pagate (storico)</div>
+                    <div class="stat-val" style="color:var(--success);">${scadenzeDB.filter(s=>s.stato==='pagata').length}</div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">€ ${scadenzeDB.filter(s=>s.stato==='pagata').reduce((a,s)=>a+(parseFloat(s.importo)||0),0).toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
+                </div>`;
+
+            // Filtri bottoni
+            ['tutte','aperte','scadute','pagate'].forEach(f => {
+                const btn = $('scad-filt-' + f);
+                if (btn) { btn.style.background = scadFiltro === f ? '#f43f5e' : ''; btn.style.color = scadFiltro === f ? 'white' : ''; btn.className = scadFiltro === f ? 'btn w-auto' : 'btn btn-dark w-auto'; }
+            });
+
+            // Filtra
+            let lista = [...scadenzeDB];
+            if (scadFiltro === 'aperte') lista = lista.filter(s => s.stato === 'aperta');
+            else if (scadFiltro === 'scadute') lista = lista.filter(s => s.stato === 'aperta' && s.scadenza < oggi);
+            else if (scadFiltro === 'pagate') lista = lista.filter(s => s.stato === 'pagata');
+            lista.sort((a,b) => (a.scadenza||'').localeCompare(b.scadenza||''));
+
+            const list = $('scad-list');
+            if (!list) return;
+            if (!lista.length) { list.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted);">Nessuna scadenza trovata.</div>`; return; }
+
+            list.innerHTML = lista.map(s => {
+                const scad = s.scadenza || '';
+                const isPagata = s.stato === 'pagata';
+                let urgenza = 'default';
+                if (!isPagata) {
+                    if (scad < oggi) urgenza = 'scaduta';
+                    else if (scad <= fmt7) urgenza = 'imminente';
+                    else if (scad <= fmt30) urgenza = 'attenzione';
+                }
+                const colori = { scaduta: '#ef4444', imminente: '#f97316', attenzione: '#eab308', default: '#64748b', pagata: '#22c55e' };
+                const col = isPagata ? colori.pagata : colori[urgenza];
+                const labelUrgenza = { scaduta:'SCADUTA', imminente:'URGENTE', attenzione:'IN SCADENZA', default:'', pagata:'PAGATA' };
+                const badge = (isPagata ? 'pagata' : urgenza) !== 'default' ? `<span style="font-size:0.65rem;font-weight:900;background:${col}22;color:${col};border:1px solid ${col};border-radius:4px;padding:1px 6px;margin-left:6px;">${labelUrgenza[isPagata?'pagata':urgenza]}</span>` : '';
+                const importoStr = s.importo > 0 ? `€ ${parseFloat(s.importo).toLocaleString('it-IT',{minimumFractionDigits:2})}` : '—';
+                const ricBadge = s.ricorrenza && s.ricorrenza !== 'una-tantum' ? `<span style="font-size:0.65rem;background:rgba(99,102,241,0.2);color:#818cf8;border:1px solid #818cf8;border-radius:4px;padding:1px 5px;margin-left:4px;">🔄 ${s.ricorrenza}</span>` : '';
+                return `<div style="background:var(--card);border-radius:10px;border-left:4px solid ${col};padding:14px 16px;display:flex;align-items:center;gap:12px;${isPagata?'opacity:0.6':''}">
+                    <div style="font-size:1.5rem;flex-shrink:0;">${SCAD_CAT_EMOJI[s.categoria]||'📄'}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:3px;">
+                            <span style="font-weight:800;font-size:0.95rem;color:white;">${s.desc}</span>
+                            ${badge}${ricBadge}
+                        </div>
+                        <div style="font-size:0.78rem;color:var(--muted);">${s.categoria}${s.note ? ' · ' + s.note : ''}</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        <div style="font-size:1.1rem;font-weight:900;color:${col};">${importoStr}</div>
+                        <div style="font-size:0.78rem;color:var(--muted);">${formattaData(scad)}</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
+                        <button onclick="togglePagataScadenza(${s.id})" title="${isPagata?'Riapri':'Segna come pagata'}"
+                            style="background:${isPagata?'rgba(34,197,94,0.15)':'rgba(34,197,94,0.08)'};border:1px solid ${isPagata?'#22c55e':'#334155'};color:${isPagata?'#22c55e':'var(--muted)'};border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;">
+                            ${isPagata?'✅ Pagata':'☐ Paga'}
+                        </button>
+                        <div style="display:flex;gap:4px;">
+                            <button onclick="editScadenza(${s.id})" style="flex:1;background:transparent;border:1px solid var(--warning);color:var(--warning);border-radius:6px;padding:4px;cursor:pointer;font-size:0.75rem;">✏️</button>
+                            <button onclick="deleteScadenza(${s.id})" style="flex:1;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:4px;cursor:pointer;font-size:0.75rem;">🗑️</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function apriFormScadenza(id = null) {
+            $('scad-form-wrap').style.display = 'block';
+            $('scad-edit-id').value = '';
+            $('scad-desc').value = ''; $('scad-cat').value = 'F24'; $('scad-importo').value = '';
+            $('scad-data').value = getOggiLocale(); $('scad-note').value = ''; $('scad-ricorrenza').value = 'una-tantum';
+            $('scad-form-title').textContent = 'Nuova Scadenza';
+            $('scad-desc').focus();
+        }
+
+        function chiudiFormScadenza() { $('scad-form-wrap').style.display = 'none'; }
+
+        function editScadenza(id) {
+            const s = scadenzeDB.find(x => x.id === id); if (!s) return;
+            $('scad-form-wrap').style.display = 'block';
+            $('scad-edit-id').value = id;
+            $('scad-desc').value = s.desc || ''; $('scad-cat').value = s.categoria || 'F24';
+            $('scad-importo').value = s.importo || ''; $('scad-data').value = s.scadenza || '';
+            $('scad-note').value = s.note || ''; $('scad-ricorrenza').value = s.ricorrenza || 'una-tantum';
+            $('scad-form-title').textContent = 'Modifica Scadenza';
+            $('scad-form-wrap').scrollIntoView({ behavior:'smooth' });
+        }
+
+        function salvaScadenza() {
+            const desc = $('scad-desc').value.trim();
+            const scad = $('scad-data').value;
+            if (!desc) return alert('Inserisci una descrizione.');
+            if (!scad) return alert('Inserisci la data di scadenza.');
+            const editId = parseInt($('scad-edit-id').value) || null;
+            const obj = {
+                id: editId || Date.now(),
+                desc: desc.toUpperCase(),
+                categoria: $('scad-cat').value,
+                importo: parseFloat($('scad-importo').value) || 0,
+                scadenza: scad,
+                note: $('scad-note').value.trim(),
+                ricorrenza: $('scad-ricorrenza').value,
+                stato: editId ? (scadenzeDB.find(x=>x.id===editId)?.stato || 'aperta') : 'aperta'
+            };
+            if (editId) { const i = scadenzeDB.findIndex(x => x.id === editId); if (i > -1) scadenzeDB[i] = obj; }
+            else scadenzeDB.push(obj);
+            saveScadenzeDB();
+            chiudiFormScadenza();
+            refreshScadenze();
+        }
+
+        function togglePagataScadenza(id) {
+            const idx = scadenzeDB.findIndex(x => x.id === id); if (idx === -1) return;
+            const s = scadenzeDB[idx];
+            if (s.stato === 'aperta') {
+                s.stato = 'pagata';
+                s.data_pagamento = getOggiLocale();
+                // Crea prossima scadenza se ricorrente
+                if (s.ricorrenza && s.ricorrenza !== 'una-tantum') {
+                    const mesi = SCAD_RICORRENZA_MESI[s.ricorrenza];
+                    const prossima = new Date(s.scadenza);
+                    prossima.setMonth(prossima.getMonth() + mesi);
+                    scadenzeDB.push({
+                        id: Date.now(),
+                        desc: s.desc,
+                        categoria: s.categoria,
+                        importo: s.importo,
+                        scadenza: prossima.toISOString().slice(0,10),
+                        note: s.note,
+                        ricorrenza: s.ricorrenza,
+                        stato: 'aperta'
+                    });
+                }
+            } else {
+                s.stato = 'aperta';
+                delete s.data_pagamento;
+            }
+            saveScadenzeDB();
+            aggiornaScadenzeBadge();
+            refreshScadenze();
+        }
+
+        function deleteScadenza(id) {
+            if (!confirm('Eliminare questa scadenza?')) return;
+            scadenzeDB = scadenzeDB.filter(x => x.id !== id);
+            saveScadenzeDB();
+            aggiornaScadenzeBadge();
+            refreshScadenze();
+        }
 </script>
 <div id="board-menu-backdrop" onclick="chiudiTuttiMenuBoard()" style="display:none; position:fixed; inset:0; z-index:9998;"></div>
 </body>
