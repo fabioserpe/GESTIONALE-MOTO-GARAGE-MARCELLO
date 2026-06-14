@@ -307,6 +307,10 @@
     <!-- ============================================================
          APP PRINCIPALE (nascosta finché non si fa login)
     ============================================================ -->
+    <div id="offline-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:white; text-align:center; padding:8px 16px; font-size:0.85rem; font-weight:700; letter-spacing:0.3px;">
+        ⚠️ Connessione assente — le modifiche sono in attesa. Non chiudere la scheda.
+    </div>
+
     <div id="app-shell" style="display:none; width:100%; height:100vh; overflow:hidden; flex-direction:row;">
 
     <datalist id="targhe-salvate"></datalist>
@@ -1417,9 +1421,10 @@
                 // Aspetta che il token sia pronto prima di attivare i listener DB
                 user.getIdToken(true).then(() => {
                     initFirebaseListeners();
+                    initConnectionMonitor();
+                    checkBackupReminder();
                 }).catch(() => {
-                    // Fallback: prova comunque dopo un delay
-                    setTimeout(initFirebaseListeners, 1500);
+                    setTimeout(() => { initFirebaseListeners(); initConnectionMonitor(); checkBackupReminder(); }, 1500);
                 });
             } else {
                 if (loginScreen) loginScreen.style.display = 'flex';
@@ -1562,6 +1567,32 @@
             // Effetto sfumato in uscita
             setTimeout(() => { if(toast) toast.style.opacity = '0'; }, 2000);
             setTimeout(() => { if(toast) toast.remove(); }, 2500);
+        }
+
+        function initConnectionMonitor() {
+            if (window._connMonitorInit) return;
+            window._connMonitorInit = true;
+            const banner = document.getElementById('offline-banner');
+            database.ref('.info/connected').on('value', (snap) => {
+                if (banner) banner.style.display = snap.val() ? 'none' : 'block';
+            });
+        }
+        function checkBackupReminder() {
+            try {
+                const last = localStorage.getItem('mgLastBackup');
+                if (!last) return;
+                const days = Math.floor((Date.now() - parseInt(last)) / 86400000);
+                if (days >= 7) {
+                    setTimeout(() => {
+                        const t = document.createElement('div');
+                        t.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#f59e0b;color:#1e1e1e;padding:14px 22px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:10000;font-weight:700;font-size:0.9rem;cursor:pointer;max-width:90vw;text-align:center;';
+                        t.innerHTML = `⚠️ Ultimo backup: ${days} giorni fa — <u>clicca per scaricarlo ora</u>`;
+                        t.onclick = () => { exportData(); t.remove(); };
+                        document.body.appendChild(t);
+                        setTimeout(() => t.remove(), 12000);
+                    }, 3000);
+                }
+            } catch(e) {}
         }
 
         // =====================================================================
@@ -1873,16 +1904,16 @@
         // =====================================================================
         // 5. EXPORT / IMPORT / WHATSAPP
         // =====================================================================
-        function exportData() { 
-            try { 
-                // Include anche il magazzino nel backup
+        function exportData() {
+            try {
                 const backupData = {db, agenda: agendaDB, ledger: ledgerDB, ordini: ordiniDB, rubrica: rubricaDB, note: noteDB, magazzino: inventarioMag};
-                const b = new Blob([JSON.stringify(backupData, null, 2)], {type: 'application/json'}); 
-                const a = document.createElement('a'); 
-                a.href = URL.createObjectURL(b); 
-                a.download = `MGM_Backup_CLOUD_${getOggiLocale()}.json`; 
-                document.body.appendChild(a); a.click(); document.body.removeChild(a); 
-            } catch (e) { alert("Errore Export: " + e.message); } 
+                const b = new Blob([JSON.stringify(backupData, null, 2)], {type: 'application/json'});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(b);
+                a.download = `MGM_Backup_CLOUD_${getOggiLocale()}.json`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                try { localStorage.setItem('mgLastBackup', Date.now().toString()); } catch(e) {}
+            } catch (e) { alert("Errore Export: " + e.message); }
         }
         function importData(e) { 
             const f = e.target.files[0]; if (!f) return; 
@@ -3399,17 +3430,22 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (!j.data_chiusura) j.data_chiusura = getOggiLocale();
                 autoRilevaTagliando(j);
             }
-            // Scala magazzino solo alla prima chiusura
+            // Scala magazzino solo alla prima chiusura — scrittura atomica insieme a saveDB
+            const magUpdates = {};
             if (isFirstClose) {
                 j.conto.forEach(item => {
                     if (!item.mag_codice) return;
                     const idx = inventarioMag.findIndex(i => i.codice === item.mag_codice);
                     if (idx === -1) return;
                     const nuovaGiacenza = Math.max(0, (inventarioMag[idx].giacenza || 0) - (item.qty || 1));
-                    modificaArticoloMag(item.mag_codice, 'giacenza', nuovaGiacenza);
+                    inventarioMag[idx] = { ...inventarioMag[idx], giacenza: nuovaGiacenza };
+                    magUpdates['magazzino/' + item.mag_codice] = inventarioMag[idx];
                 });
+                if (Object.keys(magUpdates).length > 0) renderSummaryMag();
             }
-            saveDB();
+            // Unica operazione Firebase: job + magazzino insieme (atomica)
+            database.ref('/').update({ db, ...magUpdates }).then(showCloudCheck).catch(_onSaveError);
+            updateDatalist();
             closeModal('modal-conto');
         }
 
