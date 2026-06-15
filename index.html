@@ -2717,6 +2717,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
 
         function refreshBoard() {
+            chiudiTuttiMenuBoard();
             const lists = { todo: $('list-todo'), doing: $('list-doing'), done: $('list-done') }; Object.values(lists).forEach(l => { if(l) l.innerHTML = ''; });
             let c = { todo: 0, doing: 0, done: 0 }; const colors = { todo: 'var(--accent)', doing: 'var(--warning)', done: 'var(--success)' }; const oggi = getOggiLocale();
             
@@ -4947,7 +4948,12 @@ A presto!`;
         // MENU ⋯ AZIONI SECONDARIE BOARD
         // =====================================================================
         function chiudiTuttiMenuBoard() {
-            document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => { m.style.display = 'none'; });
+            document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => {
+                m.style.display = 'none';
+                // Rimuove i menu spostati nel body (portal) per evitare ID duplicati
+                // quando refreshBoard() ricrea le card
+                if (m.parentElement === document.body) m.remove();
+            });
             const bd = document.getElementById('board-menu-backdrop'); if (bd) bd.style.display = 'none';
         }
 
