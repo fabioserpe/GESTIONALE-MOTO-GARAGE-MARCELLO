@@ -39,7 +39,7 @@
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
         .sidebar { width: 260px; background: var(--sidebar); padding: 25px; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; z-index: 1000; }
-        .brand { font-size: 1.2rem; font-weight: 900; color: var(--accent); text-transform: uppercase; margin-bottom: 40px; border-left: 4px solid var(--accent); padding-left: 15px; line-height: 1.3; }
+        .brand { font-size: 1.1rem; font-weight: 900; color: var(--accent); text-transform: uppercase; margin-bottom: 20px; margin-top: 36px; border-left: 4px solid var(--accent); padding-left: 14px; line-height: 1.35; }
         .nav-link { text-decoration: none; color: var(--muted); display: block; padding: 10px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; margin-bottom: 4px; transition: 0.3s; border: none; background: none; width: 100%; text-align: left; font-size: 0.9rem; }
         .nav-link:hover, .nav-link.active { background: var(--accent); color: white; }
         .nav-group { margin-bottom: 6px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); overflow: hidden; }
@@ -57,7 +57,7 @@
         .nav-group-body { padding: 3px 6px 6px; overflow: hidden; transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.2s; max-height: 400px; opacity: 1; }
         .nav-group-body.collapsed { max-height: 0 !important; opacity: 0; }
         .main-content { flex-grow: 1; display: flex; flex-direction: column; padding: 20px 30px; position: relative; overflow: hidden; z-index: 1; }
-        .view { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; padding-right: 10px; }
+        .view { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px 28px 28px; overflow-x: hidden; }
 
         .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; flex-grow: 1; overflow: hidden; min-height: 400px; }
         .col { background: rgba(30, 41, 59, 0.4); border-radius: 20px; padding: 15px; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; }
@@ -148,20 +148,23 @@
 
         #print-area { display: none; }
 
-        /* ===== MOBILE ===== */
-        .hamburger-btn { display: none; background: none; border: none; color: var(--text); font-size: 1.5rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; line-height: 1; flex-shrink: 0; }
-        .mobile-header { display: none; align-items: center; gap: 10px; padding: 10px 0 12px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; flex-shrink: 0; }
-        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 998; cursor: pointer; }
+        /* ===== SIDEBAR OVERLAY + TOP BAR (tutti gli schermi) ===== */
+        .sidebar { position: fixed; top: 0; left: 0; height: 100dvh; width: 280px; transform: translateX(-100%); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1); overflow-y: auto; z-index: 1000; background: var(--sidebar); padding: 0; display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-inner { padding: 16px 18px 24px; flex: 1; display: flex; flex-direction: column; }
+        .sidebar.mobile-open { transform: translateX(0); box-shadow: 4px 0 40px rgba(0,0,0,0.6); }
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 998; cursor: pointer; backdrop-filter: blur(2px); }
         .sidebar-overlay.show { display: block; }
+        .hamburger-btn { display: flex; align-items: center; background: none; border: none; color: var(--text); font-size: 1.4rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; line-height: 1; flex-shrink: 0; transition: background 0.15s; }
+        .hamburger-btn:hover { background: rgba(255,255,255,0.07); }
+        .sidebar-close-btn { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.07); border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
+        .sidebar-close-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+        .mobile-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 0; flex-shrink: 0; background: var(--bg); position: sticky; top: 0; z-index: 10; }
+        .main-content { flex-grow: 1; width: 100%; display: flex; flex-direction: column; overflow-y: auto; overflow-x: clip; padding: 0; position: relative; z-index: 1; }
+        /* .view padding already set globally above */
+        #app-shell { overflow: visible !important; }
         @media (max-width: 768px) {
-            /* ---- STRUTTURA BASE ---- */
-            .hamburger-btn { display: flex; align-items: center; }
-            .mobile-header { display: flex; }
-            #app-shell { overflow: visible !important; }
-            .sidebar { position: fixed; top: 0; left: 0; height: 100dvh; transform: translateX(-100%); transition: transform 0.25s ease; overflow-y: auto; z-index: 1000; }
-            .sidebar.mobile-open { transform: translateX(0); }
-            .main-content { width: 100% !important; max-width: 100vw; padding: 0 10px 12px; overflow-y: auto; overflow-x: clip; }
-            .view { padding-right: 0; overflow-x: hidden; }
+            /* ---- MOBILE: overrides aggiuntivi ---- */
+            .view { padding: 10px 10px 20px; overflow-x: hidden; }
             h2 { font-size: 1.05rem !important; }
             h3 { font-size: 0.92rem !important; }
 
@@ -318,15 +321,17 @@
     <div class="sidebar-overlay no-print" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
     <nav class="sidebar no-print">
+        <button class="sidebar-close-btn" onclick="closeSidebar()" title="Chiudi menu">✕</button>
+        <div class="sidebar-inner">
         <div class="brand">MOTO GARAGE<br>MARCELLO</div>
         <button id="btn-logout" onclick="doLogout()" style="
             display:none; align-items:center; gap:8px;
-            background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); 
-            color:var(--accent); border-radius:8px; padding:8px 12px; 
-            font-size:0.78rem; font-weight:bold; cursor:pointer; 
+            background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3);
+            color:var(--accent); border-radius:8px; padding:8px 12px;
+            font-size:0.78rem; font-weight:bold; cursor:pointer;
             width:100%; margin-bottom:15px; transition:0.2s;
             justify-content:center;
-        " onmouseover="this.style.background='var(--accent)'; this.style.color='white';" 
+        " onmouseover="this.style.background='var(--accent)'; this.style.color='white';"
            onmouseout="this.style.background='rgba(239,68,68,0.1)'; this.style.color='var(--accent)';">
             🚪 Esci
         </button>
@@ -383,12 +388,14 @@
                 <input type="file" id="importInput" class="hidden" onchange="importData(event)" accept=".json">
             </div>
         </div>
+        </div><!-- fine sidebar-inner -->
     </nav>
 
     <main class="main-content">
         <div class="mobile-header no-print">
             <button class="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
-            <span style="font-weight:900; color:var(--accent); font-size:0.9rem; text-transform:uppercase; letter-spacing:0.5px;">Garage Marcello</span>
+            <span style="font-weight:900; color:var(--accent); font-size:1rem; text-transform:uppercase; letter-spacing:1px; flex:1;">🏍️ Garage Marcello</span>
+            <span id="topbar-section" style="font-size:0.72rem; color:var(--muted); font-weight:600; letter-spacing:0.5px; text-transform:uppercase;"></span>
         </div>
         <div id="print-area"></div> 
 
@@ -1722,8 +1729,10 @@
             });
         }
 
+        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Clienti', stats:'📈 Stats', preventivi:'📝 Preventivi', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze' };
         function switchView(viewId, el) {
-            if (window.innerWidth <= 768) closeSidebar();
+            closeSidebar();
+            const ts = $('topbar-section'); if (ts) ts.textContent = _viewLabels[viewId] || '';
             if (viewId === 'magazzino') {
                 magInvAperto = false;
                 const sec = $('mag-inv-section'); if (sec && window.innerWidth <= 768) sec.style.display = 'none';
