@@ -1079,9 +1079,9 @@
             </div>
             
             <div class="stats-grid mb-15" style="flex-shrink: 0;">
-                <div class="stat-card" style="padding:15px; border-top-color:var(--success);"><div>Dare (+)</div><div id="mc-in" class="stat-val" style="color:var(--success); font-size:1.5rem;">0.00 €</div></div>
-                <div class="stat-card" style="padding:15px; border-top-color:var(--accent);"><div>Avere (-)</div><div id="mc-out" class="stat-val" style="color:var(--accent); font-size:1.5rem;">0.00 €</div></div>
-                <div class="stat-card" style="padding:15px; border-top-color:var(--info);"><div>Saldo</div><div id="mc-bal" class="stat-val" style="font-size:1.5rem;">0.00 €</div></div>
+                <div class="stat-card" style="padding:15px; border-top-color:var(--success);"><div>Avere <span style="font-size:0.7rem; color:var(--muted);">(ci devono)</span></div><div id="mc-in" class="stat-val" style="color:var(--success); font-size:1.5rem;">0.00 €</div></div>
+                <div class="stat-card" style="padding:15px; border-top-color:var(--accent);"><div>Dare <span style="font-size:0.7rem; color:var(--muted);">(dobbiamo)</span></div><div id="mc-out" class="stat-val" style="color:var(--accent); font-size:1.5rem;">0.00 €</div></div>
+                <div class="stat-card" style="padding:15px; border-top-color:var(--info);"><div>Saldo <span style="font-size:0.7rem; color:var(--muted);">(+ credito / − debito)</span></div><div id="mc-bal" class="stat-val" style="font-size:1.5rem;">0.00 €</div></div>
             </div>
 
             <div class="section-dark mb-15" style="flex-shrink: 0;">
@@ -1089,8 +1089,8 @@
                 <div class="flex-row mc-form-row" style="flex-wrap: nowrap; align-items: center;">
                     <input type="date" id="ld_data" style="width:140px; margin:0;">
                     <select id="ld_tipo" style="width:140px; margin:0;">
-                        <option value="in">🟢 Entrata (+)</option>
-                        <option value="out">🔴 Uscita (-)</option>
+                        <option value="in">🟢 Avere — ci devono</option>
+                        <option value="out">🔴 Dare — dobbiamo</option>
                     </select>
                     <select id="ld_cat" style="width:180px; margin:0;">
                         <option value="officina">OFFICINA</option>
@@ -1115,8 +1115,8 @@
                             <th style="text-align:left; padding:12px; width:120px;">Data</th>
                             <th style="text-align:left; padding:12px; width:150px;">Categoria</th>
                             <th style="text-align:left; padding:12px;">Descrizione</th>
-                            <th style="text-align:right; padding:12px; width:120px;">Entrata</th>
-                            <th style="text-align:right; padding:12px; width:120px;">Uscita</th>
+                            <th style="text-align:right; padding:12px; width:120px;">Avere (ci devono)</th>
+                            <th style="text-align:right; padding:12px; width:120px;">Dare (dobbiamo)</th>
                             <th style="text-align:center; padding:12px; width:100px;">Azioni</th>
                         </tr>
                     </thead>
@@ -2214,8 +2214,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     const s = cStats[n], r = s.in - s.out, safeN = safeEncode(n);
                     sg.innerHTML += `<div class="card card-clickable" style="padding:15px; border-top: 4px solid var(--purple); margin:0;" onclick="openCollabDetail('${safeN}')">
                         <div style="font-weight:bold; color:white; margin-bottom:10px; font-size:1.1rem; text-transform:uppercase;">${n}</div>
-                        <div class="flex-between" style="font-size:0.85rem; margin-bottom:5px;"><span>Dare (+)</span><span style="color:var(--success)">€ ${s.in.toFixed(2)}</span></div>
-                        <div class="flex-between" style="font-size:0.85rem; margin-bottom:10px;"><span>Avere (-)</span><span style="color:var(--accent)">€ ${s.out.toFixed(2)}</span></div>
+                        <div class="flex-between" style="font-size:0.85rem; margin-bottom:5px;"><span style="color:var(--success);">Avere</span><span style="color:var(--success)">€ ${s.in.toFixed(2)}</span></div>
+                        <div class="flex-between" style="font-size:0.85rem; margin-bottom:10px;"><span style="color:var(--accent);">Dare</span><span style="color:var(--accent)">€ ${s.out.toFixed(2)}</span></div>
                         <div class="flex-between" style="border-top:1px solid #334155; padding-top:10px; font-weight:bold; font-size:1rem;"><span>Saldo</span><span style="color:${r >= 0 ? 'var(--info)' : 'var(--accent)'}">€ ${r.toFixed(2)}</span></div>
                     </div>`;
                 });
