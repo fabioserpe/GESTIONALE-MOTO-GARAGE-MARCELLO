@@ -2204,19 +2204,21 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
             if($('ledger-tot-in')) $('ledger-tot-in').innerText = "€ " + ti.toFixed(2); 
             if($('ledger-tot-out')) $('ledger-tot-out').innerText = "€ " + to.toFixed(2);
-            const bal = ti - to; 
-            if($('ledger-balance')) { $('ledger-balance').innerText = "€ " + bal.toFixed(2); $('ledger-balance').style.color = bal >= 0 ? 'var(--info)' : 'var(--accent)'; }
+            const bal = to - ti;
+            if($('ledger-balance')) { $('ledger-balance').innerText = "€ " + bal.toFixed(2); $('ledger-balance').style.color = bal <= 0 ? 'var(--info)' : 'var(--accent)'; }
             
             const sg = $('collab-summary-grid');
             if(sg) {
                 sg.innerHTML = '';
                 Object.keys(cStats).sort().forEach(n => {
-                    const s = cStats[n], r = s.in - s.out, safeN = safeEncode(n);
+                    const s = cStats[n], r = s.out - s.in, safeN = safeEncode(n);
+                    const rColor = r <= 0 ? 'var(--success)' : 'var(--accent)';
+                    const rLabel = r <= 0 ? (r < 0 ? 'ci devono' : 'in pari') : 'dobbiamo';
                     sg.innerHTML += `<div class="card card-clickable" style="padding:15px; border-top: 4px solid var(--purple); margin:0;" onclick="openCollabDetail('${safeN}')">
                         <div style="font-weight:bold; color:white; margin-bottom:10px; font-size:1.1rem; text-transform:uppercase;">${n}</div>
                         <div class="flex-between" style="font-size:0.85rem; margin-bottom:5px;"><span style="color:var(--success);">Avere</span><span style="color:var(--success)">€ ${s.in.toFixed(2)}</span></div>
                         <div class="flex-between" style="font-size:0.85rem; margin-bottom:10px;"><span style="color:var(--accent);">Dare</span><span style="color:var(--accent)">€ ${s.out.toFixed(2)}</span></div>
-                        <div class="flex-between" style="border-top:1px solid #334155; padding-top:10px; font-weight:bold; font-size:1rem;"><span>Saldo</span><span style="color:${r >= 0 ? 'var(--info)' : 'var(--accent)'}">€ ${r.toFixed(2)}</span></div>
+                        <div class="flex-between" style="border-top:1px solid #334155; padding-top:10px; font-weight:bold; font-size:1rem;"><span>Saldo <span style="font-size:0.7rem; font-weight:400; color:var(--muted);">(${rLabel})</span></span><span style="color:${rColor}">€ ${Math.abs(r).toFixed(2)}</span></div>
                     </div>`;
                 });
             }
@@ -2264,7 +2266,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if(mobList) mobList.innerHTML = `<div style="text-align:center; padding:30px; color:var(--muted);">Nessun movimento registrato.</div>`;
             }
             $('mc-in').innerText = "€ " + ti.toFixed(2); $('mc-out').innerText = "€ " + to.toFixed(2);
-            const bal = ti - to; $('mc-bal').innerText = "€ " + bal.toFixed(2); $('mc-bal').style.color = bal >= 0 ? 'var(--info)' : 'var(--accent)';
+            const bal = to - ti; $('mc-bal').innerText = (bal <= 0 ? '+ ' : '− ') + "€ " + Math.abs(bal).toFixed(2); $('mc-bal').style.color = bal <= 0 ? 'var(--success)' : 'var(--accent)';
             $('btn-print-collab').onclick = () => printCollabLedger(encName);
             $('modal-collab').classList.remove('hidden');
         }
@@ -3967,7 +3969,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 return `<tr><td style="padding:8px; border-bottom:1px solid #ccc;">${formattaData(m.data)}</td><td style="padding:8px; border-bottom:1px solid #ccc;">[${(m.cat||'OFF').toUpperCase()}]</td><td style="padding:8px; border-bottom:1px solid #ccc;">${m.qta>1?m.qta+'x ':''}${m.desc}</td><td style="padding:8px; border-bottom:1px solid #ccc; text-align:right; color:green;">${m.tipo==='in'?'+ '+pt:''}</td><td style="padding:8px; border-bottom:1px solid #ccc; text-align:right; color:red;">${m.tipo==='out'?'- '+pt:''}</td></tr>`;
             }).join('');
             
-            const bal = ti - to, bC = bal >= 0 ? 'black' : 'red';
+            const bal = to - ti, bC = bal <= 0 ? 'black' : 'red';
             
             $('print-area').innerHTML = renderPrintHeader(`ESTRATTO CONTO: ${name.toUpperCase()}`, formattaData(getOggiLocale())) + `<div class="p-grid" style="grid-template-columns: 1fr 1fr 1fr;"><div class="p-box"><h4 style="margin:0; color:#555;">Totale Entrate (+)</h4><p style="font-size:1.3rem; color:green; margin-top:5px;"><b>€ ${ti.toFixed(2)}</b></p></div><div class="p-box"><h4 style="margin:0; color:#555;">Totale Uscite (-)</h4><p style="font-size:1.3rem; color:red; margin-top:5px;"><b>€ ${to.toFixed(2)}</b></p></div><div class="p-box" style="background:#f4f4f5;"><h4 style="margin:0; color:#555;">Saldo</h4><p style="font-size:1.3rem; color:${bC}; margin-top:5px;"><b>€ ${bal.toFixed(2)}</b></p></div></div><h3 style="margin-top:20px; margin-bottom:10px;">Dettaglio Movimenti</h3><table class="p-table" style="border:none;"><thead><tr style="border-bottom:2px solid black;"><th style="width:100px; border:none; background:none!important;">Data</th><th style="border:none; background:none!important;">Cat.</th><th style="border:none; background:none!important;">Descrizione</th><th style="text-align:right; width:120px; border:none; background:none!important;">Entrate</th><th style="text-align:right; width:120px; border:none; background:none!important;">Uscite</th></tr></thead><tbody>${rows||'<tr><td colspan="5" style="text-align:center;">Nessun movimento.</td></tr>'}</tbody></table><div style="text-align:center; margin-top:40px; font-size:9pt; color:#666;">Documento generato da Moto Garage Marcello</div>`; setTimeout(() => window.print(), 100);
         }
