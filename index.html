@@ -553,10 +553,14 @@
                     <label>Data di Riferimento</label>
                     <input type="date" id="f_data" onchange="refreshMiniAgenda()">
                     
-                    <div class="flex-row">
-                        <input id="f_nome" placeholder="Nome"> 
-                        <input id="f_cognome" placeholder="Cognome (Obbligatorio)" onblur="checkCustomerBikes('f')">
+                    <div style="position:relative;">
+                        <div class="flex-row">
+                            <input id="f_nome" placeholder="Nome" oninput="cercaClienteNuova()">
+                            <input id="f_cognome" placeholder="Cognome (Obbligatorio)" oninput="cercaClienteNuova()" onblur="setTimeout(()=>{const r=document.getElementById('nuova-cliente-results');if(r)r.style.display='none';},200)">
+                        </div>
+                        <div id="nuova-cliente-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--warning);border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;z-index:200;box-shadow:0 6px 24px rgba(0,0,0,0.5);"></div>
                     </div>
+                    <div id="nuova-cliente-info" style="display:none; margin-bottom:10px;"></div>
                     <input id="f_tel" placeholder="Telefono Cliente">
                     <div class="flex-row"><input id="f_marca" placeholder="Marca"> <input id="f_modello" placeholder="Modello"></div>
                     <div class="flex-row">
@@ -1710,7 +1714,7 @@
             if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze();
         }
 
-        function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); refreshMiniAgenda(); }
+        function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; refreshMiniAgenda(); }
         
         function refreshMiniAgenda() {
             const container = $('mini-agenda-grid');
@@ -1773,8 +1777,86 @@
                 dlApp.innerHTML = opts.join('');
             }
         }
+        function cercaClienteNuova() {
+            const cEl = $('f_cognome'), nEl = $('f_nome');
+            const res = $('nuova-cliente-results');
+            if (!res) return;
+            const q = (cEl?.value || '').trim();
+            if (q.length < 2) { res.style.display = 'none'; return; }
+
+            // Raggruppa per targa (veicolo unico = cliente unico)
+            const clientiMap = {};
+            db.forEach(j => {
+                if (j.stato === 'preventivo') return;
+                const key = j.targa ? j.targa : `NO_TARGA_${(j.cognome||'').toUpperCase()}_${(j.nome||'').toUpperCase()}`;
+                if (!clientiMap[key]) clientiMap[key] = { ...j, nLavori: 0 };
+                clientiMap[key].nLavori++;
+            });
+
+            const qU = q.toUpperCase();
+            const nQ = (nEl?.value || '').trim().toUpperCase();
+            const matches = Object.values(clientiMap)
+                .filter(j => { const cog = (j.cognome || '').toUpperCase(); return cog.startsWith(qU) || cog.includes(qU); })
+                .sort((a, b) => b.nLavori - a.nLavori)
+                .slice(0, 6);
+
+            if (!matches.length) { res.style.display = 'none'; return; }
+
+            res.style.display = 'block';
+            res.innerHTML = '<div style="font-size:0.72rem;color:var(--warning);padding:6px 12px;border-bottom:1px solid #334155;font-weight:bold;letter-spacing:0.3px;">⚡ Già in anagrafica — clicca per compilare in automatico</div>' +
+                matches.map(j => {
+                    const nomeCompl = `${j.cognome || ''} ${j.nome || ''}`.trim();
+                    const moto = `${j.marca || ''} ${j.modello || ''}`.trim();
+                    const isExact = (j.cognome || '').toUpperCase().trim() === qU && (!nQ || (j.nome || '').toUpperCase().trim() === nQ);
+                    const hlStyle = isExact ? 'border-left:3px solid var(--warning);' : 'border-left:3px solid transparent;';
+                    const d = JSON.stringify({ targa: j.targa||'', nome: j.nome||'', cognome: j.cognome||'', tel: j.tel||'', marca: j.marca||'', modello: j.modello||'', km: j.km||'' }).replace(/"/g, '&quot;');
+                    return `<div onmousedown="selezionaClienteNuova(${d})"
+                        style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);${hlStyle}"
+                        onmouseover="this.style.background='rgba(245,158,11,0.12)'"
+                        onmouseout="this.style.background=''">
+                        <div>
+                            <span style="font-weight:bold;color:white;">${nomeCompl}</span>
+                            ${j.targa ? `<span style="color:var(--info);font-family:monospace;font-size:0.85rem;margin-left:8px;">${j.targa}</span>` : ''}
+                            ${isExact ? '<span style="color:var(--warning);font-size:0.68rem;margin-left:6px;font-weight:bold;">⚠️ STESSO NOME</span>' : ''}
+                        </div>
+                        <div style="font-size:0.75rem;color:var(--muted);">${moto}${j.tel ? ' · 📞' + j.tel : ''}${j.nLavori > 0 ? ' · ' + j.nLavori + ' lavori' : ''}</div>
+                    </div>`;
+                }).join('');
+        }
+
+        function selezionaClienteNuova(data) {
+            if (typeof data === 'string') data = JSON.parse(data);
+            if ($('f_nome')) $('f_nome').value = data.nome || '';
+            if ($('f_cognome')) $('f_cognome').value = data.cognome || '';
+            if ($('f_tel')) $('f_tel').value = data.tel || '';
+            if ($('f_targa')) $('f_targa').value = data.targa || '';
+            if ($('f_marca')) $('f_marca').value = data.marca || '';
+            if ($('f_modello')) $('f_modello').value = data.modello || '';
+            if ($('f_km')) $('f_km').value = data.km || '';
+            const res = $('nuova-cliente-results');
+            if (res) res.style.display = 'none';
+            if (data.targa) mostraInfoClienteNuova(data.targa);
+        }
+
+        function mostraInfoClienteNuova(targa) {
+            const el = $('nuova-cliente-info');
+            if (!el || !targa) return;
+            const lavori = db.filter(j => j.targa === targa && j.stato !== 'preventivo');
+            if (!lavori.length) { el.style.display = 'none'; return; }
+            lavori.sort((a, b) => new Date(b.data) - new Date(a.data));
+            const n = lavori.length;
+            const last = lavori[0];
+            const parts = (last.data || '').split('-');
+            const dataF = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : '';
+            el.style.display = 'block';
+            el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:8px;padding:8px 14px;font-size:0.82rem;color:var(--success);">
+                <span>✅ Cliente già presente: <b>${n} lavori</b> precedenti${dataF ? ' · Ultimo: <b>' + dataF + '</b>' : ''}</span>
+                <button onclick="document.getElementById('nuova-cliente-info').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:0 4px;line-height:1;">×</button>
+            </div>`;
+        }
+
         function checkCustomerBikes(prefix) { const cEl = $(prefix + '_cognome'), nEl = $(prefix + '_nome'), tEl = $(prefix + '_targa'); if (!cEl || !nEl || !tEl) return; const c = cEl.value.toUpperCase().trim(), n = nEl.value.toUpperCase().trim(); if (!c || tEl.value) return; const rec = db.filter(j => (j.cognome||'').toUpperCase().trim() === c && (j.nome||'').toUpperCase().trim() === n); const uP = [...new Set(rec.map(j => j.targa).filter(Boolean))]; if (uP.length === 1) { tEl.value = uP[0]; if(prefix === 'app') autoFillAgenda(); else if(prefix === 'm_app') autoFillAgenda('m'); else autoFillForm(prefix); } else if (uP.length > 1) { tEl.placeholder = "⚠️ MULTIPLI VEICOLI: SELEZIONA TARGA"; tEl.style.borderColor = "var(--warning)"; } }
-        function autoFillForm(p) { const tEl = $(p + '_targa'); if (!tEl) return; const tInput = tEl.value.toUpperCase().trim(); if (!tInput) return; const c = db.filter(j => j.targa === tInput).pop(); if(c) { if($(p+'_nome')) $(p+'_nome').value = c.nome||''; if($(p+'_cognome')) $(p+'_cognome').value = c.cognome||''; if($(p+'_tel')) $(p+'_tel').value = c.tel||''; if($(p+'_marca')) $(p+'_marca').value = c.marca||''; if($(p+'_modello')) $(p+'_modello').value = c.modello||''; if($(p+'_km')) $(p+'_km').value = c.km||''; } }
+        function autoFillForm(p) { const tEl = $(p + '_targa'); if (!tEl) return; const tInput = tEl.value.toUpperCase().trim(); if (!tInput) return; const c = db.filter(j => j.targa === tInput).pop(); if(c) { if($(p+'_nome')) $(p+'_nome').value = c.nome||''; if($(p+'_cognome')) $(p+'_cognome').value = c.cognome||''; if($(p+'_tel')) $(p+'_tel').value = c.tel||''; if($(p+'_marca')) $(p+'_marca').value = c.marca||''; if($(p+'_modello')) $(p+'_modello').value = c.modello||''; if($(p+'_km')) $(p+'_km').value = c.km||''; if(p === 'f') mostraInfoClienteNuova(tInput); } }
         function cercaClienteAgenda(q) {
             const res = $('app_search_results'); if (!res) return;
             const query = q.toUpperCase().trim();
