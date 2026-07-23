@@ -643,6 +643,12 @@
                         </div>
                     </div>
 
+                    <div id="app-acconti-section" class="mt-15">
+                        <label style="color:var(--info);">Acconti Ricevuti (€)</label>
+                        <div id="app-acconti-container"></div>
+                        <button class="btn btn-outline-info mb-15" onclick="addAcconto('app-acconti-container', 'app_acc_val', 'app_acc_date', null, '', '', true)">+ Aggiungi acconto</button>
+                    </div>
+
                     <label class="mt-15">Note / Dettagli</label>
                     <textarea id="app_note" rows="3" placeholder="Note appuntamento..."></textarea>
 
@@ -3129,17 +3135,20 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (appNome) appNome.classList.add('hidden');
                 if (lblCliente) lblCliente.innerText = "Oggetto Scadenza / Pagamento";
                 if ($(p+'_cognome')) $(p+'_cognome').placeholder = "Inserisci l'oggetto...";
+                const accSec = $('app-acconti-section'); if (accSec) accSec.style.display = 'none';
             } else {
                 if (rowMoto) rowMoto.classList.remove('hidden');
                 if (appNome) appNome.classList.remove('hidden');
                 if (lblCliente) lblCliente.innerText = "Nominativo Cliente";
                 if ($(p+'_cognome')) $(p+'_cognome').placeholder = "Cognome (Obbligatorio)";
+                const accSec = $('app-acconti-section'); if (accSec) accSec.style.display = 'block';
             }
         }
         function apriModalApp(dataPreimpostata) {
             $('app_id').value = ''; $('app_job_id').value = ''; $('app_tipo').value = 'officina';
             $('app_data').value = dataPreimpostata || getOggiLocale(); $('app_ora').value = '09:00';
             $('app_nome').value = ''; $('app_cognome').value = ''; $('app_marca').value = ''; $('app_modello').value = ''; $('app_targa').value = ''; $('app_tel').value = ''; $('app_note').value = ''; if($('app_km')) $('app_km').value = '';
+            if($('app-acconti-container')) $('app-acconti-container').innerHTML = '';
             if($('app-form-title')) $('app-form-title').innerText = '📅 Nuovo Appuntamento';
             toggleAppFields();
             refreshMiniAppAgenda();
@@ -3172,9 +3181,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             
             if(!app.data || !cognome) return alert("Data e Cognome/Oggetto sono obbligatori!"); 
             
-            if(tipoVal === 'officina' && !jobIdVal) { 
-                const nJobId = Date.now() + 1; 
-                db.push({ id: nJobId, data: app.data, nome: nome, cognome: cognome, tel: tel, marca: marca, modello: modello, targa: targa, km: kmVal || "", acconti: [], lavori_richiesti: note, stato: 'todo', conto: [], totale_lordo: 0 }); 
+            if(tipoVal === 'officina' && !jobIdVal) {
+                const nJobId = Date.now() + 1;
+                const accontiApp = !isModal ? extractList('#app-acconti-container .acc-row', '.app_acc_val', '.app_acc_date', true) : [];
+                db.push({ id: nJobId, data: app.data, nome: nome, cognome: cognome, tel: tel, marca: marca, modello: modello, targa: targa, km: kmVal || "", acconti: accontiApp, lavori_richiesti: note, stato: 'todo', conto: [], totale_lordo: 0 });
                 app.jobId = nJobId; 
             } else if(app.jobId) { 
                 const iJ = db.findIndex(x => String(x.id) === String(app.jobId)); 
