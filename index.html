@@ -1582,6 +1582,19 @@
             setTimeout(() => { if(toast) toast.remove(); }, 2500);
         }
 
+        function mostraToast(msg, bg) {
+            const existing = document.querySelector('.toast-msg');
+            if (existing) existing.remove();
+            const t = document.createElement('div');
+            t.className = 'toast-msg';
+            t.textContent = msg;
+            t.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);background:${bg||'#22c55e'};color:white;padding:12px 24px;border-radius:10px;box-shadow:0 10px 25px rgba(0,0,0,0.5);z-index:10001;font-weight:bold;font-size:0.95rem;transition:opacity 0.4s ease-out;max-width:90vw;text-align:center;`;
+            document.body.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; }, 2500);
+            setTimeout(() => { t.remove(); }, 3000);
+        }
+        function mostraErrore(msg) { mostraToast(msg, '#ef4444'); }
+
         function initConnectionMonitor() {
             if (window._connMonitorInit) return;
             window._connMonitorInit = true;
@@ -1648,7 +1661,7 @@
         // =====================================================================
         // SALVATAGGI GRANULARI — scrive solo la collezione modificata
         // =====================================================================
-        const _onSaveError = (e) => alert("\u26a0\ufe0f Errore salvataggio Cloud: " + e.message);
+        const _onSaveError = (e) => mostraErrore("\u26a0\ufe0f Errore salvataggio Cloud: " + e.message);
 
         function saveDB()       { database.ref('/').update({ db }).then(showCloudCheck).catch(_onSaveError); updateDatalist(); }
         function saveAgenda()   { database.ref('/').update({ agenda: agendaDB }).then(showCloudCheck).catch(_onSaveError); }
@@ -2043,7 +2056,7 @@
                 a.download = `MGM_Backup_CLOUD_${getOggiLocale()}.json`;
                 document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 try { localStorage.setItem('mgLastBackup', Date.now().toString()); } catch(e) {}
-            } catch (e) { alert("Errore Export: " + e.message); }
+            } catch (e) { mostraErrore("Errore Export: " + e.message); }
         }
         function importData(e) { 
             const f = e.target.files[0]; if (!f) return; 
@@ -2067,34 +2080,33 @@
                                 for (const item of d.magazzino) {
                                     try { await magSave(item.codice, item); count++; } catch(err) {}
                                 }
-                                alert(`Magazzino ripristinato: ${count} articoli importati!`);
-                                await magRefreshData();
+                                mostraToast(`Magazzino ripristinato: ${count} articoli importati!`);
                             }
                         }
                     } 
                     saveAll(); 
-                } catch(err) { alert("File corrotto."); } 
+                } catch(err) { mostraErrore("File corrotto."); } 
                 finally { e.target.value = ''; } 
             }; 
             r.readAsText(f); 
         }
-        function exportExcel() { if (!db || db.length === 0) return alert("Nessun dato."); let c = "Targa;Cognome;Nome;Telefono;Marca;Modello\n"; const t = [...new Set(db.map(j => j.targa).filter(Boolean))]; t.forEach(tg => { const s = db.filter(j => j.targa === tg && j.stato !== 'preventivo'); if(s.length === 0) return; const u = s[s.length - 1]; c += `${String(u.targa||'').replace(/;/g, ',')};${String(u.cognome||'').replace(/;/g, ',')};${String(u.nome||'').replace(/;/g, ',')};${String(u.tel||'').replace(/;/g, ',')};${String(u.marca||'').replace(/;/g, ',')};${String(u.modello||'').replace(/;/g, ',')}\n`; }); const b = new Blob(["\uFEFF" + c], { type: 'text/csv;charset=utf-8;' }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `MGM_Clienti.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+        function exportExcel() { if (!db || db.length === 0) return mostraErrore("Nessun dato."); let c = "Targa;Cognome;Nome;Telefono;Marca;Modello\n"; const t = [...new Set(db.map(j => j.targa).filter(Boolean))]; t.forEach(tg => { const s = db.filter(j => j.targa === tg && j.stato !== 'preventivo'); if(s.length === 0) return; const u = s[s.length - 1]; c += `${String(u.targa||'').replace(/;/g, ',')};${String(u.cognome||'').replace(/;/g, ',')};${String(u.nome||'').replace(/;/g, ',')};${String(u.tel||'').replace(/;/g, ',')};${String(u.marca||'').replace(/;/g, ',')};${String(u.modello||'').replace(/;/g, ',')}\n`; }); const b = new Blob(["\uFEFF" + c], { type: 'text/csv;charset=utf-8;' }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `MGM_Clienti.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
         function sendWhatsApp(id) {
             const j = db.find(x => String(x.id) === String(id));
             if (!j) return;
             let t = formatPhoneForWa(j.tel);
-            if(!t) return alert("Nessun numero salvato!");
+            if(!t) return mostraErrore("Nessun numero salvato!");
             const nome = (j.nome || '').trim() || (j.cognome || '').trim() || 'cliente';
             const txt = `Ciao ${nome} 👋, ti confermiamo che la tua *${j.marca||'moto'}* è pronta per il ritiro presso Moto Garage Marcello. 🏍️ Per qualsiasi informazione chiamaci al ${MGM_INFO.tel}. A presto!`;
             window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank');
         }
-        function sendWhatsAppPreventivo(id) { const p = db.find(x => String(x.id) === String(id)); if(!p) return; let t = formatPhoneForWa(p.tel); if(!t) return alert("Nessun numero salvato!"); let v = (p.conto || []).map(c => `▪️ ${c.desc}: €${parseFloat(c.price).toFixed(2)}`).join('\n'); let txt = `Ciao ${(p.nome||'').trim()},\necco il preventivo per la tua ${p.marca||''} ${p.modello||''} (${p.targa||''}):\n\n${v}\n\n*TOTALE: €${(parseFloat(p.totale_lordo)||0).toFixed(2)}*\n\nFammi sapere! 🏍️\n- ${MGM_INFO.nome}`; window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank'); }
-        function sendWhatsAppArchiveCognome(enc) { const k = safeDecode(enc); const js = getJobsByClient(k); if(js.length === 0) return; const u = js[js.length-1]; let t = formatPhoneForWa(u.tel); if(!t) return alert("Nessun numero salvato!"); window.open(`https://wa.me/${t}`, '_blank'); }
+        function sendWhatsAppPreventivo(id) { const p = db.find(x => String(x.id) === String(id)); if(!p) return; let t = formatPhoneForWa(p.tel); if(!t) return mostraErrore("Nessun numero salvato!"); let v = (p.conto || []).map(c => `▪️ ${c.desc}: €${parseFloat(c.price).toFixed(2)}`).join('\n'); let txt = `Ciao ${(p.nome||'').trim()},\necco il preventivo per la tua ${p.marca||''} ${p.modello||''} (${p.targa||''}):\n\n${v}\n\n*TOTALE: €${(parseFloat(p.totale_lordo)||0).toFixed(2)}*\n\nFammi sapere! 🏍️\n- ${MGM_INFO.nome}`; window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank'); }
+        function sendWhatsAppArchiveCognome(enc) { const k = safeDecode(enc); const js = getJobsByClient(k); if(js.length === 0) return; const u = js[js.length-1]; let t = formatPhoneForWa(u.tel); if(!t) return mostraErrore("Nessun numero salvato!"); const nome = (u.nome||k).trim(); const moto = [u.marca, u.modello, u.targa].filter(Boolean).join(' '); const txt = `Ciao ${nome} 👋, la tua *${moto||'moto'}* è pronta per il ritiro presso Moto Garage Marcello. 🏍️\nPer info chiamaci al ${MGM_INFO.tel}. A presto!`; window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank'); }
 
         // =====================================================================
         // 6. RUBRICA E ORDINI
         // =====================================================================
-        function saveContatto() { const id = $('rub_edit_id').value, n = $('rub_nome').value.trim(), t1 = $('rub_tel').value.trim(), t2 = $('rub_tel2').value.trim(); if(!n || !t1) return alert("Nome e Telefono Principale obbligatori!"); if(id) { const i = rubricaDB.findIndex(x => String(x.id) === String(id)); if(i > -1) { rubricaDB[i].nome = n.toUpperCase(); rubricaDB[i].tel = t1; rubricaDB[i].tel2 = t2; } } else { rubricaDB.push({ id: Date.now(), nome: n.toUpperCase(), tel: t1, tel2: t2 }); } cancelEditContatto(); saveRubrica(); }
+        function saveContatto() { const id = $('rub_edit_id').value, n = $('rub_nome').value.trim(), t1 = $('rub_tel').value.trim(), t2 = $('rub_tel2').value.trim(); if(!n || !t1) return mostraErrore("Nome e Telefono Principale obbligatori!"); if(id) { const i = rubricaDB.findIndex(x => String(x.id) === String(id)); if(i > -1) { rubricaDB[i].nome = n.toUpperCase(); rubricaDB[i].tel = t1; rubricaDB[i].tel2 = t2; } } else { rubricaDB.push({ id: Date.now(), nome: n.toUpperCase(), tel: t1, tel2: t2 }); } cancelEditContatto(); saveRubrica(); }
         function editContatto(id) { const c = rubricaDB.find(x => String(x.id) === String(id)); if(!c) return; $('rub_edit_id').value = c.id; $('rub_nome').value = c.nome; $('rub_tel').value = c.tel; $('rub_tel2').value = c.tel2 || ''; $('btn-save-rubrica').className = "btn btn-warning w-auto"; $('btn-save-rubrica').innerHTML = "💾 Salva"; $('btn-cancel-rubrica').classList.remove('hidden'); }
         function cancelEditContatto() { $('rub_edit_id').value = ''; $('rub_nome').value = ''; $('rub_tel').value = ''; $('rub_tel2').value = ''; $('btn-save-rubrica').className = "btn btn-success w-auto"; $('btn-save-rubrica').innerHTML = "➕ Aggiungi"; $('btn-cancel-rubrica').classList.add('hidden'); }
         function deleteContatto(id) { if(confirm("Eliminare contatto?")) { rubricaDB = rubricaDB.filter(x => String(x.id) !== String(id)); saveRubrica(); } }
@@ -2102,7 +2114,7 @@
 
         function addOrdine() {
             const d = $('ord_desc').value.trim();
-            if (!d) return alert("Inserisci la descrizione del ricambio!");
+            if (!d) return mostraErrore("Inserisci la descrizione del ricambio!");
             const editId = $('ord_edit_id').value;
             const obj = {
                 desc:          d.toUpperCase(),
@@ -2210,7 +2222,7 @@
             const o = ordiniDB.find(x => String(x.id) === String(id));
             if (!o) return;
             const tel = formatPhoneForWa(o.tel_cliente);
-            if (!tel) return alert("Nessun numero telefono salvato per questo cliente!");
+            if (!tel) return mostraErrore("Nessun numero telefono salvato per questo cliente!");
             const nome = (o.cliente || 'cliente').trim();
             const txt = `Ciao ${nome} 👋, ti comunichiamo che il ricambio che aspettavi è arrivato:
 
@@ -2317,7 +2329,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         
         function openNewCollab() {
             const input = $('new_collab_name'); const name = input.value.trim().toUpperCase();
-            if(!name) return alert("Inserisci prima il nome del collaboratore nella barra di testo!");
+            if(!name) return mostraErrore("Inserisci prima il nome del collaboratore nella barra di testo!");
             input.value = ''; openCollabDetail(safeEncode(name));
         }
 
@@ -2325,7 +2337,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const d = $('ld_data').value, t = $('ld_tipo').value, c = $('ld_cat').value, ds = $('ld_desc').value.trim();
             const col = safeDecode(currentCollabView) || 'INTERNO'; 
             const i = parseFloat($('ld_importo').value) || 0, q = parseFloat($('ld_qta').value) || 1, e = $('ld_edit_id').value;
-            if(!d || !ds) return alert("Data e Descrizione obbligatori!");
+            if(!d || !ds) return mostraErrore("Data e Descrizione obbligatori!");
             if(e) { const idx = ledgerDB.findIndex(x => String(x.id) === String(e)); if(idx > -1) ledgerDB[idx] = { id: parseInt(e), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }; } 
             else { ledgerDB.push({ id: Date.now(), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }); }
             cancelLedgerEdit(); saveLedger();
@@ -2495,7 +2507,6 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (currentView === 'board') refreshBoard();
             if (currentView === 'specials') refreshSpecials();
         }
-        function revertJobToToday(encodedPlate) { const plate = safeDecode(encodedPlate); if(confirm(`Spostare in "Da Fare" per OGGI i lavori di ${plate}?`)) { let mod = false; const oggi = getOggiLocale(); db.filter(j => j.targa === plate && ['todo','doing'].includes(j.stato)).forEach(j => { j.stato = 'todo'; j.data = oggi; mod = true; const appIndex = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if(appIndex > -1) { agendaDB[appIndex].data = oggi; } else { agendaDB.push({ id: Date.now() + Math.floor(Math.random() * 1000), tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00', cliente: `${j.cognome||''} ${j.nome||''}`.trim(), moto: `${j.marca||''} ${j.modello||''} - ${j.targa||''}`.trim(), tel: j.tel || '', note: j.lavori_richiesti || '', raw_nome: j.nome || '', raw_cognome: j.cognome || '', raw_marca: j.marca || '', raw_modello: j.modello || '', raw_targa: j.targa || '' }); } }); if(mod) { saveDBAgenda(); alert("Lavoro riportato a OGGI!"); } } }
         function saveJob(stato) { 
             const idField = $('f_id').value; 
             const nowId = idField ? parseInt(idField) : Date.now(); 
@@ -2530,7 +2541,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 totale_lordo: oldTotale 
             }; 
             
-            if(!data.cognome) return alert("Il Cognome è obbligatorio!"); 
+            if(!data.cognome) return mostraErrore("Il Cognome è obbligatorio!"); 
             
             exIdx > -1 ? db[exIdx] = data : db.push(data); 
             
@@ -2864,15 +2875,22 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const db_ = b.stato === 'done' ? (b.data_chiusura || b.data || 0) : (b.data || 0);
                 return new Date(da) - new Date(db_);
             }).forEach(j => {
-                if(j.stato === 'todo' && j.data !== oggi && !query) return; 
-                
                 // Se c'è testo nella barra, nasconde le schede che non combaciano
                 if (query) {
                     const stringaRicerca = `${j.cognome||''} ${j.nome||''} ${j.targa||''} ${j.marca||''} ${j.modello||''} ${j.tel||''}`.toLowerCase();
                     const match = searchTerms.every(term => stringaRicerca.includes(term));
-                    if (!match) return; 
+                    if (!match) return;
                 }
-                
+
+                // Separatore visivo per i lavori programmati in futuro
+                if (!query && j.stato === 'todo' && j.data > oggi && !lists.todo.querySelector('.sep-programmati')) {
+                    const sep = document.createElement('div');
+                    sep.className = 'sep-programmati';
+                    sep.style.cssText = 'color:#60a5fa;font-size:0.72rem;font-weight:700;letter-spacing:0.06em;padding:8px 4px 2px;border-top:1px solid #334155;margin-top:6px;';
+                    sep.textContent = '📅 PROGRAMMATI';
+                    lists.todo.appendChild(sep);
+                }
+
                 c[j.stato]++; // Aggiorna il contatore solo per le schede trovate
                 const accTot = (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0);
                 const lordo = parseFloat(j.totale_lordo) || 0;
@@ -2995,7 +3013,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 saveDB();
                 refreshBoard();
                 if(typeof refreshArchive === 'function') refreshArchive();
-                alert("Commessa saldata e archiviata correttamente!");
+                mostraToast("Commessa saldata e archiviata correttamente!");
             }
         }
 
@@ -3251,7 +3269,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const kmVal = $(p+'_km') ? ($(p+'_km').value || '') : '';
             const app = { id: idVal ? parseInt(idVal) : Date.now(), tipo: tipoVal, jobId: (tipoVal === 'officina' && jobIdVal) ? parseInt(jobIdVal) : null, data: dataVal, ora: oraVal, cliente: clienteStr, moto: motoStr, tel: tel, note: note, km: kmVal, raw_nome: nome, raw_cognome: cognome, raw_marca: marca, raw_modello: modello, raw_targa: targa }; 
             
-            if(!app.data || !cognome) return alert("Data e Cognome/Oggetto sono obbligatori!"); 
+            if(!app.data || !cognome) return mostraErrore("Data e Cognome/Oggetto sono obbligatori!"); 
             
             if(tipoVal === 'officina' && !jobIdVal) {
                 const nJobId = Date.now() + 1;
@@ -3282,7 +3300,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function prenotaDaOfficina(id) { const existingApp = agendaDB.find(a => String(a.jobId) === String(id)); if (existingApp) { modificaApp(existingApp.id); return; } const j = db.find(x => String(x.id) === String(id)); if(!j) return; apriModalApp(); $('app_job_id').value = j.id; $('app_tipo').value = 'officina'; toggleAppFields(); $('app_nome').value = j.nome||''; $('app_cognome').value = j.cognome||''; $('app_marca').value = j.marca||''; $('app_modello').value = j.modello||''; $('app_targa').value = j.targa||''; $('app_tel').value = j.tel||''; $('app_note').value = `[Rif. Officina] ${j.lavori_richiesti||''}`.trim(); const d = new Date(); d.setDate(d.getDate() + 1); $('app_data').value = formatDateISO(d); refreshMiniAppAgenda(); }
         function passaAlPonteDaAgenda(id, targetState = 'doing') { 
             const a = agendaDB.find(x => String(x.id) === String(id)); if (!a) return; 
-            const cg = a.raw_cognome || a.cliente || ''; if (!cg) return alert("Errore: Il cognome/cliente è necessario."); 
+            const cg = a.raw_cognome || a.cliente || ''; if (!cg) return mostraErrore("Errore: Il cognome/cliente è necessario."); 
             const nm = a.raw_nome || '', tg = a.raw_targa || (a.moto ? a.moto.split('-').pop().trim() : ''), mc = a.raw_marca || '', md = a.raw_modello || '', jI = a.jobId, jX = jI ? db.findIndex(x => String(x.id) === String(jI)) : -1; 
             
             saveSnapshot(); 
@@ -3593,7 +3611,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function openPreventivoForm(id = null) { isEditing = !!id; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal,c.desc,c.price)):addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); } calcPrevTotal(); }
         function newPreventivoFromArchiveCognome(encodedChiave) { const chiave = safeDecode(encodedChiave); const jobs = getJobsByClient(chiave); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); calcPrevTotal(); setTimeout(() => checkCustomerBikes('p'), 100); }
         function calcPrevTotal() { $('p-totale').innerText = `TOTALE: ${extractList('#p-conto-rows tr', '.p-desc', '.p-price', false).reduce((a,b)=>a+b.price,0).toFixed(2)} €`; }
-        function savePreventivo(inviaWA = false, comeCommessa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : Date.now(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = extractList('#p-conto-rows tr', '.p-desc', '.p-price', false); const data = { id: nowId, data: getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: [], lavori_richiesti: 'Vedi voci preventivo', stato: comeCommessa ? 'todo' : 'preventivo', conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0) }; if(!data.cognome) return alert("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return alert("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa) { agendaDB.push({ id: Date.now() + Math.floor(Math.random() * 1000), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(comeCommessa) switchView('board'); else switchView('preventivi'); }
+        function savePreventivo(inviaWA = false, comeCommessa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : Date.now(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = extractList('#p-conto-rows tr', '.p-desc', '.p-price', false); const data = { id: nowId, data: getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: [], lavori_richiesti: 'Vedi voci preventivo', stato: comeCommessa ? 'todo' : 'preventivo', conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0) }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa) { agendaDB.push({ id: Date.now() + Math.floor(Math.random() * 1000), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(comeCommessa) switchView('board'); else switchView('preventivi'); }
         function refreshPreventivi() { const c = $('preventivi-results'); if (!c) return; c.innerHTML = ''; const pvs = db.filter(j => j.stato === 'preventivo').sort((a,b) => new Date(b.data) - new Date(a.data)); if(pvs.length === 0) { c.innerHTML = `<p style="color:var(--muted)">Nessun preventivo.</p>`; return; } pvs.forEach(p => { c.innerHTML += `<div class="card" style="border-left:8px solid var(--purple)"><div class="flex-between"><b style="font-size:1.1rem;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</b><span class="targa-badge" style="background:var(--purple); border:none;">${p.targa||'NO TARGA'}</span></div><p style="color:var(--muted); margin: 5px 0;">🏍️ ${p.marca||''} ${p.modello||''}</p><h2 style="color:white; margin: 10px 0;">€ ${(p.totale_lordo||0).toFixed(2)}</h2><button class="btn btn-success mb-15" onclick="accettaPreventivo(${p.id})">✅ Accetta (Invia Officina)</button><div class="flex-row mb-15"><button class="btn btn-wa" onclick="sendWhatsAppPreventivo(${p.id})">📲 Invia WA</button><button class="btn btn-dark" onclick="openPreventivoForm(${p.id})">✏️ Modifica</button></div><div class="flex-row"><button class="btn btn-dark" onclick="printPreventivo(${p.id})">🖨️ Stampa</button><button class="btn btn-dark" style="color:var(--accent);" onclick="deleteJob(${p.id})">🗑️ Elimina</button></div></div>`; }); }
         function accettaPreventivo(id) { if(confirm("Convertire in lavoro (In Attesa)?")) { const j = db.find(x=>String(x.id)===String(id)); if(j) { j.stato='todo'; j.data=getOggiLocale(); const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if (appIdx === -1) { agendaDB.push({ id: Date.now() + Math.floor(Math.random() * 1000), tipo: 'officina', jobId: j.id, data: j.data, ora: '09:00', cliente: `${j.cognome||''} ${j.nome||''}`.trim(), moto: `${j.marca||''} ${j.modello||''} - ${j.targa||''}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } saveDBAgenda(); } } }
 
@@ -3729,7 +3747,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         
         function saveClienteGlobale() { 
             const oC = $('edit_old_chiave').value, nCognome = $('edit_cognome').value.toUpperCase().trim(), nNome = $('edit_nome').value.toUpperCase().trim(), nTel = $('edit_tel').value.trim();
-            if(!nCognome) return alert("Cognome obbligatorio!"); 
+            if(!nCognome) return mostraErrore("Cognome obbligatorio!"); 
             const vehiclesUpdates = [];
             document.querySelectorAll('.vehicle-edit-row').forEach(row => {
                 const newTarga = row.querySelector('.edit_v_targa').value.toUpperCase().trim();
@@ -3788,12 +3806,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (hasAnyBillingData) { billingDB[newKey] = billingData; } else { delete billingDB[newKey]; }
             saveBilling();
 
-            if (modified) { saveDBAgenda(); closeModal('modal-anagrafica'); alert("Dati aggiornati con successo!"); } else { saveBilling(); closeModal('modal-anagrafica'); alert("Dati fatturazione aggiornati!"); }
+            if (modified) { saveDBAgenda(); closeModal('modal-anagrafica'); mostraToast("Dati aggiornati con successo!"); } else { saveBilling(); closeModal('modal-anagrafica'); mostraToast("Dati fatturazione aggiornati!"); }
         }
 
-        function deleteCustomerCognome(encodedChiave) { const chiave = safeDecode(encodedChiave); if(confirm(`Eliminare definitivamente il cliente e TUTTI i suoi veicoli e lavori?`)) { db = db.filter(j => { const jC = `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim(); return jC !== chiave; }); agendaDB = agendaDB.filter(a => { const aC = (a.cliente||'').toUpperCase().trim(); return aC !== chiave; }); saveDBAgenda(); setTimeout(refreshArchive, 300); } }
+        function deleteCustomerCognome(encodedChiave) { const chiave = safeDecode(encodedChiave); if(confirm(`Eliminare definitivamente il cliente e TUTTI i suoi veicoli e lavori?`)) { if(typeof saveSnapshot === 'function') saveSnapshot(); db = db.filter(j => { const jC = `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim(); return jC !== chiave; }); agendaDB = agendaDB.filter(a => { const aC = (a.cliente||'').toUpperCase().trim(); return aC !== chiave; }); saveDBAgenda(); setTimeout(refreshArchive, 300); } }
         function saldaDebitoCliente(encodedChiave) { const chiave = safeDecode(encodedChiave); if(confirm(`Saldare l'intero debito per questo cliente?`)) { const oggi = getOggiLocale(); getJobsByClient(chiave).filter(j=>['done','archived'].includes(j.stato)).forEach(j=>{ const d = (parseFloat(j.totale_lordo)||0) - (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); if(d>0.01){ if(!j.acconti) j.acconti=[]; j.acconti.push({val:d, date:oggi}); } }); saveDB(); setTimeout(refreshArchive, 300); } }
-        function revertClientJobsToToday(encodedChiave) { const chiave = safeDecode(encodedChiave); if(confirm(`Spostare in "Da Fare" per OGGI tutti i lavori aperti? Verrà aggiornato anche il calendario.`)) { let modified = false; const oggi = getOggiLocale(); getJobsByClient(chiave).filter(j => ['todo','doing'].includes(j.stato)).forEach(j => { j.stato = 'todo'; j.data = oggi; modified = true; const appIndex = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if(appIndex > -1) { agendaDB[appIndex].data = oggi; } else { agendaDB.push({ id: Date.now() + Math.floor(Math.random()*1000), tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00', cliente: `${j.cognome} ${j.nome}`.trim(), moto: `${j.marca} ${j.modello} - ${j.targa}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } }); if(modified) { const todayObj = new Date(); todayObj.setHours(0,0,0,0); const gD = todayObj.getDay(); const diff = todayObj.getDate() - gD + (gD === 0 ? -6 : 1); dataInizioSettimana = new Date(todayObj.setDate(diff)); saveDBAgenda(); alert("Lavori spostati a OGGI!"); } } }
+        function revertClientJobsToToday(encodedChiave) { const chiave = safeDecode(encodedChiave); if(confirm(`Spostare in "Da Fare" per OGGI tutti i lavori aperti? Verrà aggiornato anche il calendario.`)) { let modified = false; const oggi = getOggiLocale(); getJobsByClient(chiave).filter(j => ['todo','doing'].includes(j.stato)).forEach(j => { j.stato = 'todo'; j.data = oggi; modified = true; const appIndex = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if(appIndex > -1) { agendaDB[appIndex].data = oggi; } else { agendaDB.push({ id: Date.now() + Math.floor(Math.random()*1000), tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00', cliente: `${j.cognome} ${j.nome}`.trim(), moto: `${j.marca} ${j.modello} - ${j.targa}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } }); if(modified) { const todayObj = new Date(); todayObj.setHours(0,0,0,0); const gD = todayObj.getDay(); const diff = todayObj.getDate() - gD + (gD === 0 ? -6 : 1); dataInizioSettimana = new Date(todayObj.setDate(diff)); saveDBAgenda(); mostraToast("Lavori spostati a OGGI!"); } } }
         function newJobFromArchiveCognome(encodedChiave) { const chiave = safeDecode(encodedChiave); const jobs = getJobsByClient(chiave); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if ($('acconti-container')) $('acconti-container').innerHTML=''; setTimeout(() => checkCustomerBikes('f'), 100); }
         function newVehicleFromArchiveCognome(encodedChiave) { const chiave = safeDecode(encodedChiave); const jobs = getJobsByClient(chiave); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if ($('acconti-container')) $('acconti-container').innerHTML=''; }
 
@@ -3886,7 +3904,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 saveDBAgenda();
                 closeModal('modal-storico');
                 switchView('board');
-                alert("Lavoro riaperto con successo!");
+                mostraToast("Lavoro riaperto con successo!");
             }
         }
 
@@ -4156,77 +4174,34 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         let magInvAperto = false;
 
         // ---- Realtime Database helpers (stesso DB dell'officina, nessuna quota giornaliera) ----
-        function magFetch() {
-            return database.ref('/magazzino').once('value').then(snap => {
-                const data = snap.val() || {};
-                return Object.values(data);
-            });
-        }
         function magSave(codice, obj) {
             return database.ref('/magazzino/' + codice).set(obj);
         }
         function magDelete(codice) {
             return database.ref('/magazzino/' + codice).remove();
         }
-        async function magRefreshData() {
-            const st = $('mag-cloud-status');
-            try {
-                inventarioMag = await magFetch();
-                if (st) { st.innerHTML = '🟢 Cloud'; st.style.color = '#4ade80'; st.title = ''; }
-                renderAllMag();
-            } catch(e) {
-                const msg = e.message || String(e);
-                if (st) { st.innerHTML = '🔴 Errore DB'; st.style.color = '#ef4444'; st.title = msg; }
-                const tbody = $('mag-inventory-table');
-                if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--accent);">
-                    ⚠️ Errore: <b>${msg}</b>
-                </td></tr>`;
-            }
-        }
-
-        async function migraMagazzinoFirestore() {
-            try {
-                const firestore = firebase.firestore();
-                const snap = await firestore.collection('inventario').get();
-                if (snap.empty) { alert("Nessun articolo trovato su Firestore."); return; }
-                
-                let count = 0;
-                const btn = $('btn-migra-mag');
-                if (btn) btn.disabled = true;
-                
-                for (const doc of snap.docs) {
-                    const d = doc.data();
-                    const art = {
-                        codice:    d.codice    || doc.id,
-                        nome:      d.nome      || d.descrizione || '',
-                        marca:     d.marca     || '',
-                        categoria: d.categoria || 'ALTRO',
-                        giacenza:  parseInt(d.giacenza) || 0,
-                        prezzo:    parseFloat(d.prezzo)  || 0
-                    };
-                    try { await magSave(art.codice, art); count++; } catch(e) {}
-                }
-                
-                alert(`✅ Migrazione completata! ${count} articoli importati da Firestore.`);
-                await magRefreshData();
-                if (btn) { btn.style.display = 'none'; }
-            } catch(e) {
-                alert("Errore migrazione: " + e.message);
-            }
-        }
+        function magRefreshData() { renderAllMag(); }
 
         function initMagazzino() {
             if (magInitDone) return;
             magInitDone = true;
 
-            magRefreshData(); // carica una volta sola all'apertura
+            // Listener real-time: aggiorna inventarioMag ad ogni modifica su Firebase
+            const st = $('mag-cloud-status');
+            database.ref('/magazzino').on('value', snap => {
+                inventarioMag = Object.values(snap.val() || {});
+                if (st) { st.innerHTML = '🟢 Cloud'; st.style.color = '#4ade80'; st.title = ''; }
+                renderAllMag();
+            }, e => {
+                if (st) { st.innerHTML = '🔴 Errore DB'; st.style.color = '#ef4444'; st.title = e.message || String(e); }
+            });
 
             // Form submit
             const form = $('mag-new-item-form');
             if (form) form.onsubmit = async function(e) {
                 e.preventDefault();
                 const cod = $('mag-new-codice').value.toUpperCase().trim();
-                if (inventarioMag.some(i => i.codice === cod)) return alert("SKU già presente!");
+                if (inventarioMag.some(i => i.codice === cod)) return mostraErrore("SKU già presente!");
                 const art = { codice: cod, nome: $('mag-new-nome').value.toUpperCase().trim(), marca: $('mag-new-marca').value.toUpperCase().trim(), categoria: $('mag-new-categoria').value, giacenza: parseInt($('mag-new-giacenza').value)||0, prezzo: parseFloat($('mag-new-prezzo').value)||0 };
                 try {
                     await magSave(cod, art);
@@ -4237,7 +4212,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     $('mag-new-codice').focus();
                     if (art.categoria) categorieAperteMag.add(art.categoria);
                     await magRefreshData();
-                } catch(err) { alert("Errore aggiunta: " + err.message); }
+                } catch(err) { mostraErrore("Errore aggiunta: " + err.message); }
             };
 
             // SKU duplicate check
@@ -4618,12 +4593,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
         async function eliminaArticoloMag(cod) {
             if (confirm(`Eliminare ${cod} definitivamente dal magazzino?`)) {
-                try { await magDelete(cod); await magRefreshData(); } catch(e) { alert("Errore: " + e.message); }
+                try { await magDelete(cod); } catch(e) { mostraErrore("Errore: " + e.message); }
             }
         }
 
         function esportaExcelMag() {
-            if (!inventarioMag.length) return alert("Magazzino vuoto!");
+            if (!inventarioMag.length) return mostraErrore("Magazzino vuoto!");
             let csv = "\uFEFFCODICE;DESCRIZIONE;MARCA;CATEGORIA;STOCK;PREZZO NETTO;PREZZO IVATO;TOTALE NETTO;TOTALE IVATO\n";
             [...inventarioMag].sort((a,b)=>(a.categoria||'').localeCompare(b.categoria||'')||(a.codice||'').localeCompare(b.codice||'')).forEach(i => {
                 const pI=i.prezzo*(1+MAG_IVA), tN=i.giacenza*i.prezzo, tI=tN*(1+MAG_IVA);
@@ -4642,12 +4617,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 try {
                     const parsed = JSON.parse(ev.target.result);
                     const data = Array.isArray(parsed) ? parsed : (parsed.inventario||[]);
-                    if (!data.length) return alert("File vuoto o formato non riconosciuto.");
+                    if (!data.length) return mostraErrore("File vuoto o formato non riconosciuto.");
                     let count=0;
                     for (const item of data) { try { await magSave(item.codice, item); count++; } catch(err) {} }
-                    alert(`${count} articoli importati!`);
-                    await magRefreshData();
-                } catch(err) { alert("File corrotto!"); }
+                    mostraToast(`${count} articoli importati!`);
+                } catch(err) { mostraErrore("File corrotto!"); }
                 e.target.value = '';
             };
             reader.readAsText(e.target.files[0]);
@@ -4801,9 +4775,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
             // Trova i dati del veicolo e del cliente
             const job = db.filter(j => j.targa === targa && j.stato !== 'preventivo').pop();
-            if (!job) return alert('Nessun cliente trovato per questa targa.');
+            if (!job) return mostraErrore('Nessun cliente trovato per questa targa.');
             const tel = formatPhoneForWa(job.tel);
-            if (!tel) return alert('Nessun numero di telefono salvato per questo cliente.');
+            if (!tel) return mostraErrore('Nessun numero di telefono salvato per questo cliente.');
 
             const tag = taggliandiDB[targa] || {};
             const nome = (job.nome || '').trim() || (job.cognome || '').trim() || 'cliente';
@@ -5023,7 +4997,7 @@ A presto!`;
                 : saltati > 0
                     ? `Tutti i ${saltati} veicoli con tagliando in storico hanno già una data futura impostata. Nessuna modifica.`
                     : `Nessun lavoro con la parola "Tagliando" o "Cambio olio" trovato nello storico.`;
-            alert(msg);
+            mostraToast(msg);
 
             if (currentView === 'tagliandi') refreshTagliandi();
         }
@@ -5169,43 +5143,6 @@ A presto!`;
         }
 
     
-        // =====================================================================
-        // PULIZIA ORFANI LAVORI LUNGHI
-        // =====================================================================
-        function pulisciOrfaniSpecials() {
-            // Legge il DB raw da Firebase per trovare gli indici esatti
-            database.ref('/db').once('value').then(snap => {
-                const raw = snap.val() || [];
-                const updates = {};
-                let count = 0;
-
-                raw.forEach((j, idx) => {
-                    if (j && j.stato !== 'special' && j.hasOwnProperty('special_cat')) {
-                        // Imposta null = cancella il campo su Firebase
-                        updates[idx + '/special_cat'] = null;
-                        count++;
-                    }
-                });
-
-                if (count === 0) {
-                    alert('Nessun orfano trovato — tutto in ordine!');
-                    return;
-                }
-
-                database.ref('/db').update(updates).then(() => {
-                    // Aggiorna anche la copia locale
-                    db.forEach(j => {
-                        if (j.stato !== 'special') delete j.special_cat;
-                    });
-                    refreshSpecials();
-                    const toast = document.createElement('div');
-                    toast.innerHTML = '🧹 Pulizia completata: ' + count + ' schede rimosse dai Lavori Lunghi';
-                    toast.style.cssText = 'position:fixed;bottom:80px;left:30px;background:#8b5cf6;color:white;padding:10px 18px;border-radius:10px;font-weight:bold;z-index:9999;font-size:0.85rem;box-shadow:0 4px 15px rgba(0,0,0,0.4);';
-                    document.body.appendChild(toast);
-                    setTimeout(() => toast.remove(), 3000);
-                }).catch(e => alert('Errore: ' + e.message));
-            });
-        }
 
     </script>
 
@@ -5268,11 +5205,20 @@ if ('serviceWorker' in navigator) {
 
         function aggiornaScadenzeBadge() {
             const oggi = getOggiLocale();
-            const urgenti = scadenzeDB.filter(s => s.stato === 'aperta' && s.scadenza <= oggi).length;
+            const tra7 = new Date(); tra7.setDate(tra7.getDate() + 7);
+            const fmt7 = tra7.toISOString().slice(0, 10);
+            const scadute = scadenzeDB.filter(s => s.stato === 'aperta' && s.scadenza <= oggi).length;
+            const imminenti = scadenzeDB.filter(s => s.stato === 'aperta' && s.scadenza > oggi && s.scadenza <= fmt7).length;
             const badge = $('scadenze-badge');
             if (!badge) return;
-            if (urgenti > 0) { badge.style.display = 'inline'; badge.textContent = urgenti; }
-            else badge.style.display = 'none';
+            const totale = scadute + imminenti;
+            if (totale > 0) {
+                badge.style.display = 'inline';
+                badge.textContent = totale;
+                badge.style.background = scadute > 0 ? 'var(--accent)' : '#f59e0b';
+            } else {
+                badge.style.display = 'none';
+            }
         }
 
         function refreshScadenze() {
@@ -5395,8 +5341,8 @@ if ('serviceWorker' in navigator) {
         function salvaScadenza() {
             const desc = $('scad-desc').value.trim();
             const scad = $('scad-data').value;
-            if (!desc) return alert('Inserisci una descrizione.');
-            if (!scad) return alert('Inserisci la data di scadenza.');
+            if (!desc) return mostraErrore('Inserisci una descrizione.');
+            if (!scad) return mostraErrore('Inserisci la data di scadenza.');
             const editId = parseInt($('scad-edit-id').value) || null;
             const obj = {
                 id: editId || Date.now(),
