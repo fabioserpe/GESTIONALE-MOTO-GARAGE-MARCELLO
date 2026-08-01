@@ -239,7 +239,23 @@
             .p-signature { display: flex; justify-content: space-between; margin-top: 50px; page-break-inside: avoid;}
             .p-signature div { width: 40%; text-align: center; border-top: 1px solid #000; padding-top: 5px; font-size: 9pt; color: #555; }
         }
+        .tema-colore { width:20px;height:20px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:transform 0.15s,border-color 0.15s;outline:none;padding:0;flex-shrink:0; }
+        .tema-colore.active { border-color:white;transform:scale(1.2); }
+        .tema-colore:hover:not(.active) { transform:scale(1.1);border-color:rgba(255,255,255,0.45); }
+        .tema-sfondo { width:34px;height:22px;border-radius:5px;border:2px solid transparent;cursor:pointer;font-size:0.52rem;font-weight:900;color:rgba(255,255,255,0.55);transition:0.15s;padding:0;letter-spacing:0.3px; }
+        .tema-sfondo.active { border-color:white;color:white; }
+        .tema-sfondo:hover:not(.active) { border-color:rgba(255,255,255,0.4); }
     </style>
+    <script>
+        /* Applica tema salvato prima del primo render per evitare flash */
+        try {
+            const _t = JSON.parse(localStorage.getItem('mgTema')||'{}');
+            const _r = document.documentElement;
+            const _sf = {navy:{bg:'#0f172a',sidebar:'#111827',card:'#1e293b'},grafite:{bg:'#18181b',sidebar:'#27272a',card:'#3f3f46'},carbone:{bg:'#111111',sidebar:'#1a1a1a',card:'#242424'}};
+            if (_t.accent) _r.style.setProperty('--accent', _t.accent);
+            const _s = _sf[_t.sfondo]; if (_s) { _r.style.setProperty('--bg',_s.bg); _r.style.setProperty('--sidebar',_s.sidebar); _r.style.setProperty('--card',_s.card); }
+        } catch(e) {}
+    </script>
 </head>
 <body>
 
@@ -349,6 +365,24 @@
         <button class="nav-link" onclick="exportData()" style="color:var(--success);">💾 Backup</button>
         <button class="nav-link" onclick="document.getElementById('importInput').click()" style="color:var(--info);">📂 Ripristina</button>
         <input type="file" id="importInput" class="hidden" onchange="importData(event)" accept=".json">
+
+        <div class="nav-sep" style="margin-top:auto;"></div>
+        <div style="padding:6px 4px 8px;">
+            <div style="font-size:0.62rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:9px;padding:0 8px;">🎨 Aspetto</div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap;padding:0 8px;margin-bottom:9px;align-items:center;">
+                <button class="tema-colore" data-accent="#ef4444" onclick="applicaTema('#ef4444')" style="background:#ef4444;" title="Rosso"></button>
+                <button class="tema-colore" data-accent="#f97316" onclick="applicaTema('#f97316')" style="background:#f97316;" title="Arancio"></button>
+                <button class="tema-colore" data-accent="#f59e0b" onclick="applicaTema('#f59e0b')" style="background:#f59e0b;" title="Ambra"></button>
+                <button class="tema-colore" data-accent="#22c55e" onclick="applicaTema('#22c55e')" style="background:#22c55e;" title="Verde"></button>
+                <button class="tema-colore" data-accent="#3b82f6" onclick="applicaTema('#3b82f6')" style="background:#3b82f6;" title="Blu"></button>
+                <button class="tema-colore" data-accent="#8b5cf6" onclick="applicaTema('#8b5cf6')" style="background:#8b5cf6;" title="Viola"></button>
+            </div>
+            <div style="display:flex;gap:6px;padding:0 8px;">
+                <button class="tema-sfondo" data-sfondo="navy"    onclick="applicaSfondo('navy')"    style="background:#0f172a;" title="Sfondo Navy">NAVY</button>
+                <button class="tema-sfondo" data-sfondo="grafite" onclick="applicaSfondo('grafite')" style="background:#27272a;" title="Sfondo Grafite">GRFT</button>
+                <button class="tema-sfondo" data-sfondo="carbone" onclick="applicaSfondo('carbone')" style="background:#111111;" title="Sfondo Carbone">CRBN</button>
+            </div>
+        </div>
         </div><!-- fine sidebar-inner -->
     </nav>
 
@@ -1385,6 +1419,7 @@
             const appShell    = document.getElementById('app-shell');
             const logoutBtn   = document.getElementById('btn-logout');
             if (user) {
+                caricaTema();
                 if (loginScreen) loginScreen.style.display = 'none';
                 if (appShell)    appShell.style.display    = 'flex';
                 if (logoutBtn)   logoutBtn.style.display   = 'flex';
@@ -1571,6 +1606,43 @@
                     }, 3000);
                 }
             } catch(e) {}
+        }
+
+        // =====================================================================
+        // TEMA / ASPETTO
+        // =====================================================================
+        const _SFONDI_TEMA = {
+            navy:    { bg:'#0f172a', sidebar:'#111827', card:'#1e293b' },
+            grafite: { bg:'#18181b', sidebar:'#27272a', card:'#3f3f46' },
+            carbone: { bg:'#111111', sidebar:'#1a1a1a', card:'#242424' },
+        };
+        function applicaTema(accent) {
+            document.documentElement.style.setProperty('--accent', accent);
+            document.querySelectorAll('.tema-colore').forEach(b => b.classList.toggle('active', b.dataset.accent === accent));
+            _salvaTema();
+        }
+        function applicaSfondo(nome) {
+            const s = _SFONDI_TEMA[nome]; if (!s) return;
+            document.documentElement.style.setProperty('--bg', s.bg);
+            document.documentElement.style.setProperty('--sidebar', s.sidebar);
+            document.documentElement.style.setProperty('--card', s.card);
+            document.querySelectorAll('.tema-sfondo').forEach(b => b.classList.toggle('active', b.dataset.sfondo === nome));
+            _salvaTema();
+        }
+        function _salvaTema() {
+            localStorage.setItem('mgTema', JSON.stringify({
+                accent: document.documentElement.style.getPropertyValue('--accent'),
+                sfondo: document.querySelector('.tema-sfondo.active')?.dataset.sfondo || 'navy'
+            }));
+        }
+        function caricaTema() {
+            try {
+                const t = JSON.parse(localStorage.getItem('mgTema') || '{}');
+                if (t.accent) applicaTema(t.accent);
+                else applicaTema('#ef4444');
+                if (t.sfondo) applicaSfondo(t.sfondo);
+                else applicaSfondo('navy');
+            } catch(e) { applicaTema('#ef4444'); applicaSfondo('navy'); }
         }
 
         // =====================================================================
