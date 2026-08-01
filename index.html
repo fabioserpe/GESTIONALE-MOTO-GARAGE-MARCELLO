@@ -2875,6 +2875,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const db_ = b.stato === 'done' ? (b.data_chiusura || b.data || 0) : (b.data || 0);
                 return new Date(da) - new Date(db_);
             }).forEach(j => {
+                // Nasconde i todo del passato (non di oggi e non futuri) se non si sta cercando
+                if (j.stato === 'todo' && j.data < oggi && !query) return;
+
                 // Se c'è testo nella barra, nasconde le schede che non combaciano
                 if (query) {
                     const stringaRicerca = `${j.cognome||''} ${j.nome||''} ${j.targa||''} ${j.marca||''} ${j.modello||''} ${j.tel||''}`.toLowerCase();
