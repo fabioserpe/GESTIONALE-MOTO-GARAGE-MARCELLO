@@ -2875,23 +2875,13 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const db_ = b.stato === 'done' ? (b.data_chiusura || b.data || 0) : (b.data || 0);
                 return new Date(da) - new Date(db_);
             }).forEach(j => {
-                // Nasconde i todo del passato (non di oggi e non futuri) se non si sta cercando
-                if (j.stato === 'todo' && j.data < oggi && !query) return;
+                if(j.stato === 'todo' && j.data !== oggi && !query) return;
 
                 // Se c'è testo nella barra, nasconde le schede che non combaciano
                 if (query) {
                     const stringaRicerca = `${j.cognome||''} ${j.nome||''} ${j.targa||''} ${j.marca||''} ${j.modello||''} ${j.tel||''}`.toLowerCase();
                     const match = searchTerms.every(term => stringaRicerca.includes(term));
                     if (!match) return;
-                }
-
-                // Separatore visivo per i lavori programmati in futuro
-                if (!query && j.stato === 'todo' && j.data > oggi && !lists.todo.querySelector('.sep-programmati')) {
-                    const sep = document.createElement('div');
-                    sep.className = 'sep-programmati';
-                    sep.style.cssText = 'color:#60a5fa;font-size:0.72rem;font-weight:700;letter-spacing:0.06em;padding:8px 4px 2px;border-top:1px solid #334155;margin-top:6px;';
-                    sep.textContent = '📅 PROGRAMMATI';
-                    lists.todo.appendChild(sep);
                 }
 
                 c[j.stato]++; // Aggiorna il contatore solo per le schede trovate
