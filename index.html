@@ -2285,14 +2285,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 // Bottoni azione principali
                 let actionBtns = '';
                 if (o.stato === 'todo') {
-                    actionBtns = `<button class="btn btn-info" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="moveOrdine(${o.id}, 'doing')">🛒 Segna Ordinato</button>
-                        <button class="btn btn-success" style="padding:5px 8px; font-size:0.78rem;" onclick="caricaOrdineMagazzino(${o.id})" title="Ricevuto: carica direttamente in magazzino">📥 Magazzino</button>`;
+                    actionBtns = `<button class="btn btn-info" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="moveOrdine(${o.id}, 'doing')">🛒 Segna Ordinato</button>`;
                 } else if (o.stato === 'doing') {
-                    actionBtns = `<button class="btn btn-success" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="caricaOrdineMagazzino(${o.id})">📥 Ricevuto → Magazzino</button>
+                    actionBtns = `<button class="btn btn-success" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="moveOrdine(${o.id}, 'done')">📦 Arrivato!</button>
                         <button class="btn btn-dark" style="padding:5px 7px;" onclick="moveOrdine(${o.id}, 'todo')" title="Riporta in Da Ordinare">⬅️</button>`;
                 } else {
                     actionBtns = `${o.tel_cliente ? `<button class="btn btn-wa" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="waOrdineArrivato(${o.id})">📲 WA Cliente</button>` : '<button class="btn btn-dark" style="flex:1; padding:5px 8px; font-size:0.72rem; opacity:0.4; cursor:default;">📲 Aggiungi tel.</button>'}
-                        <button class="btn btn-success" style="padding:5px 7px;" onclick="caricaOrdineMagazzino(${o.id})" title="Carica in magazzino">📥</button>
                         <button class="btn btn-dark" style="padding:5px 7px;" onclick="moveOrdine(${o.id}, 'doing')" title="Riporta in Attesa">⬅️</button>`;
                 }
 
@@ -4335,12 +4333,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const label  = isTodo ? '⏳ Da Ordinare' : '🛒 Ordinato';
                 const skuStr = o.sku ? ` · ${o.sku}` : '';
                 const forStr = o.fornitore ? ` · ${o.fornitore}` : '';
-                return `<div style="display:flex; align-items:center; gap:8px; padding:7px 10px; background:rgba(255,255,255,0.03); border-radius:8px; margin-bottom:5px; border-left:3px solid ${colore};">
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-weight:bold; font-size:0.85rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${o.desc}</div>
-                        <div style="font-size:0.7rem; color:var(--muted); margin-top:1px;">${label}${skuStr}${forStr} · Q.tà: ${o.qta||1}${o.prezzo > 0 ? ` · €${o.prezzo.toFixed(2)}` : ''}</div>
+                return `<div style="display:flex; align-items:center; gap:10px; padding:7px 10px; background:rgba(255,255,255,0.03); border-radius:8px; margin-bottom:5px; border-left:3px solid ${colore};">
+                    <div style="flex:1; min-width:0; overflow:hidden;">
+                        <div style="font-weight:bold; font-size:0.85rem; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${o.desc}</div>
+                        <div style="font-size:0.7rem; color:var(--muted); margin-top:2px;">${label}${skuStr}${forStr} · Q.tà: ${o.qta||1}${o.prezzo > 0 ? ` · €${o.prezzo.toFixed(2)}` : ''}</div>
                     </div>
-                    <button class="btn btn-success" style="padding:5px 10px; font-size:0.78rem; white-space:nowrap;" onclick="caricaOrdineMagazzino(${o.id})">📥 Ricevuto</button>
+                    <button onclick="caricaOrdineMagazzino(${o.id})" style="flex-shrink:0; background:#22c55e; color:white; border:none; border-radius:7px; padding:6px 12px; font-size:0.78rem; font-weight:bold; cursor:pointer; white-space:nowrap;">📥 Ricevuto</button>
                 </div>`;
             }).join('');
         }
