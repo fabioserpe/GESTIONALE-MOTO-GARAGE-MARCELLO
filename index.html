@@ -874,18 +874,59 @@
                 <input type="text" id="mag-search-input" placeholder="🔍 Cerca articolo per codice, descrizione o marca..." oninput="magFiltroSottosoglia=false; renderTableMag(); renderSummaryMag();" style="background:var(--card); border:2px solid var(--warning); margin-bottom:0;">
             </div>
 
-            <!-- Widget Ricambi in Arrivo -->
-            <div id="mag-ordini-section" class="card mb-20" style="border-top:3px solid #fca5a5;">
-                <div class="flex-between" style="cursor:pointer; user-select:none;" onclick="toggleMagOrdiniWidget()">
-                    <h3 style="color:#fca5a5; margin:0; font-size:0.95rem; font-weight:800;">
-                        🚚 Ricambi da Ordinare / In Arrivo
-                        <span id="mag-ordini-badge" style="background:#ef4444; color:white; border-radius:8px; padding:1px 8px; font-size:0.72rem; margin-left:6px; display:none; vertical-align:middle;"></span>
+            <!-- Lista Ricambi da Ordinare -->
+            <div class="card mb-20" style="border-top:3px solid #60a5fa;">
+                <div class="flex-between" style="cursor:pointer; user-select:none;" onclick="toggleListaOrdini()">
+                    <h3 style="color:#60a5fa; margin:0; font-size:0.95rem; font-weight:800;">
+                        📋 Lista Ricambi da Ordinare
+                        <span id="lo-badge" style="background:#3b82f6; color:white; border-radius:8px; padding:1px 8px; font-size:0.72rem; margin-left:6px; display:none; vertical-align:middle;"></span>
                     </h3>
-                    <span id="mag-ordini-arrow" style="color:#fca5a5; font-size:1rem; transition:transform 0.2s;">▼</span>
+                    <span id="lo-arrow" style="color:#60a5fa; font-size:1rem; transition:transform 0.2s;">▼</span>
                 </div>
-                <div id="mag-ordini-body" style="margin-top:10px;">
-                    <div id="mag-ordini-list"></div>
-                    <button class="btn btn-dark w-auto" style="font-size:0.78rem; padding:7px 14px; margin-top:6px;" onclick="switchView('ordini')">➕ Gestisci tutti gli ordini</button>
+                <div id="lo-body" style="margin-top:12px;">
+                    <!-- Form inserimento — stessi campi del magazzino -->
+                    <form id="lo-form">
+                        <div class="mob-form-grid" style="display:grid; grid-template-columns: 110px 2fr 1fr 1fr 70px 110px auto; gap:10px; align-items:end; margin-bottom:12px;">
+                            <div>
+                                <label>SKU</label>
+                                <input type="text" id="lo-codice" placeholder="FIL-01" style="margin-bottom:0;">
+                            </div>
+                            <div>
+                                <label>Descrizione *</label>
+                                <input type="text" id="lo-nome" placeholder="Nome ricambio" required style="margin-bottom:0;">
+                            </div>
+                            <div>
+                                <label>Marca</label>
+                                <input type="text" id="lo-marca" placeholder="Marca" style="margin-bottom:0;">
+                            </div>
+                            <div>
+                                <label>Categoria</label>
+                                <select id="lo-categoria" style="margin-bottom:0;">
+                                    <option value="">-- --</option>
+                                    <option value="ARIA E CARBURANTE">🌬️ Aria e Carburante</option>
+                                    <option value="MOTORE">⚙️ Motore</option>
+                                    <option value="FRENI">💿 Freni</option>
+                                    <option value="TRASMISSIONE">⛓️ Trasmissione</option>
+                                    <option value="ELETTRONICA">⚡ Elettronica</option>
+                                    <option value="SOSPENSIONI">🔧 Sospensioni</option>
+                                    <option value="GOMME">🔘 Gomme</option>
+                                    <option value="LUBRIFICANTI">🛢️ Lubrificanti</option>
+                                    <option value="ACCESSORI">🎒 Accessori</option>
+                                    <option value="RICAMBI">🔩 Ricambi Vari</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Qtà</label>
+                                <input type="number" id="lo-giacenza" min="1" value="1" style="margin-bottom:0; text-align:center;">
+                            </div>
+                            <div>
+                                <label>Prezzo €</label>
+                                <input type="number" id="lo-prezzo" step="0.01" min="0" placeholder="0.00" style="margin-bottom:0; text-align:right;">
+                            </div>
+                            <button type="submit" class="btn btn-info" style="white-space:nowrap; margin-bottom:0; width:auto;">✚ Aggiungi</button>
+                        </div>
+                    </form>
+                    <div id="lo-list"></div>
                 </div>
             </div>
 
@@ -1538,7 +1579,11 @@
             database.ref('/ordini').on('value', (snap) => {
                 ordiniDB = snap.val() || [];
                 if (currentView === 'ordini') refreshOrdini();
-                if (currentView === 'magazzino') refreshOrdiniInMag();
+            });
+
+            database.ref('/lista_ordini').on('value', snap => {
+                listaOrdiniMag = snap.val() || [];
+                if (currentView === 'magazzino') refreshListaOrdini();
             });
 
             database.ref('/rubrica').on('value', (snap) => {
@@ -1810,7 +1855,7 @@
                 const sec = $('mag-inv-section'); if (sec && window.innerWidth <= 768) sec.style.display = 'none';
                 const arrow = $('mag-inv-arrow'); if (arrow) arrow.textContent = '▼';
                 initMagazzino();
-                refreshOrdiniInMag();
+                refreshListaOrdini();
             }
             ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
@@ -2066,7 +2111,7 @@
         // =====================================================================
         function exportData() {
             try {
-                const backupData = {db, agenda: agendaDB, ledger: ledgerDB, ordini: ordiniDB, rubrica: rubricaDB, note: noteDB, magazzino: inventarioMag};
+                const backupData = {db, agenda: agendaDB, ledger: ledgerDB, ordini: ordiniDB, rubrica: rubricaDB, note: noteDB, magazzino: inventarioMag, lista_ordini: listaOrdiniMag};
                 const b = new Blob([JSON.stringify(backupData, null, 2)], {type: 'application/json'});
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(b);
@@ -4175,6 +4220,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         const MAG_SOGLIA = 3;
         const MAG_IVA = 0.22;
         let inventarioMag = [];
+        let listaOrdiniMag = [];
         let magSortField = 'codice';
         let magSortDir = 'asc';
         let categorieAperteMag = new Set();
@@ -4308,58 +4354,100 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             }
         }
 
-        let _magOrdiniAperto = true;
-        function toggleMagOrdiniWidget() {
-            _magOrdiniAperto = !_magOrdiniAperto;
-            const body = $('mag-ordini-body');
-            const arrow = $('mag-ordini-arrow');
-            if (body) body.style.display = _magOrdiniAperto ? 'block' : 'none';
-            if (arrow) arrow.style.transform = _magOrdiniAperto ? 'rotate(0deg)' : 'rotate(-90deg)';
+        function saveListaOrdiniMag() {
+            database.ref('/lista_ordini').set(listaOrdiniMag).then(showCloudCheck).catch(_onSaveError);
         }
 
-        function refreshOrdiniInMag() {
-            const list = $('mag-ordini-list');
+        let _loAperto = true;
+        function toggleListaOrdini() {
+            _loAperto = !_loAperto;
+            const body = $('lo-body'), arrow = $('lo-arrow');
+            if (body) body.style.display = _loAperto ? 'block' : 'none';
+            if (arrow) arrow.style.transform = _loAperto ? 'rotate(0deg)' : 'rotate(-90deg)';
+        }
+
+        function initListaOrdiniForm() {
+            const form = $('lo-form');
+            if (!form || form._loInited) return;
+            form._loInited = true;
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                const nome = $('lo-nome').value.toUpperCase().trim();
+                if (!nome) return mostraErrore('Inserisci la descrizione!');
+                listaOrdiniMag.push({
+                    id: Date.now(),
+                    codice:   $('lo-codice').value.toUpperCase().trim(),
+                    nome,
+                    marca:    $('lo-marca').value.toUpperCase().trim(),
+                    categoria:$('lo-categoria').value,
+                    giacenza: parseInt($('lo-giacenza').value) || 1,
+                    prezzo:   parseFloat($('lo-prezzo').value) || 0
+                });
+                saveListaOrdiniMag();
+                form.reset();
+                $('lo-giacenza').value = 1;
+                $('lo-nome').focus();
+            };
+        }
+
+        function refreshListaOrdini() {
+            initListaOrdiniForm();
+            const list = $('lo-list');
             if (!list) return;
-            const pending = ordiniDB.filter(o => o.stato !== 'done');
-            const badge = $('mag-ordini-badge');
-            if (badge) { badge.textContent = pending.length; badge.style.display = pending.length > 0 ? 'inline' : 'none'; }
-            if (pending.length === 0) {
-                list.innerHTML = '<p style="color:var(--muted); font-size:0.82rem; margin:4px 0 8px;">Nessun ricambio in lista.</p>';
+            const badge = $('lo-badge');
+            if (badge) { badge.textContent = listaOrdiniMag.length; badge.style.display = listaOrdiniMag.length > 0 ? 'inline' : 'none'; }
+            if (listaOrdiniMag.length === 0) {
+                list.innerHTML = '<p style="color:var(--muted); font-size:0.85rem; text-align:center; padding:8px 0;">Lista vuota — aggiungi i ricambi da ordinare sopra.</p>';
                 return;
             }
-            list.innerHTML = pending.map(o => {
-                const isTodo = o.stato === 'todo';
-                const colore = isTodo ? 'var(--warning)' : 'var(--info)';
-                const label  = isTodo ? '⏳ Da Ordinare' : '🛒 Ordinato';
-                const skuStr = o.sku ? ` · ${o.sku}` : '';
-                const forStr = o.fornitore ? ` · ${o.fornitore}` : '';
-                return `<div style="display:flex; align-items:center; gap:10px; padding:7px 10px; background:rgba(255,255,255,0.03); border-radius:8px; margin-bottom:5px; border-left:3px solid ${colore};">
-                    <div style="flex:1; min-width:0; overflow:hidden;">
-                        <div style="font-weight:bold; font-size:0.85rem; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${o.desc}</div>
-                        <div style="font-size:0.7rem; color:var(--muted); margin-top:2px;">${label}${skuStr}${forStr} · Q.tà: ${o.qta||1}${o.prezzo > 0 ? ` · €${o.prezzo.toFixed(2)}` : ''}</div>
-                    </div>
-                    <button onclick="caricaOrdineMagazzino(${o.id})" style="flex-shrink:0; background:#22c55e; color:white; border:none; border-radius:7px; padding:6px 12px; font-size:0.78rem; font-weight:bold; cursor:pointer; white-space:nowrap;">📥 Ricevuto</button>
-                </div>`;
-            }).join('');
+            list.innerHTML = `<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">
+                <thead><tr style="color:var(--muted); font-size:0.72rem; text-transform:uppercase; border-bottom:1px solid #334155;">
+                    <th style="padding:6px 8px; text-align:left; font-weight:600;">Descrizione</th>
+                    <th style="padding:6px 8px; text-align:left; font-weight:600;">SKU</th>
+                    <th style="padding:6px 8px; text-align:left; font-weight:600;">Marca</th>
+                    <th style="padding:6px 8px; text-align:left; font-weight:600;">Categoria</th>
+                    <th style="padding:6px 8px; text-align:center; font-weight:600;">Qtà</th>
+                    <th style="padding:6px 8px; text-align:right; font-weight:600;">Prezzo</th>
+                    <th style="padding:6px 4px;"></th>
+                </tr></thead>
+                <tbody>${listaOrdiniMag.map(item => `
+                    <tr style="border-bottom:1px solid rgba(51,65,85,0.5);">
+                        <td style="padding:7px 8px; color:white; font-weight:600;">${item.nome}</td>
+                        <td style="padding:7px 8px; color:var(--muted); font-family:monospace; font-size:0.78rem;">${item.codice || '—'}</td>
+                        <td style="padding:7px 8px; color:var(--muted);">${item.marca || '—'}</td>
+                        <td style="padding:7px 8px; color:var(--muted); font-size:0.8rem;">${item.categoria || '—'}</td>
+                        <td style="padding:7px 8px; text-align:center; color:var(--info); font-weight:bold;">${item.giacenza}</td>
+                        <td style="padding:7px 8px; text-align:right; color:var(--success);">${item.prezzo > 0 ? '€'+item.prezzo.toFixed(2) : '—'}</td>
+                        <td style="padding:7px 4px; white-space:nowrap; text-align:right;">
+                            <button onclick="spostaInMagazzino(${item.id})" style="background:#22c55e; color:white; border:none; border-radius:6px; padding:5px 9px; font-size:0.75rem; font-weight:bold; cursor:pointer; margin-right:4px;" title="Ricevuto: carica in magazzino">📥 Mag.</button>
+                            <button onclick="deleteListaOrdine(${item.id})" style="background:transparent; border:1px solid rgba(239,68,68,0.4); color:var(--accent); border-radius:6px; padding:5px 8px; font-size:0.75rem; cursor:pointer;" title="Elimina">🗑️</button>
+                        </td>
+                    </tr>`).join('')}
+                </tbody></table>`;
         }
 
-        async function caricaOrdineMagazzino(id) {
-            const o = ordiniDB.find(x => String(x.id) === String(id));
-            if (!o) return;
-            const codice = (o.sku || '').trim().toUpperCase() || ('ORD-' + String(o.id).slice(-6));
+        async function spostaInMagazzino(id) {
+            const idx = listaOrdiniMag.findIndex(x => x.id === id);
+            if (idx === -1) return;
+            const item = listaOrdiniMag[idx];
+            const codice = item.codice || ('LO-' + String(item.id).slice(-6));
             const existing = inventarioMag.find(i => i.codice === codice);
             if (existing) {
-                if (!confirm(`Lo SKU "${codice}" è già in magazzino (giacenza: ${existing.giacenza}). Aggiungere ${o.qta||1} unità?`)) return;
-                existing.giacenza += (parseInt(o.qta) || 1);
+                if (!confirm(`"${codice}" già in magazzino (giacenza: ${existing.giacenza}). Aggiungere ${item.giacenza} unità?`)) return;
+                existing.giacenza += item.giacenza;
                 await magSave(codice, existing);
             } else {
-                const art = { codice, nome: o.desc, marca: '', categoria: 'RICAMBI', giacenza: parseInt(o.qta)||1, prezzo: parseFloat(o.prezzo)||0 };
-                await magSave(codice, art);
+                await magSave(codice, { codice, nome: item.nome, marca: item.marca, categoria: item.categoria || 'RICAMBI', giacenza: item.giacenza, prezzo: item.prezzo });
             }
-            if (o.stato !== 'done') { o.stato = 'done'; saveOrdini(); }
-            mostraToast(`✅ "${o.desc}" caricato in magazzino!`);
-            refreshOrdiniInMag();
-            if (currentView === 'ordini') refreshOrdini();
+            listaOrdiniMag.splice(idx, 1);
+            saveListaOrdiniMag();
+            mostraToast(`✅ "${item.nome}" caricato in magazzino!`);
+        }
+
+        function deleteListaOrdine(id) {
+            if (!confirm('Eliminare questo articolo dalla lista?')) return;
+            listaOrdiniMag = listaOrdiniMag.filter(x => x.id !== id);
+            saveListaOrdiniMag();
         }
 
         function toggleMagForm() {
