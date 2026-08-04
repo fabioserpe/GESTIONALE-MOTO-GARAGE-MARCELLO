@@ -874,6 +874,21 @@
                 <input type="text" id="mag-search-input" placeholder="🔍 Cerca articolo per codice, descrizione o marca..." oninput="magFiltroSottosoglia=false; renderTableMag(); renderSummaryMag();" style="background:var(--card); border:2px solid var(--warning); margin-bottom:0;">
             </div>
 
+            <!-- Widget Ricambi in Arrivo -->
+            <div id="mag-ordini-section" class="card mb-20" style="border-top:3px solid #fca5a5;">
+                <div class="flex-between" style="cursor:pointer; user-select:none;" onclick="toggleMagOrdiniWidget()">
+                    <h3 style="color:#fca5a5; margin:0; font-size:0.95rem; font-weight:800;">
+                        🚚 Ricambi da Ordinare / In Arrivo
+                        <span id="mag-ordini-badge" style="background:#ef4444; color:white; border-radius:8px; padding:1px 8px; font-size:0.72rem; margin-left:6px; display:none; vertical-align:middle;"></span>
+                    </h3>
+                    <span id="mag-ordini-arrow" style="color:#fca5a5; font-size:1rem; transition:transform 0.2s;">▼</span>
+                </div>
+                <div id="mag-ordini-body" style="margin-top:10px;">
+                    <div id="mag-ordini-list"></div>
+                    <button class="btn btn-dark w-auto" style="font-size:0.78rem; padding:7px 14px; margin-top:6px;" onclick="switchView('ordini')">➕ Gestisci tutti gli ordini</button>
+                </div>
+            </div>
+
             <!-- Form aggiunta articolo -->
             <div id="mag-form-wrapper" class="card mb-20" style="border-top:3px solid var(--accent);">
                 <div class="flex-between mb-15" onclick="toggleMagForm()" style="cursor:pointer;">
@@ -1523,6 +1538,7 @@
             database.ref('/ordini').on('value', (snap) => {
                 ordiniDB = snap.val() || [];
                 if (currentView === 'ordini') refreshOrdini();
+                if (currentView === 'magazzino') refreshOrdiniInMag();
             });
 
             database.ref('/rubrica').on('value', (snap) => {
@@ -1794,6 +1810,7 @@
                 const sec = $('mag-inv-section'); if (sec && window.innerWidth <= 768) sec.style.display = 'none';
                 const arrow = $('mag-inv-arrow'); if (arrow) arrow.textContent = '▼';
                 initMagazzino();
+                refreshOrdiniInMag();
             }
             ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
@@ -2268,12 +2285,14 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 // Bottoni azione principali
                 let actionBtns = '';
                 if (o.stato === 'todo') {
-                    actionBtns = `<button class="btn btn-info" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="moveOrdine(${o.id}, 'doing')">🛒 Segna Ordinato</button>`;
+                    actionBtns = `<button class="btn btn-info" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="moveOrdine(${o.id}, 'doing')">🛒 Segna Ordinato</button>
+                        <button class="btn btn-success" style="padding:5px 8px; font-size:0.78rem;" onclick="caricaOrdineMagazzino(${o.id})" title="Ricevuto: carica direttamente in magazzino">📥 Magazzino</button>`;
                 } else if (o.stato === 'doing') {
-                    actionBtns = `<button class="btn btn-success" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="moveOrdine(${o.id}, 'done')">📦 Arrivato!</button>
+                    actionBtns = `<button class="btn btn-success" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="caricaOrdineMagazzino(${o.id})">📥 Ricevuto → Magazzino</button>
                         <button class="btn btn-dark" style="padding:5px 7px;" onclick="moveOrdine(${o.id}, 'todo')" title="Riporta in Da Ordinare">⬅️</button>`;
                 } else {
                     actionBtns = `${o.tel_cliente ? `<button class="btn btn-wa" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="waOrdineArrivato(${o.id})">📲 WA Cliente</button>` : '<button class="btn btn-dark" style="flex:1; padding:5px 8px; font-size:0.72rem; opacity:0.4; cursor:default;">📲 Aggiungi tel.</button>'}
+                        <button class="btn btn-success" style="padding:5px 7px;" onclick="caricaOrdineMagazzino(${o.id})" title="Carica in magazzino">📥</button>
                         <button class="btn btn-dark" style="padding:5px 7px;" onclick="moveOrdine(${o.id}, 'doing')" title="Riporta in Attesa">⬅️</button>`;
                 }
 
@@ -4289,6 +4308,60 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 rows.forEach(r => r.style.display = isMob ? 'flex' : '');
                 if (header) { const ic = header.querySelector('.mag-ic'); if (ic) { if (isMob) ic.textContent = '▼'; else ic.style.transform = 'rotate(0deg)'; } }
             }
+        }
+
+        let _magOrdiniAperto = true;
+        function toggleMagOrdiniWidget() {
+            _magOrdiniAperto = !_magOrdiniAperto;
+            const body = $('mag-ordini-body');
+            const arrow = $('mag-ordini-arrow');
+            if (body) body.style.display = _magOrdiniAperto ? 'block' : 'none';
+            if (arrow) arrow.style.transform = _magOrdiniAperto ? 'rotate(0deg)' : 'rotate(-90deg)';
+        }
+
+        function refreshOrdiniInMag() {
+            const list = $('mag-ordini-list');
+            if (!list) return;
+            const pending = ordiniDB.filter(o => o.stato !== 'done');
+            const badge = $('mag-ordini-badge');
+            if (badge) { badge.textContent = pending.length; badge.style.display = pending.length > 0 ? 'inline' : 'none'; }
+            if (pending.length === 0) {
+                list.innerHTML = '<p style="color:var(--muted); font-size:0.82rem; margin:4px 0 8px;">Nessun ricambio in lista.</p>';
+                return;
+            }
+            list.innerHTML = pending.map(o => {
+                const isTodo = o.stato === 'todo';
+                const colore = isTodo ? 'var(--warning)' : 'var(--info)';
+                const label  = isTodo ? '⏳ Da Ordinare' : '🛒 Ordinato';
+                const skuStr = o.sku ? ` · ${o.sku}` : '';
+                const forStr = o.fornitore ? ` · ${o.fornitore}` : '';
+                return `<div style="display:flex; align-items:center; gap:8px; padding:7px 10px; background:rgba(255,255,255,0.03); border-radius:8px; margin-bottom:5px; border-left:3px solid ${colore};">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:bold; font-size:0.85rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${o.desc}</div>
+                        <div style="font-size:0.7rem; color:var(--muted); margin-top:1px;">${label}${skuStr}${forStr} · Q.tà: ${o.qta||1}${o.prezzo > 0 ? ` · €${o.prezzo.toFixed(2)}` : ''}</div>
+                    </div>
+                    <button class="btn btn-success" style="padding:5px 10px; font-size:0.78rem; white-space:nowrap;" onclick="caricaOrdineMagazzino(${o.id})">📥 Ricevuto</button>
+                </div>`;
+            }).join('');
+        }
+
+        async function caricaOrdineMagazzino(id) {
+            const o = ordiniDB.find(x => String(x.id) === String(id));
+            if (!o) return;
+            const codice = (o.sku || '').trim().toUpperCase() || ('ORD-' + String(o.id).slice(-6));
+            const existing = inventarioMag.find(i => i.codice === codice);
+            if (existing) {
+                if (!confirm(`Lo SKU "${codice}" è già in magazzino (giacenza: ${existing.giacenza}). Aggiungere ${o.qta||1} unità?`)) return;
+                existing.giacenza += (parseInt(o.qta) || 1);
+                await magSave(codice, existing);
+            } else {
+                const art = { codice, nome: o.desc, marca: '', categoria: 'RICAMBI', giacenza: parseInt(o.qta)||1, prezzo: parseFloat(o.prezzo)||0 };
+                await magSave(codice, art);
+            }
+            if (o.stato !== 'done') { o.stato = 'done'; saveOrdini(); }
+            mostraToast(`✅ "${o.desc}" caricato in magazzino!`);
+            refreshOrdiniInMag();
+            if (currentView === 'ordini') refreshOrdini();
         }
 
         function toggleMagForm() {
