@@ -355,6 +355,7 @@
         <button class="nav-link" onclick="switchView('ledger', this)" style="color:#34d399;">💸 Prima Nota</button>
         <button class="nav-link" onclick="switchView('scadenze', this)" style="color:#f43f5e;">📅 Scadenzario <span id="scadenze-badge" style="display:none;background:#f43f5e;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" onclick="switchView('magazzino', this)" style="color:#14b8a6;">📦 Magazzino</button>
+        <button class="nav-link" onclick="switchView('lista-attesa', this)" style="color:#a78bfa;">🏍️ Lista Attesa Moto <span id="attesa-badge" style="display:none;background:#a78bfa;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" onclick="switchView('stats', this)">📈 Statistiche</button>
 
         <div class="nav-sep"></div>
@@ -1108,6 +1109,46 @@
             <div id="scad-list" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
         </div>
 
+        <!-- ═══════════════ LISTA ATTESA MOTO ═══════════════ -->
+        <div id="view-lista-attesa" class="view hidden">
+            <div class="flex-between mb-20" style="flex-shrink:0; flex-wrap:wrap; gap:10px;">
+                <h2 style="color:#a78bfa; margin:0;">🏍️ Lista Attesa Moto</h2>
+                <button class="btn w-auto" style="background:#a78bfa;" onclick="toggleAttesaForm()">➕ Aggiungi Cliente in Attesa</button>
+            </div>
+
+            <!-- Form inserimento -->
+            <div id="attesa-form-wrapper" class="card mb-14" style="border-top:3px solid #a78bfa; display:none;">
+                <h3 style="color:#a78bfa; margin:0 0 14px 0; font-size:0.95rem;">NUOVO CLIENTE IN ATTESA</h3>
+                <input type="hidden" id="attesa-edit-id">
+                <div class="flex-row" style="flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                    <input id="attesa-cognome" placeholder="Cognome *" style="flex:1; min-width:140px; margin:0;">
+                    <input id="attesa-nome" placeholder="Nome" style="flex:1; min-width:120px; margin:0;">
+                    <input id="attesa-tel" placeholder="Telefono *" style="flex:1; min-width:140px; margin:0;">
+                </div>
+                <div class="flex-row" style="flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                    <input id="attesa-marca" placeholder="Marca moto cercata" style="flex:1; min-width:120px; margin:0;">
+                    <input id="attesa-modello" placeholder="Modello" style="flex:1; min-width:120px; margin:0;">
+                    <input id="attesa-anno" placeholder="Anno / Km max" style="width:130px; margin:0;">
+                    <input id="attesa-colore" placeholder="Colore (opz.)" style="width:130px; margin:0;">
+                </div>
+                <textarea id="attesa-note" placeholder="Note aggiuntive (budget, preferenze, urgenza...)" style="width:100%; min-height:60px; margin-bottom:8px; resize:vertical;"></textarea>
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <button class="btn btn-dark w-auto" onclick="toggleAttesaForm()">Annulla</button>
+                    <button class="btn w-auto" style="background:#a78bfa;" onclick="salvaAttesa()">💾 Salva</button>
+                </div>
+            </div>
+
+            <!-- Filtri -->
+            <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+                <button id="fatt-tutti" class="btn btn-info w-auto" onclick="setAttesaFilter('tutti')">Tutti</button>
+                <button id="fatt-attesa" class="btn btn-dark w-auto" onclick="setAttesaFilter('attesa')">🔵 In Attesa</button>
+                <button id="fatt-contattato" class="btn btn-dark w-auto" onclick="setAttesaFilter('contattato')">🟡 Contattati</button>
+                <button id="fatt-venduto" class="btn btn-dark w-auto" onclick="setAttesaFilter('venduto')">✅ Venduti</button>
+            </div>
+
+            <div id="attesa-list" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
+        </div>
+
     </main>
 
     <div class="notes-panel no-print" id="notes-panel">
@@ -1627,6 +1668,12 @@
                 if (currentView === 'tagliandi') refreshTagliandi();
             });
 
+            database.ref('/lista_attesa').on('value', (snap) => {
+                listaAttesaDB = snap.val() ? Object.values(snap.val()) : [];
+                aggiornaAttesaBadge();
+                if (currentView === 'lista-attesa') refreshAttesa();
+            });
+
         } // fine initFirebaseListeners
 
         function showCloudCheck() {
@@ -1863,7 +1910,7 @@
             });
         }
 
-        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Clienti', stats:'📈 Stats', preventivi:'📝 Preventivi', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze' };
+        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Clienti', stats:'📈 Stats', preventivi:'📝 Preventivi', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto' };
         function switchView(viewId, el) {
             closeSidebar();
             const ts = $('topbar-section'); if (ts) ts.textContent = _viewLabels[viewId] || '';
@@ -1874,14 +1921,14 @@
                 initMagazzino();
                 refreshListaOrdini();
             }
-            ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
+            ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             const t = $('view-' + viewId); if(t) t.classList.remove('hidden'); if(el) el.classList.add('active');
             updateNavGroupHighlight();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') currentView = viewId;
             if(viewId === 'nuova' && !isEditing) clearForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
-            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze();
+            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') refreshAttesa();
         }
 
         function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; refreshMiniAgenda(); }
@@ -4263,6 +4310,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         const MAG_IVA = 0.22;
         let inventarioMag = [];
         let listaOrdiniMag = [];
+        let listaAttesaDB = [];
+        let _attesaFilter = 'tutti';
         let magSortField = 'codice';
         let magSortDir = 'asc';
         let categorieAperteMag = new Set();
@@ -5394,6 +5443,149 @@ if ('serviceWorker' in navigator) {
         let scadFiltro = 'tutte';
         const SCAD_CAT_EMOJI = { F24:'💰', IMU:'🏠', TARI:'🗑️', RIBA:'🏦', INPS:'👤', CAMERA:'🏛️', BOLLETTA:'⚡', ALTRO:'📄' };
         const SCAD_RICORRENZA_MESI = { mensile:1, trimestrale:3, semestrale:6, annuale:12 };
+
+        // ═══════════════ LISTA ATTESA MOTO ═══════════════
+        function saveAttesaDB() { const obj = {}; listaAttesaDB.forEach(e => { obj[e.id] = e; }); database.ref('/lista_attesa').set(obj).then(showCloudCheck).catch(_onSaveError); }
+
+        function aggiornaAttesaBadge() {
+            const badge = $('attesa-badge');
+            if (!badge) return;
+            const n = listaAttesaDB.filter(e => e.stato === 'attesa').length;
+            if (n > 0) { badge.style.display = 'inline'; badge.textContent = n; } else { badge.style.display = 'none'; }
+        }
+
+        function toggleAttesaForm() {
+            const w = $('attesa-form-wrapper');
+            if (!w) return;
+            const open = w.style.display !== 'none';
+            if (open) { w.style.display = 'none'; resetAttesaForm(); } else { w.style.display = 'block'; $('attesa-cognome').focus(); }
+        }
+
+        function resetAttesaForm() {
+            ['attesa-edit-id','attesa-cognome','attesa-nome','attesa-tel','attesa-marca','attesa-modello','attesa-anno','attesa-colore','attesa-note'].forEach(id => { const el = $(id); if(el) el.value = ''; });
+        }
+
+        function salvaAttesa() {
+            const cognome = ($('attesa-cognome').value||'').trim().toUpperCase();
+            const tel = ($('attesa-tel').value||'').trim();
+            if (!cognome) return mostraErrore("Cognome obbligatorio!");
+            if (!tel) return mostraErrore("Telefono obbligatorio!");
+            const editId = $('attesa-edit-id').value;
+            const entry = {
+                id: editId ? parseInt(editId) : Date.now(),
+                cognome,
+                nome: ($('attesa-nome').value||'').trim().toUpperCase(),
+                tel,
+                marca: ($('attesa-marca').value||'').trim().toUpperCase(),
+                modello: ($('attesa-modello').value||'').trim().toUpperCase(),
+                anno: ($('attesa-anno').value||'').trim(),
+                colore: ($('attesa-colore').value||'').trim().toUpperCase(),
+                note: ($('attesa-note').value||'').trim(),
+                data: getOggiLocale(),
+                stato: 'attesa'
+            };
+            if (editId) {
+                const idx = listaAttesaDB.findIndex(e => String(e.id) === String(editId));
+                if (idx > -1) { entry.stato = listaAttesaDB[idx].stato; entry.data = listaAttesaDB[idx].data; listaAttesaDB[idx] = entry; }
+                else listaAttesaDB.push(entry);
+            } else {
+                listaAttesaDB.push(entry);
+            }
+            saveAttesaDB();
+            toggleAttesaForm();
+            mostraToast(editId ? "Cliente aggiornato!" : "Cliente aggiunto alla lista attesa!");
+        }
+
+        function setAttesaFilter(f) {
+            _attesaFilter = f;
+            ['tutti','attesa','contattato','venduto'].forEach(k => {
+                const btn = $('fatt-' + k);
+                if (btn) btn.className = k === f ? 'btn btn-info w-auto' : 'btn btn-dark w-auto';
+            });
+            refreshAttesa();
+        }
+
+        function refreshAttesa() {
+            const list = $('attesa-list');
+            if (!list) return;
+            const filtered = _attesaFilter === 'tutti' ? listaAttesaDB : listaAttesaDB.filter(e => e.stato === _attesaFilter);
+            const sorted = [...filtered].sort((a,b) => { const ord = {attesa:0,contattato:1,venduto:2}; return (ord[a.stato]||0) - (ord[b.stato]||0) || b.id - a.id; });
+            if (!sorted.length) { list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:30px 0;">Nessun cliente in lista.</p>'; return; }
+            list.innerHTML = sorted.map(e => {
+                const statoColor = e.stato==='attesa' ? '#818cf8' : e.stato==='contattato' ? '#fbbf24' : '#4ade80';
+                const statoLabel = e.stato==='attesa' ? '🔵 In Attesa' : e.stato==='contattato' ? '🟡 Contattato' : '✅ Venduto';
+                const moto = [e.marca, e.modello, e.anno, e.colore].filter(Boolean).join(' ');
+                const telFmt = formatPhoneForWa(e.tel);
+                const waBtn = telFmt ? `<button onclick="sendWaAttesa(${e.id})" style="background:var(--whatsapp);color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:0.8rem;font-weight:bold;white-space:nowrap;">📲 WhatsApp</button>` : '';
+                const btnContattato = e.stato !== 'contattato' && e.stato !== 'venduto' ? `<button onclick="setStatoAttesa(${e.id},'contattato')" style="background:rgba(251,191,36,0.15);border:1px solid #fbbf24;color:#fbbf24;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">🟡 Contattato</button>` : '';
+                const btnVenduto = e.stato !== 'venduto' ? `<button onclick="setStatoAttesa(${e.id},'venduto')" style="background:rgba(74,222,128,0.12);border:1px solid #4ade80;color:#4ade80;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">✅ Venduto</button>` : '';
+                const btnRiapri = e.stato !== 'attesa' ? `<button onclick="setStatoAttesa(${e.id},'attesa')" style="background:rgba(129,140,248,0.12);border:1px solid #818cf8;color:#818cf8;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">🔵 Riattiva</button>` : '';
+                return `<div class="card" style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;border-left:5px solid ${statoColor};padding:14px 18px;">
+                    <div>
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+                            <span style="font-weight:bold;font-size:1.05rem;color:white;">${e.cognome} ${e.nome}</span>
+                            <span style="font-size:0.7rem;font-weight:bold;padding:2px 8px;border-radius:10px;background:${statoColor}22;color:${statoColor};border:1px solid ${statoColor}44;">${statoLabel}</span>
+                            <span style="font-size:0.75rem;color:var(--muted);">dal ${formattaData(e.data)}</span>
+                        </div>
+                        ${moto ? `<div style="color:var(--info);font-size:0.9rem;margin-bottom:4px;">🏍️ ${moto}</div>` : ''}
+                        <div style="color:var(--text);font-size:0.85rem;margin-bottom:4px;">📞 ${e.tel}</div>
+                        ${e.note ? `<div style="color:var(--muted);font-size:0.8rem;font-style:italic;">${e.note}</div>` : ''}
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+                        ${waBtn}
+                        ${btnContattato}
+                        ${btnVenduto}
+                        ${btnRiapri}
+                        <button onclick="editAttesa(${e.id})" style="background:rgba(255,255,255,0.06);border:1px solid #334155;color:var(--text);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.75rem;">✏️ Modifica</button>
+                        <button onclick="deleteAttesa(${e.id})" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--accent);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.75rem;">🗑️</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function setStatoAttesa(id, stato) {
+            const e = listaAttesaDB.find(x => x.id === id);
+            if (!e) return;
+            e.stato = stato;
+            saveAttesaDB();
+            mostraToast(stato === 'venduto' ? '🎉 Vendita registrata!' : stato === 'contattato' ? 'Cliente segnato come contattato.' : 'Cliente riattivato.');
+        }
+
+        function editAttesa(id) {
+            const e = listaAttesaDB.find(x => x.id === id);
+            if (!e) return;
+            const w = $('attesa-form-wrapper');
+            if (w) w.style.display = 'block';
+            $('attesa-edit-id').value = e.id;
+            $('attesa-cognome').value = e.cognome || '';
+            $('attesa-nome').value = e.nome || '';
+            $('attesa-tel').value = e.tel || '';
+            $('attesa-marca').value = e.marca || '';
+            $('attesa-modello').value = e.modello || '';
+            $('attesa-anno').value = e.anno || '';
+            $('attesa-colore').value = e.colore || '';
+            $('attesa-note').value = e.note || '';
+            w.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function deleteAttesa(id) {
+            if (!confirm('Eliminare questo cliente dalla lista attesa?')) return;
+            listaAttesaDB = listaAttesaDB.filter(e => e.id !== id);
+            saveAttesaDB();
+            mostraToast('Cliente rimosso.');
+        }
+
+        function sendWaAttesa(id) {
+            const e = listaAttesaDB.find(x => x.id === id);
+            if (!e) return;
+            const t = formatPhoneForWa(e.tel);
+            if (!t) return mostraErrore("Nessun numero valido!");
+            const nome = (e.nome || e.cognome).trim();
+            const moto = [e.marca, e.modello].filter(Boolean).join(' ');
+            const txt = `Ciao ${nome} 👋, ti contatto da Moto Garage Marcello.\nAbbiamo una novità riguardo alla ${moto || 'moto'} che stavi cercando! 🏍️\nChiamaci o rispondi qui per info. A presto!`;
+            window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank');
+            setStatoAttesa(id, 'contattato');
+        }
 
         function saveScadenzeDB() { database.ref('/scadenze').set(scadenzeDB).then(showCloudCheck).catch(_onSaveError); }
 
