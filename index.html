@@ -5513,31 +5513,36 @@ if ('serviceWorker' in navigator) {
             if (!sorted.length) { list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:30px 0;">Nessun cliente in lista.</p>'; return; }
             list.innerHTML = sorted.map(e => {
                 const statoColor = e.stato==='attesa' ? '#818cf8' : e.stato==='contattato' ? '#fbbf24' : '#4ade80';
-                const statoLabel = e.stato==='attesa' ? '🔵 In Attesa' : e.stato==='contattato' ? '🟡 Contattato' : '✅ Venduto';
-                const moto = [e.marca, e.modello, e.anno, e.colore].filter(Boolean).join(' ');
+                const statoLabel = e.stato==='attesa' ? 'In Attesa' : e.stato==='contattato' ? 'Contattato' : 'Venduto';
+                const statoIcon = e.stato==='attesa' ? '🔵' : e.stato==='contattato' ? '🟡' : '✅';
+                const moto = [e.marca, e.modello, e.anno].filter(Boolean).join(' ');
                 const telFmt = formatPhoneForWa(e.tel);
-                const waBtn = telFmt ? `<button onclick="sendWaAttesa(${e.id})" style="background:var(--whatsapp);color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:0.8rem;font-weight:bold;white-space:nowrap;">📲 WhatsApp</button>` : '';
-                const btnContattato = e.stato !== 'contattato' && e.stato !== 'venduto' ? `<button onclick="setStatoAttesa(${e.id},'contattato')" style="background:rgba(251,191,36,0.15);border:1px solid #fbbf24;color:#fbbf24;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">🟡 Contattato</button>` : '';
-                const btnVenduto = e.stato !== 'venduto' ? `<button onclick="setStatoAttesa(${e.id},'venduto')" style="background:rgba(74,222,128,0.12);border:1px solid #4ade80;color:#4ade80;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">✅ Venduto</button>` : '';
-                const btnRiapri = e.stato !== 'attesa' ? `<button onclick="setStatoAttesa(${e.id},'attesa')" style="background:rgba(129,140,248,0.12);border:1px solid #818cf8;color:#818cf8;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">🔵 Riattiva</button>` : '';
-                return `<div class="card" style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;border-left:5px solid ${statoColor};padding:14px 18px;">
+                const waBtn = telFmt ? `<button onclick="sendWaAttesa(${e.id})" style="background:#25d366;color:white;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:0.78rem;font-weight:bold;white-space:nowrap;">📲 WhatsApp</button>` : '';
+                const btnContattato = e.stato==='attesa' ? `<button onclick="setStatoAttesa(${e.id},'contattato')" style="background:rgba(251,191,36,0.13);border:1px solid #fbbf24;color:#fbbf24;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">🟡 Contattato</button>` : '';
+                const btnVenduto = e.stato!=='venduto' ? `<button onclick="setStatoAttesa(${e.id},'venduto')" style="background:rgba(74,222,128,0.1);border:1px solid #4ade80;color:#4ade80;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">✅ Venduto</button>` : '';
+                const btnRiapri = e.stato!=='attesa' ? `<button onclick="setStatoAttesa(${e.id},'attesa')" style="background:rgba(129,140,248,0.1);border:1px solid #818cf8;color:#818cf8;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">🔵 Riattiva</button>` : '';
+                return `<div class="card" style="display:grid;grid-template-columns:2fr 2fr 1.2fr auto;gap:16px;align-items:center;border-left:4px solid ${statoColor};padding:12px 16px;min-height:64px;">
                     <div>
-                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
-                            <span style="font-weight:bold;font-size:1.05rem;color:white;">${e.cognome} ${e.nome}</span>
-                            <span style="font-size:0.7rem;font-weight:bold;padding:2px 8px;border-radius:10px;background:${statoColor}22;color:${statoColor};border:1px solid ${statoColor}44;">${statoLabel}</span>
-                            <span style="font-size:0.75rem;color:var(--muted);">dal ${formattaData(e.data)}</span>
+                        <div style="font-weight:bold;font-size:1rem;color:white;margin-bottom:4px;">${e.cognome} ${e.nome}</div>
+                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                            <span style="font-size:0.68rem;font-weight:bold;padding:2px 7px;border-radius:8px;background:${statoColor}20;color:${statoColor};border:1px solid ${statoColor}40;">${statoIcon} ${statoLabel}</span>
+                            <span style="font-size:0.72rem;color:var(--muted);">dal ${formattaData(e.data)}</span>
                         </div>
-                        ${moto ? `<div style="color:var(--info);font-size:0.9rem;margin-bottom:4px;">🏍️ ${moto}</div>` : ''}
-                        <div style="color:var(--text);font-size:0.85rem;margin-bottom:4px;">📞 ${e.tel}</div>
-                        ${e.note ? `<div style="color:var(--muted);font-size:0.8rem;font-style:italic;">${e.note}</div>` : ''}
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+                    <div>
+                        ${moto ? `<div style="color:var(--info);font-size:0.88rem;margin-bottom:3px;">🏍️ ${moto}${e.colore?' — '+e.colore:''}</div>` : '<div style="color:var(--muted);font-size:0.8rem;">— nessuna moto specificata —</div>'}
+                        ${e.note ? `<div style="color:var(--muted);font-size:0.76rem;font-style:italic;">${e.note}</div>` : ''}
+                    </div>
+                    <div style="font-size:0.85rem;color:var(--text);">📞 ${e.tel}</div>
+                    <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
                         ${waBtn}
                         ${btnContattato}
                         ${btnVenduto}
                         ${btnRiapri}
-                        <button onclick="editAttesa(${e.id})" style="background:rgba(255,255,255,0.06);border:1px solid #334155;color:var(--text);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.75rem;">✏️ Modifica</button>
-                        <button onclick="deleteAttesa(${e.id})" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--accent);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.75rem;">🗑️</button>
+                        <div style="display:flex;gap:5px;margin-top:2px;">
+                            <button onclick="editAttesa(${e.id})" style="background:rgba(255,255,255,0.05);border:1px solid #334155;color:var(--muted);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:0.72rem;">✏️ Modifica</button>
+                            <button onclick="deleteAttesa(${e.id})" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);color:var(--accent);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.72rem;">🗑️</button>
+                        </div>
                     </div>
                 </div>`;
             }).join('');
