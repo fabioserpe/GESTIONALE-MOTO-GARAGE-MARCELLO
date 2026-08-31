@@ -584,6 +584,7 @@
                 <div class="form-panel" style="flex:1.2; max-width:650px; background:var(--card); padding:35px; border-radius:20px; border:1px solid #334155;">
                     <h2 id="form-title" style="color:var(--accent);" class="mb-20">Nuova Accettazione</h2>
                     <input type="hidden" id="f_id">
+                    <input type="hidden" id="f_client_id">
                     <label>Data di Riferimento</label>
                     <input type="date" id="f_data" onchange="refreshMiniAgenda()">
                     
@@ -1534,7 +1535,8 @@
             if (_listenersInit) return;
             _listenersInit = true;
 
-            // I dati sono già nel cloud — nessuna migrazione necessaria
+            // Inizializza magazzino in background così inventarioMag è sempre disponibile
+            initMagazzino();
 
             database.ref('/db').on('value', (snap) => {
                 db = snap.val() || [];
@@ -1553,7 +1555,18 @@
                         needsCleanSpecialCat = true;
                     }
                 });
-                if (needsSaveChiusura || needsCleanSpecialCat) saveDB();
+                // Migrazione clientId: assegna UUID a ogni cliente raggruppato per nome
+                const _nameToClientId = {};
+                let _needsClientIdSave = false;
+                db.forEach(j => {
+                    if (!j.clientId) {
+                        const _k = `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim();
+                        if (!_nameToClientId[_k]) _nameToClientId[_k] = genClientId();
+                        j.clientId = _nameToClientId[_k];
+                        _needsClientIdSave = true;
+                    }
+                });
+                if (needsSaveChiusura || needsCleanSpecialCat || _needsClientIdSave) saveDB();
                 updateDatalist();
                 const v = currentView;
                 if (v === 'board') refreshBoard();
@@ -1735,10 +1748,13 @@
         function saveBilling()  { database.ref('/').update({ billing: billingDB }).then(showCloudCheck).catch(_onSaveError); }
         function saveTagliandi() { database.ref('/tagliandi').set(taggliandiDB).then(showCloudCheck).catch(_onSaveError); }
 
-        function openBillingModal(chiave, clienteLabel) {
-            $('billing_chiave').value = chiave;
-            $('billing-cliente-info').innerHTML = `Cliente: <b style="color:white;">${clienteLabel}</b>`;
-            const b = billingDB[chiave.toUpperCase().trim()] || {};
+        function openBillingModal(encodedClientId, encodedNameFallback, clienteLabel) {
+            // encodedClientId = clientId (UUID), encodedNameFallback = "COGNOME NOME" vecchia chiave
+            const clientId = safeDecode(encodedClientId);
+            const nameFallback = encodedNameFallback ? safeDecode(encodedNameFallback) : '';
+            $('billing_chiave').value = clientId;
+            $('billing-cliente-info').innerHTML = `Cliente: <b style="color:white;">${clienteLabel || nameFallback}</b>`;
+            const b = billingDB[clientId] || (nameFallback ? billingDB[nameFallback] : null) || {};
             $('bm_ragione_sociale').value = b.ragione_sociale || '';
             $('bm_cf').value = b.cf || '';
             $('bm_piva').value = b.piva || '';
@@ -1752,7 +1768,7 @@
         }
 
         function saveBillingModal() {
-            const chiave = $('billing_chiave').value.toUpperCase().trim();
+            const chiave = $('billing_chiave').value.trim();
             if (!chiave) return;
             const data = {
                 ragione_sociale: $('bm_ragione_sociale').value.trim(),
@@ -1868,7 +1884,7 @@
             if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze();
         }
 
-        function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; refreshMiniAgenda(); }
+        function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; refreshMiniAgenda(); }
         
         function refreshMiniAgenda() {
             const container = $('mini-agenda-grid');
@@ -1908,6 +1924,8 @@
         }
         function extractList(rS, v1C, v2C, iN = false) { return Array.from($$(rS)).map(r => { const v1 = r.querySelector(v1C).value; const v2 = r.querySelector(v2C).value; return iN ? { val: parseFloat(v1)||0, date: v2 } : { desc: v1, price: parseFloat(v2)||0 }; }).filter(i => i.val > 0 || (i.desc && i.desc.trim() !== '') || i.price > 0); }
         function getJobsByClient(chiave) { return db.filter(j => `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim() === chiave); }
+        function getJobsByClientId(clientId) { return db.filter(j => j.clientId === clientId); }
+        function genClientId() { return (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'c_' + Date.now() + '_' + Math.random().toString(36).substr(2,9); }
 
         // =====================================================================
         // 4. AUTOCOMPILAZIONE E ANAGRAFICA VELOCE
@@ -1963,7 +1981,7 @@
                     const moto = `${j.marca || ''} ${j.modello || ''}`.trim();
                     const isExact = (j.cognome || '').toUpperCase().trim() === qU && (!nQ || (j.nome || '').toUpperCase().trim() === nQ);
                     const hlStyle = isExact ? 'border-left:3px solid var(--warning);' : 'border-left:3px solid transparent;';
-                    const d = JSON.stringify({ targa: j.targa||'', nome: j.nome||'', cognome: j.cognome||'', tel: j.tel||'', marca: j.marca||'', modello: j.modello||'', km: j.km||'' }).replace(/"/g, '&quot;');
+                    const d = JSON.stringify({ targa: j.targa||'', nome: j.nome||'', cognome: j.cognome||'', tel: j.tel||'', marca: j.marca||'', modello: j.modello||'', km: j.km||'', clientId: j.clientId||'' }).replace(/"/g, '&quot;');
                     return `<div onmousedown="selezionaClienteNuova(${d})"
                         style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);${hlStyle}"
                         onmouseover="this.style.background='rgba(245,158,11,0.12)'"
@@ -1987,6 +2005,7 @@
             if ($('f_marca')) $('f_marca').value = data.marca || '';
             if ($('f_modello')) $('f_modello').value = data.modello || '';
             if ($('f_km')) $('f_km').value = data.km || '';
+            if ($('f_client_id')) $('f_client_id').value = data.clientId || '';
             const res = $('nuova-cliente-results');
             if (res) res.style.display = 'none';
             if (data.targa) mostraInfoClienteNuova(data.targa);
@@ -2102,7 +2121,7 @@
                 if (c.km && $(p+'_km')) $(p+'_km').value = c.km;
             }
         }
-        function sincronizzaAnagrafica(targa, nome, cognome, tel, marca, modello) { if (!targa || String(targa).trim() === '') return; targa = String(targa).toUpperCase().trim(); const ex = db.filter(j => j.targa === targa); if (ex.length > 0) { db.forEach(j => { if (j.targa === targa) { if(nome) j.nome = nome; if(cognome) j.cognome = cognome; if(tel) j.tel = tel; if(marca) j.marca = marca; if(modello) j.modello = modello; } }); } else { db.push({ id: Date.now() + Math.floor(Math.random() * 1000), data: getOggiLocale(), nome: nome || '', cognome: cognome || '', tel: tel || '', marca: marca || '', modello: modello || '', targa: targa, km: '', acconti: [], lavori_richiesti: 'Inserimento rapido', stato: 'archived', conto: [], totale_lordo: 0 }); } }
+        function sincronizzaAnagrafica(targa, nome, cognome, tel, marca, modello, clientId) { if (!targa || String(targa).trim() === '') return; targa = String(targa).toUpperCase().trim(); const ex = db.filter(j => j.targa === targa); if (ex.length > 0) { db.forEach(j => { if (j.targa === targa) { if(nome) j.nome = nome; if(cognome) j.cognome = cognome; if(tel) j.tel = tel; if(marca) j.marca = marca; if(modello) j.modello = modello; if(clientId && !j.clientId) j.clientId = clientId; } }); } else { db.push({ id: Date.now() + Math.floor(Math.random() * 1000), data: getOggiLocale(), nome: nome || '', cognome: cognome || '', tel: tel || '', marca: marca || '', modello: modello || '', targa: targa, km: '', acconti: [], lavori_richiesti: 'Inserimento rapido', stato: 'archived', conto: [], totale_lordo: 0, clientId: clientId || genClientId() }); } }
 
         function addAcconto(cId, vCls, dCls, calcFn = null, val = '', date = '', aF = false) { const div = document.createElement('div'); div.className = `flex-row mb-15 acc-row`; div.innerHTML = `<input type="number" class="${vCls}" value="${val}" step="0.01" style="flex:1; margin:0;" placeholder="Importo €" ${calcFn?`oninput="${calcFn.name}()"`:''}> <input type="date" class="${dCls}" value="${date || getOggiLocale()}" style="flex:1; margin:0;"> <button tabindex="-1" onclick="this.parentElement.remove(); ${calcFn?calcFn.name+'()':''}" style="background:none; border:none; color:var(--accent); cursor:pointer; font-weight:bold; padding:0 5px; font-size:1.1rem;">×</button>`; const c = $(cId); if (c) c.appendChild(div); if (aF) setTimeout(() => { div.querySelector(`.${vCls}`).focus(); }, 10); }
         function addVoce(cId, dCls, pCls, calcFn, dStr = '', pNum = '', aF = false) { const tr = document.createElement('tr'); tr.className = 'voce-row'; tr.innerHTML = `<td><input type="text" class="${dCls}" placeholder="Voce..." value="${dStr}" style="margin-bottom:5px;"></td><td style="width:110px"><input type="number" class="${pCls}" value="${pNum}" step="0.01" placeholder="0.00" style="margin-bottom:5px;" oninput="${calcFn.name}()"></td><td style="width:30px; text-align:right;"><button tabindex="-1" onclick="this.parentElement.parentElement.remove(); ${calcFn.name}();" style="color:var(--accent); background:none; border:none; cursor:pointer; font-weight:bold; font-size:1.1rem;">×</button></td>`; const c = $(cId); if (c) c.appendChild(tr); if (aF) setTimeout(() => { tr.querySelector(`.${dCls}`).focus(); }, 10); }
@@ -2164,7 +2183,7 @@
             window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank');
         }
         function sendWhatsAppPreventivo(id) { const p = db.find(x => String(x.id) === String(id)); if(!p) return; let t = formatPhoneForWa(p.tel); if(!t) return mostraErrore("Nessun numero salvato!"); let v = (p.conto || []).map(c => `▪️ ${c.desc}: €${parseFloat(c.price).toFixed(2)}`).join('\n'); let txt = `Ciao ${(p.nome||'').trim()},\necco il preventivo per la tua ${p.marca||''} ${p.modello||''} (${p.targa||''}):\n\n${v}\n\n*TOTALE: €${(parseFloat(p.totale_lordo)||0).toFixed(2)}*\n\nFammi sapere! 🏍️\n- ${MGM_INFO.nome}`; window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank'); }
-        function sendWhatsAppArchiveCognome(enc) { const k = safeDecode(enc); const js = getJobsByClient(k); if(js.length === 0) return; const u = js[js.length-1]; let t = formatPhoneForWa(u.tel); if(!t) return mostraErrore("Nessun numero salvato!"); const nome = (u.nome||k).trim(); const moto = [u.marca, u.modello, u.targa].filter(Boolean).join(' '); const txt = `Ciao ${nome} 👋, la tua *${moto||'moto'}* è pronta per il ritiro presso Moto Garage Marcello. 🏍️\nPer info chiamaci al ${MGM_INFO.tel}. A presto!`; window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank'); }
+        function sendWhatsAppArchiveCognome(enc) { const clientId = safeDecode(enc); const js = getJobsByClientId(clientId); if(js.length === 0) return; const u = js[js.length-1]; let t = formatPhoneForWa(u.tel); if(!t) return mostraErrore("Nessun numero salvato!"); const nome = (u.nome||u.cognome||'').trim(); const moto = [u.marca, u.modello, u.targa].filter(Boolean).join(' '); const txt = `Ciao ${nome} 👋, la tua *${moto||'moto'}* è pronta per il ritiro presso Moto Garage Marcello. 🏍️\nPer info chiamaci al ${MGM_INFO.tel}. A presto!`; window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank'); }
 
         // =====================================================================
         // 6. RUBRICA E ORDINI
@@ -2587,21 +2606,32 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (db[exIdx].stato && stato !== 'special') finalStato = db[exIdx].stato; 
             }
 
-            const data = { 
-                id: nowId, 
-                data: $('f_data').value, 
-                nome: $('f_nome').value.trim(), 
-                cognome: $('f_cognome').value.trim(), 
-                tel: $('f_tel').value.trim(), 
-                marca: $('f_marca').value.trim(), 
-                modello: $('f_modello').value.trim(), 
-                targa: $('f_targa').value.toUpperCase().trim(), 
-                km: $('f_km').value, 
-                acconti: extractList('#acconti-container .acc-row', '.f_acc_val', '.f_acc_date', true), 
-                lavori_richiesti: $('f_lavori').value, 
-                stato: finalStato, // <-- Usa lo stato bloccato
-                conto: oldConto, 
-                totale_lordo: oldTotale 
+            // Determina clientId: 1) record esistente, 2) autocomplete, 3) targa match, 4) nuovo
+            let _savedClientId = exIdx > -1 ? (db[exIdx].clientId || '') : '';
+            if (!_savedClientId && $('f_client_id')) _savedClientId = $('f_client_id').value.trim();
+            if (!_savedClientId) {
+                const _tg = $('f_targa').value.toUpperCase().trim();
+                if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _savedClientId = _ex.clientId; }
+            }
+            if (!_savedClientId) _savedClientId = genClientId();
+            if ($('f_client_id')) $('f_client_id').value = '';
+
+            const data = {
+                id: nowId,
+                data: $('f_data').value,
+                nome: $('f_nome').value.trim(),
+                cognome: $('f_cognome').value.trim(),
+                tel: $('f_tel').value.trim(),
+                marca: $('f_marca').value.trim(),
+                modello: $('f_modello').value.trim(),
+                targa: $('f_targa').value.toUpperCase().trim(),
+                km: $('f_km').value,
+                acconti: extractList('#acconti-container .acc-row', '.f_acc_val', '.f_acc_date', true),
+                lavori_richiesti: $('f_lavori').value,
+                stato: finalStato,
+                conto: oldConto,
+                totale_lordo: oldTotale,
+                clientId: _savedClientId
             }; 
             
             if(!data.cognome) return mostraErrore("Il Cognome è obbligatorio!"); 
@@ -2619,10 +2649,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 agendaDB.push({ id: Date.now() + Math.floor(Math.random() * 1000), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); 
             } 
             
-            sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello);
+            sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello, data.clientId);
             saveDBAgenda();
             isEditing = false;
-            switchView('board'); 
+            switchView('board');
         }
 // --- INIZIO MACCHINA DEL TEMPO ---
         let historyStack = [];
@@ -2764,10 +2794,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 `;
             }
 
+            const _billClientId = j.clientId || '';
             const billingChiave = `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim();
-            const b = billingDB[billingChiave] || {};
+            const b = billingDB[_billClientId] || billingDB[billingChiave] || {};
             const hasBilling = !!(b.cf || b.piva || b.ragione_sociale);
             const clienteLabel = `${(j.cognome||'').toUpperCase()} ${j.nome||''}`.trim();
+            const _billEncId = safeEncode(_billClientId); const _billEncFb = safeEncode(billingChiave);
 
             let billingHtml = '';
             if (hasBilling) {
@@ -2775,7 +2807,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     <div style="margin-top:20px; background:rgba(245,158,11,0.07); border:1px solid rgba(245,158,11,0.3); border-radius:10px; padding:15px;">
                         <div class="flex-between" style="margin-bottom:10px;">
                             <h3 style="color:#f59e0b; margin:0; font-size:0.95rem;">🧾 Dati Fatturazione</h3>
-                            <button onclick="openBillingModal('${billingChiave}', '${clienteLabel}')" style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#f59e0b; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.75rem; font-weight:bold;">✏️ Modifica</button>
+                            <button onclick="openBillingModal('${_billEncId}','${_billEncFb}','${clienteLabel}')" style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#f59e0b; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.75rem; font-weight:bold;">✏️ Modifica</button>
                         </div>
                         <div style="font-size:0.85rem; color:var(--text); line-height:1.8;">
                             ${b.ragione_sociale ? `<div><span style="color:var(--muted);">Rag. Sociale:</span> <b>${b.ragione_sociale}</b></div>` : ''}
@@ -2789,7 +2821,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             } else {
                 billingHtml = `
                     <div style="margin-top:20px;">
-                        <button onclick="openBillingModal('${billingChiave}', '${clienteLabel}')" style="background:rgba(245,158,11,0.1); border:1px dashed rgba(245,158,11,0.4); color:#f59e0b; border-radius:8px; padding:10px 15px; cursor:pointer; font-size:0.85rem; font-weight:bold; width:100%; text-align:center;">
+                        <button onclick="openBillingModal('${_billEncId}','${_billEncFb}','${clienteLabel}')" style="background:rgba(245,158,11,0.1); border:1px dashed rgba(245,158,11,0.4); color:#f59e0b; border-radius:8px; padding:10px 15px; cursor:pointer; font-size:0.85rem; font-weight:bold; width:100%; text-align:center;">
                             🧾 + Aggiungi Dati Fatturazione
                         </button>
                     </div>`;
@@ -3098,7 +3130,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
         // -------------------------------------------------
 
-        function editJob(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; isEditing = true; switchView('nuova'); $('form-title').innerText = "Modifica Scheda Tecnica"; $('f_id').value = j.id; $('f_data').value = j.data; $('f_nome').value = j.nome||''; $('f_cognome').value = j.cognome||''; $('f_tel').value = j.tel||''; $('f_marca').value = j.marca||''; $('f_modello').value = j.modello||''; $('f_targa').value = j.targa||''; $('f_km').value = j.km||''; $('f_lavori').value = j.lavori_richiesti||''; $('acconti-container').innerHTML = ''; (j.acconti||[]).forEach(a => addAcconto('acconti-container', 'f_acc_val', 'f_acc_date', null, a.val, a.date)); refreshMiniAgenda(); }
+        function editJob(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; isEditing = true; switchView('nuova'); $('form-title').innerText = "Modifica Scheda Tecnica"; $('f_id').value = j.id; $('f_data').value = j.data; $('f_nome').value = j.nome||''; $('f_cognome').value = j.cognome||''; $('f_tel').value = j.tel||''; $('f_marca').value = j.marca||''; $('f_modello').value = j.modello||''; $('f_targa').value = j.targa||''; $('f_km').value = j.km||''; $('f_lavori').value = j.lavori_richiesti||''; if($('f_client_id')) $('f_client_id').value = j.clientId||''; $('acconti-container').innerHTML = ''; (j.acconti||[]).forEach(a => addAcconto('acconti-container', 'f_acc_val', 'f_acc_date', null, a.val, a.date)); refreshMiniAgenda(); }
 
         function cambiaSettimana(offset) { const d = new Date(dataInizioSettimana); d.setDate(d.getDate() + (offset * 7)); dataInizioSettimana = d; refreshAgenda(); }
         
@@ -3330,7 +3362,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if(tipoVal === 'officina' && !jobIdVal) {
                 const nJobId = Date.now() + 1;
                 const accontiApp = !isModal ? extractList('#app-acconti-container .acc-row', '.app_acc_val', '.app_acc_date', true) : [];
-                db.push({ id: nJobId, data: app.data, nome: nome, cognome: cognome, tel: tel, marca: marca, modello: modello, targa: targa, km: kmVal || "", acconti: accontiApp, lavori_richiesti: note, stato: 'todo', conto: [], totale_lordo: 0 });
+                let _agCId = ''; if(targa){const _ex=db.find(j=>j.targa===targa&&j.clientId);if(_ex)_agCId=_ex.clientId;} if(!_agCId){const _k=`${cognome.toUpperCase().trim()} ${nome.toUpperCase().trim()}`.trim();const _ex2=db.find(j=>j.clientId&&`${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim()===_k);if(_ex2)_agCId=_ex2.clientId;} if(!_agCId)_agCId=genClientId();
+                db.push({ id: nJobId, data: app.data, nome: nome, cognome: cognome, tel: tel, marca: marca, modello: modello, targa: targa, km: kmVal || "", acconti: accontiApp, lavori_richiesti: note, stato: 'todo', conto: [], totale_lordo: 0, clientId: _agCId });
                 app.jobId = nJobId; 
             } else if(app.jobId) { 
                 const iJ = db.findIndex(x => String(x.id) === String(app.jobId)); 
@@ -3363,10 +3396,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             
             if (jX > -1) { 
                 db[jX].stato = targetState; 
-            } else { 
-                const nI = Date.now(); 
-                db.push({ id: nI, data: a.data, nome: nm, cognome: cg, tel: a.tel || '', marca: mc, modello: md, targa: tg, km: "", acconti: [], lavori_richiesti: a.note || '', stato: targetState, conto: [], totale_lordo: 0 }); 
-                a.jobId = nI; 
+            } else {
+                const nI = Date.now();
+                let _ponCId = ''; if(tg){const _ex=db.find(j=>j.targa===tg&&j.clientId);if(_ex)_ponCId=_ex.clientId;} if(!_ponCId){const _k=`${cg.toUpperCase().trim()} ${nm.toUpperCase().trim()}`.trim();const _ex2=db.find(j=>j.clientId&&`${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim()===_k);if(_ex2)_ponCId=_ex2.clientId;} if(!_ponCId)_ponCId=genClientId();
+                db.push({ id: nI, data: a.data, nome: nm, cognome: cg, tel: a.tel || '', marca: mc, modello: md, targa: tg, km: "", acconti: [], lavori_richiesti: a.note || '', stato: targetState, conto: [], totale_lordo: 0, clientId: _ponCId });
+                a.jobId = nI;
             } 
             sincronizzaAnagrafica(tg, nm, cg, a.tel, mc, md);
             
@@ -3511,9 +3545,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (oldBadge) oldBadge.remove();
             const q = input.value.toUpperCase().trim();
             if (!q || q.length < 2) { resDiv.style.display = 'none'; return; }
-            // Carica magazzino se non ancora inizializzato
             if (!inventarioMag.length) {
-                magFetch().then(data => { inventarioMag = data; cercaMagPerConto(input); });
+                database.ref('/magazzino').once('value').then(snap => {
+                    inventarioMag = Object.values(snap.val() || {});
+                    if (inventarioMag.length) cercaMagPerConto(input);
+                });
                 return;
             }
             const matches = inventarioMag.filter(i =>
@@ -3665,7 +3701,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // 10. PREVENTIVI
         // =====================================================================
         function openPreventivoForm(id = null) { isEditing = !!id; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal,c.desc,c.price)):addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); } calcPrevTotal(); }
-        function newPreventivoFromArchiveCognome(encodedChiave) { const chiave = safeDecode(encodedChiave); const jobs = getJobsByClient(chiave); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); calcPrevTotal(); setTimeout(() => checkCustomerBikes('p'), 100); }
+        function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); calcPrevTotal(); setTimeout(() => checkCustomerBikes('p'), 100); }
         function calcPrevTotal() { $('p-totale').innerText = `TOTALE: ${extractList('#p-conto-rows tr', '.p-desc', '.p-price', false).reduce((a,b)=>a+b.price,0).toFixed(2)} €`; }
         function savePreventivo(inviaWA = false, comeCommessa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : Date.now(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = extractList('#p-conto-rows tr', '.p-desc', '.p-price', false); const data = { id: nowId, data: getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: [], lavori_richiesti: 'Vedi voci preventivo', stato: comeCommessa ? 'todo' : 'preventivo', conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0) }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa) { agendaDB.push({ id: Date.now() + Math.floor(Math.random() * 1000), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(comeCommessa) switchView('board'); else switchView('preventivi'); }
         function refreshPreventivi() { const c = $('preventivi-results'); if (!c) return; c.innerHTML = ''; const pvs = db.filter(j => j.stato === 'preventivo').sort((a,b) => new Date(b.data) - new Date(a.data)); if(pvs.length === 0) { c.innerHTML = `<p style="color:var(--muted)">Nessun preventivo.</p>`; return; } pvs.forEach(p => { c.innerHTML += `<div class="card" style="border-left:8px solid var(--purple)"><div class="flex-between"><b style="font-size:1.1rem;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</b><span class="targa-badge" style="background:var(--purple); border:none;">${p.targa||'NO TARGA'}</span></div><p style="color:var(--muted); margin: 5px 0;">🏍️ ${p.marca||''} ${p.modello||''}</p><h2 style="color:white; margin: 10px 0;">€ ${(p.totale_lordo||0).toFixed(2)}</h2><button class="btn btn-success mb-15" onclick="accettaPreventivo(${p.id})">✅ Accetta (Invia Officina)</button><div class="flex-row mb-15"><button class="btn btn-wa" onclick="sendWhatsAppPreventivo(${p.id})">📲 Invia WA</button><button class="btn btn-dark" onclick="openPreventivoForm(${p.id})">✏️ Modifica</button></div><div class="flex-row"><button class="btn btn-dark" onclick="printPreventivo(${p.id})">🖨️ Stampa</button><button class="btn btn-dark" style="color:var(--accent);" onclick="deleteJob(${p.id})">🗑️ Elimina</button></div></div>`; }); }
@@ -3693,8 +3729,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             refreshArchive(); 
         }
 
-        function refreshArchive() { 
-            const query = $('search-input').value.toLowerCase().trim(); const searchTerms = query.split(/\s+/); const container = $('archive-results'); if (!container) return; container.classList.remove('grid-cards'); container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px'; container.innerHTML = ''; const clientiMap = {}; db.forEach(j => { if(!j.cognome) return; const key = `${j.cognome.toUpperCase().trim()} ${j.nome ? j.nome.toUpperCase().trim() : ''}`.trim(); if(!clientiMap[key]) { clientiMap[key] = { cognome: j.cognome, nome: j.nome || '', tel: j.tel || '', veicoli: new Set(), veicoliDettagli: [], storia: [], targhe: [] }; } if(j.tel) clientiMap[key].tel = j.tel; if(j.targa && !clientiMap[key].veicoli.has(j.targa)) { clientiMap[key].veicoli.add(j.targa); clientiMap[key].targhe.push(j.targa); clientiMap[key].veicoliDettagli.push({ targa: j.targa, marca: j.marca || '', modello: j.modello || '' }); } if (j.stato !== 'preventivo') { clientiMap[key].storia.push(j); } }); const chiaviOrdinate = Object.keys(clientiMap).sort((a, b) => a.localeCompare(b)); 
+        function refreshArchive() {
+            const query = $('search-input').value.toLowerCase().trim(); const searchTerms = query.split(/\s+/); const container = $('archive-results'); if (!container) return; container.classList.remove('grid-cards'); container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px'; container.innerHTML = ''; const clientiMap = {}; db.forEach(j => { if(!j.cognome) return; const key = j.clientId || `${j.cognome.toUpperCase().trim()} ${j.nome ? j.nome.toUpperCase().trim() : ''}`.trim(); if(!clientiMap[key]) { clientiMap[key] = { clientId: j.clientId || key, cognome: j.cognome, nome: j.nome || '', tel: j.tel || '', veicoli: new Set(), veicoliDettagli: [], storia: [], targhe: [] }; } if(j.tel) clientiMap[key].tel = j.tel; if(j.targa && !clientiMap[key].veicoli.has(j.targa)) { clientiMap[key].veicoli.add(j.targa); clientiMap[key].targhe.push(j.targa); clientiMap[key].veicoliDettagli.push({ targa: j.targa, marca: j.marca || '', modello: j.modello || '' }); } if (j.stato !== 'preventivo') { clientiMap[key].storia.push(j); } });
+            // Rileva omonimi: stessi nomi ma clientId diversi
+            const _nomeCount = {}; Object.values(clientiMap).forEach(c => { const _n = `${c.cognome.toUpperCase().trim()} ${c.nome.toUpperCase().trim()}`.trim(); _nomeCount[_n] = (_nomeCount[_n]||0) + 1; });
+            const chiaviOrdinate = Object.keys(clientiMap).sort((a, b) => { const ca = clientiMap[a], cb = clientiMap[b]; return `${ca.cognome} ${ca.nome}`.localeCompare(`${cb.cognome} ${cb.nome}`); }); 
             
             chiaviOrdinate.forEach(chiave => { 
                 const c = clientiMap[chiave]; let debitoTotale = 0; let hasTodo = false; let hasDoing = false; let hasSpecial = false; 
@@ -3725,9 +3764,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     
                     if (hasSpecial) badgesHtml += `<div style="display:flex; align-items:center;"><span style="color:var(--purple); font-weight:bold; font-size:0.8rem; background:rgba(139, 92, 246, 0.1); padding: 4px 8px; border-radius: 4px;">🕰️ LAVORO LUNGO</span></div>`;
                     
-                    const safeKey = safeEncode(chiave); 
-                    
-                    if (isDebitore) { 
+                    const safeKey = safeEncode(c.clientId);
+                    const _nomeCompleto = `${c.cognome.toUpperCase().trim()} ${c.nome.toUpperCase().trim()}`.trim();
+                    const isOmonimo = (_nomeCount[_nomeCompleto] || 0) > 1;
+
+                    if (isDebitore) {
                         badgesHtml += `<div style="display:flex; align-items:center; gap:10px;"><span style="color:var(--accent); font-weight:bold; font-size:0.8rem; background:rgba(239, 68, 68, 0.1); padding: 4px 8px; border-radius: 4px;">⚠️ DA SALDARE: €${debitoTotale.toFixed(2)}</span><button onclick="event.stopPropagation(); saldaDebitoCliente('${safeKey}')" style="background:var(--success); color:white; border:none; border-radius:4px; padding:4px 8px; font-size:0.75rem; cursor:pointer; font-weight:bold;">💰 Salda</button></div>`; 
                     } else if (!inLavorazione && !hasSpecial) { 
                         badgesHtml += `<div style="color:var(--success); font-size:0.75rem; font-weight:bold; padding: 2px 0;">✅ Conto in regola</div>`; 
@@ -3740,10 +3781,14 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     if (inLavorazione || hasSpecial) { revertHtml = `<button onclick="revertClientJobsToToday('${safeKey}')" style="color:var(--warning); width:100%; text-align:left;">📅 Sposta a OGGI</button>`; } 
                     
                     const row = document.createElement('div'); row.className = 'card'; row.style.display = 'grid'; row.style.gridTemplateColumns = 'minmax(200px, 1.5fr) minmax(200px, 1.5fr) 130px auto'; row.style.alignItems = 'start'; row.style.padding = '15px 20px'; row.style.margin = '0'; row.style.gap = '15px'; row.style.borderLeft = `6px solid ${borderCol}`; 
-                    const billingKey = `${c.cognome.toUpperCase().trim()} ${c.nome.toUpperCase().trim()}`.trim();
-                    const hasBilling = !!(billingDB[billingKey] && (billingDB[billingKey].cf || billingDB[billingKey].piva));
+                    const billingKey = c.clientId;
+                    const billingNameFallback = `${c.cognome.toUpperCase().trim()} ${c.nome.toUpperCase().trim()}`.trim();
+                    const _bData = billingDB[billingKey] || billingDB[billingNameFallback] || {};
+                    const hasBilling = !!(_bData.cf || _bData.piva || _bData.ragione_sociale);
                     const billingBadge = hasBilling ? `<span title="Dati fatturazione presenti" style="font-size:0.7rem; background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 6px; border-radius:4px; font-weight:bold; margin-left:8px;">🧾 FAT.</span>` : '';
-                    row.innerHTML = `<div style="cursor:pointer;" onclick="viewHistoryCognome('${safeKey}')" title="Clicca per aprire conto e storico lavori"><div style="font-weight:bold; font-size:1.1rem; color:white; line-height:1.2; text-transform:uppercase;">${c.cognome} ${c.nome}${billingBadge}</div>${badgesHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">VEICOLI INTESTATI:</div>${veicoliHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">CONTATTO:</div><div style="color:var(--text); font-size:0.9rem;">📞 ${c.tel || 'N/D'}</div></div><div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;"><div class="dropdown"><button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.85rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button><div class="dropdown-content" style="right:0; top:100%; min-width:180px; z-index:100;">${revertHtml}<button onclick="sendWhatsAppArchiveCognome('${safeKey}')" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button><button onclick="newJobFromArchiveCognome('${safeKey}')" style="color:#10b981; width:100%; text-align:left;">🔧 Lavoro (Commessa)</button><button onclick="newVehicleFromArchiveCognome('${safeKey}')" style="color:#f59e0b; width:100%; text-align:left;">🏍️ Aggiungi Mezzo</button><button onclick="newPreventivoFromArchiveCognome('${safeKey}')" style="color:var(--purple); width:100%; text-align:left;">📝 Preventivo</button><button onclick="viewHistoryCognome('${safeKey}')" style="color:var(--info); width:100%; text-align:left;">📂 Storia Interventi</button><button onclick="openEditClienteCognome('${safeKey}')" style="color:var(--text); width:100%; text-align:left;">✏️ Modifica Dati Veicoli</button><button onclick="deleteCustomerCognome('${safeKey}')" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina Cliente</button></div></div></div>`; container.appendChild(row); 
+                    const omonimoBadge = isOmonimo ? `<span title="Esiste un altro cliente con lo stesso nome" style="font-size:0.65rem; background:rgba(239,68,68,0.15); color:#f87171; padding:2px 6px; border-radius:4px; font-weight:bold; margin-left:8px;">⚠️ OMONIMO</span>` : '';
+                    const _billingEncoded = safeEncode(billingKey); const _billingFallbackEncoded = safeEncode(billingNameFallback);
+                    row.innerHTML = `<div style="cursor:pointer;" onclick="viewHistoryCognome('${safeKey}')" title="Clicca per aprire conto e storico lavori"><div style="font-weight:bold; font-size:1.1rem; color:white; line-height:1.2; text-transform:uppercase;">${c.cognome} ${c.nome}${billingBadge}${omonimoBadge}</div>${badgesHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">VEICOLI INTESTATI:</div>${veicoliHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">CONTATTO:</div><div style="color:var(--text); font-size:0.9rem;">📞 ${c.tel || 'N/D'}</div></div><div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;"><div class="dropdown"><button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.85rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button><div class="dropdown-content" style="right:0; top:100%; min-width:180px; z-index:100;">${revertHtml}<button onclick="sendWhatsAppArchiveCognome('${safeKey}')" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button><button onclick="newJobFromArchiveCognome('${safeKey}')" style="color:#10b981; width:100%; text-align:left;">🔧 Lavoro (Commessa)</button><button onclick="newVehicleFromArchiveCognome('${safeKey}')" style="color:#f59e0b; width:100%; text-align:left;">🏍️ Aggiungi Mezzo</button><button onclick="newPreventivoFromArchiveCognome('${safeKey}')" style="color:var(--purple); width:100%; text-align:left;">📝 Preventivo</button><button onclick="viewHistoryCognome('${safeKey}')" style="color:var(--info); width:100%; text-align:left;">📂 Storia Interventi</button><button onclick="openEditClienteCognome('${safeKey}')" style="color:var(--text); width:100%; text-align:left;">✏️ Modifica Dati Veicoli</button><button onclick="openBillingModal('${_billingEncoded}','${_billingFallbackEncoded}','${billingNameFallback}')" style="color:#f59e0b; width:100%; text-align:left;">🧾 Fatturazione</button><button onclick="deleteCustomerCognome('${safeKey}')" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina Cliente</button></div></div></div>`; container.appendChild(row); 
                 } 
             }); 
         }
@@ -3760,9 +3805,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             }
         }
 
-        function openEditClienteCognome(encodedChiave) { 
-            const chiave = safeDecode(encodedChiave); const jobs = getJobsByClient(chiave); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; 
-            $('edit_old_chiave').value = chiave; $('edit_nome').value = u.nome||''; $('edit_cognome').value = u.cognome||''; $('edit_tel').value = u.tel||''; 
+        function openEditClienteCognome(encodedChiave) {
+            const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if (jobs.length === 0) return; const u = jobs[jobs.length-1];
+            $('edit_old_chiave').value = clientId; $('edit_nome').value = u.nome||''; $('edit_cognome').value = u.cognome||''; $('edit_tel').value = u.tel||''; 
             const vehiclesMap = {}; jobs.forEach(j => { const t = j.targa ? j.targa.trim() : ''; if (t && !vehiclesMap[t]) { vehiclesMap[t] = { targa: t, marca: j.marca||'', modello: j.modello||'' }; } });
             const vContainer = $('edit_vehicles_container');
             if(vContainer) {
@@ -3774,9 +3819,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (Object.keys(vehiclesMap).length === 0) vContainer.innerHTML += `<p style="color:var(--muted); font-size:0.8rem; font-style:italic;">Nessun veicolo registrato per questo cliente.</p>`;
             }
 
-            // Carica dati fatturazione esistenti
-            const billingKey = chiave.toUpperCase().trim();
-            const b = billingDB[billingKey] || {};
+            // Carica dati fatturazione esistenti (clientId o fallback nome)
+            const _editNameFb = `${(u.cognome||'').toUpperCase().trim()} ${(u.nome||'').toUpperCase().trim()}`.trim();
+            const b = billingDB[clientId] || billingDB[_editNameFb] || {};
             $('fat_ragione_sociale').value = b.ragione_sociale || '';
             $('fat_cf').value = b.cf || '';
             $('fat_piva').value = b.piva || '';
@@ -3801,9 +3846,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             $('modal-anagrafica').classList.remove('hidden'); 
         }
         
-        function saveClienteGlobale() { 
+        function saveClienteGlobale() {
             const oC = $('edit_old_chiave').value, nCognome = $('edit_cognome').value.toUpperCase().trim(), nNome = $('edit_nome').value.toUpperCase().trim(), nTel = $('edit_tel').value.trim();
-            if(!nCognome) return mostraErrore("Cognome obbligatorio!"); 
+            if(!nCognome) return mostraErrore("Cognome obbligatorio!");
             const vehiclesUpdates = [];
             document.querySelectorAll('.vehicle-edit-row').forEach(row => {
                 const newTarga = row.querySelector('.edit_v_targa').value.toUpperCase().trim();
@@ -3813,7 +3858,6 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     newMarca:  row.querySelector('.edit_v_marca').value.toUpperCase().trim(),
                     newModello: row.querySelector('.edit_v_modello').value.toUpperCase().trim()
                 });
-                // Salva dati tagliando per questa targa
                 const tagData = {
                     data:  row.querySelector('.edit_v_tagliando_data').value || '',
                     km:    row.querySelector('.edit_v_tagliando_km').value || '',
@@ -3834,17 +3878,16 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             });
             saveTagliandi();
             let modified = false;
-            db.forEach(j => { 
-                const jC = `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim();
-                if(jC === oC){ j.nome = nNome; j.cognome = nCognome; j.tel = nTel; const t = j.targa ? j.targa.toUpperCase().trim() : ''; const vUpdate = vehiclesUpdates.find(vu => vu.oldTarga === t); if (vUpdate && t !== '') { j.targa = vUpdate.newTarga; j.marca = vUpdate.newMarca; j.modello = vUpdate.newModello; } modified = true; }
-            }); 
+            // oC è ora il clientId — filtra per clientId
+            const _clientJobIds = new Set(db.filter(j => j.clientId === oC).map(j => String(j.id)));
+            db.forEach(j => {
+                if(j.clientId === oC){ j.nome = nNome; j.cognome = nCognome; j.tel = nTel; const t = j.targa ? j.targa.toUpperCase().trim() : ''; const vUpdate = vehiclesUpdates.find(vu => vu.oldTarga === t); if (vUpdate && t !== '') { j.targa = vUpdate.newTarga; j.marca = vUpdate.newMarca; j.modello = vUpdate.newModello; } modified = true; }
+            });
             agendaDB.forEach(a => {
-                const aC = (a.cliente||'').toUpperCase().trim();
-                if(aC === oC) { a.cliente = `${nCognome} ${nNome}`.trim(); a.raw_cognome = nCognome; a.raw_nome = nNome; a.tel = nTel; const oldT = a.raw_targa ? a.raw_targa.toUpperCase().trim() : ''; const vUpdate = vehiclesUpdates.find(vu => vu.oldTarga === oldT); if (vUpdate && oldT !== '') { a.raw_targa = vUpdate.newTarga; a.raw_marca = vUpdate.newMarca; a.raw_modello = vUpdate.newModello; a.moto = `${vUpdate.newMarca} ${vUpdate.newModello} - ${vUpdate.newTarga}`.trim(); } }
+                if (a.jobId && _clientJobIds.has(String(a.jobId))) { a.cliente = `${nCognome} ${nNome}`.trim(); a.raw_cognome = nCognome; a.raw_nome = nNome; a.tel = nTel; const oldT = a.raw_targa ? a.raw_targa.toUpperCase().trim() : ''; const vUpdate = vehiclesUpdates.find(vu => vu.oldTarga === oldT); if (vUpdate && oldT !== '') { a.raw_targa = vUpdate.newTarga; a.raw_marca = vUpdate.newMarca; a.raw_modello = vUpdate.newModello; a.moto = `${vUpdate.newMarca} ${vUpdate.newModello} - ${vUpdate.newTarga}`.trim(); } }
             });
 
-            // Salva dati fatturazione (anche se il cliente non ha lavori modifica è lecita)
-            const newKey = `${nCognome} ${nNome}`.trim().toUpperCase();
+            // Billing: keyed by clientId — il nome può cambiare, l'ID no
             const billingData = {
                 ragione_sociale: $('fat_ragione_sociale').value.trim(),
                 cf: $('fat_cf').value.trim(),
@@ -3857,22 +3900,20 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 pec: $('fat_pec').value.trim()
             };
             const hasAnyBillingData = Object.values(billingData).some(v => v !== '');
-            // Se il nome è cambiato, sposta i dati billing alla nuova chiave
-            if (oC !== newKey && billingDB[oC]) { delete billingDB[oC]; }
-            if (hasAnyBillingData) { billingDB[newKey] = billingData; } else { delete billingDB[newKey]; }
+            if (hasAnyBillingData) { billingDB[oC] = billingData; } else { delete billingDB[oC]; }
             saveBilling();
 
             if (modified) { saveDBAgenda(); closeModal('modal-anagrafica'); mostraToast("Dati aggiornati con successo!"); } else { saveBilling(); closeModal('modal-anagrafica'); mostraToast("Dati fatturazione aggiornati!"); }
         }
 
-        function deleteCustomerCognome(encodedChiave) { const chiave = safeDecode(encodedChiave); if(confirm(`Eliminare definitivamente il cliente e TUTTI i suoi veicoli e lavori?`)) { if(typeof saveSnapshot === 'function') saveSnapshot(); db = db.filter(j => { const jC = `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim(); return jC !== chiave; }); agendaDB = agendaDB.filter(a => { const aC = (a.cliente||'').toUpperCase().trim(); return aC !== chiave; }); saveDBAgenda(); setTimeout(refreshArchive, 300); } }
-        function saldaDebitoCliente(encodedChiave) { const chiave = safeDecode(encodedChiave); if(confirm(`Saldare l'intero debito per questo cliente?`)) { const oggi = getOggiLocale(); getJobsByClient(chiave).filter(j=>['done','archived'].includes(j.stato)).forEach(j=>{ const d = (parseFloat(j.totale_lordo)||0) - (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); if(d>0.01){ if(!j.acconti) j.acconti=[]; j.acconti.push({val:d, date:oggi}); } }); saveDB(); setTimeout(refreshArchive, 300); } }
-        function revertClientJobsToToday(encodedChiave) { const chiave = safeDecode(encodedChiave); if(confirm(`Spostare in "Da Fare" per OGGI tutti i lavori aperti? Verrà aggiornato anche il calendario.`)) { let modified = false; const oggi = getOggiLocale(); getJobsByClient(chiave).filter(j => ['todo','doing'].includes(j.stato)).forEach(j => { j.stato = 'todo'; j.data = oggi; modified = true; const appIndex = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if(appIndex > -1) { agendaDB[appIndex].data = oggi; } else { agendaDB.push({ id: Date.now() + Math.floor(Math.random()*1000), tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00', cliente: `${j.cognome} ${j.nome}`.trim(), moto: `${j.marca} ${j.modello} - ${j.targa}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } }); if(modified) { const todayObj = new Date(); todayObj.setHours(0,0,0,0); const gD = todayObj.getDay(); const diff = todayObj.getDate() - gD + (gD === 0 ? -6 : 1); dataInizioSettimana = new Date(todayObj.setDate(diff)); saveDBAgenda(); mostraToast("Lavori spostati a OGGI!"); } } }
-        function newJobFromArchiveCognome(encodedChiave) { const chiave = safeDecode(encodedChiave); const jobs = getJobsByClient(chiave); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if ($('acconti-container')) $('acconti-container').innerHTML=''; setTimeout(() => checkCustomerBikes('f'), 100); }
-        function newVehicleFromArchiveCognome(encodedChiave) { const chiave = safeDecode(encodedChiave); const jobs = getJobsByClient(chiave); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if ($('acconti-container')) $('acconti-container').innerHTML=''; }
+        function deleteCustomerCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Eliminare definitivamente il cliente e TUTTI i suoi veicoli e lavori?`)) { if(typeof saveSnapshot === 'function') saveSnapshot(); const _jobIds = new Set(db.filter(j => j.clientId === clientId).map(j => String(j.id))); db = db.filter(j => j.clientId !== clientId); agendaDB = agendaDB.filter(a => !_jobIds.has(String(a.jobId))); saveDBAgenda(); setTimeout(refreshArchive, 300); } }
+        function saldaDebitoCliente(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Saldare l'intero debito per questo cliente?`)) { const oggi = getOggiLocale(); getJobsByClientId(clientId).filter(j=>['done','archived'].includes(j.stato)).forEach(j=>{ const d = (parseFloat(j.totale_lordo)||0) - (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); if(d>0.01){ if(!j.acconti) j.acconti=[]; j.acconti.push({val:d, date:oggi}); } }); saveDB(); setTimeout(refreshArchive, 300); } }
+        function revertClientJobsToToday(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Spostare in "Da Fare" per OGGI tutti i lavori aperti? Verrà aggiornato anche il calendario.`)) { let modified = false; const oggi = getOggiLocale(); getJobsByClientId(clientId).filter(j => ['todo','doing'].includes(j.stato)).forEach(j => { j.stato = 'todo'; j.data = oggi; modified = true; const appIndex = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if(appIndex > -1) { agendaDB[appIndex].data = oggi; } else { agendaDB.push({ id: Date.now() + Math.floor(Math.random()*1000), tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00', cliente: `${j.cognome} ${j.nome}`.trim(), moto: `${j.marca} ${j.modello} - ${j.targa}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } }); if(modified) { const todayObj = new Date(); todayObj.setHours(0,0,0,0); const gD = todayObj.getDay(); const diff = todayObj.getDate() - gD + (gD === 0 ? -6 : 1); dataInizioSettimana = new Date(todayObj.setDate(diff)); saveDBAgenda(); mostraToast("Lavori spostati a OGGI!"); } } }
+        function newJobFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if($('f_client_id')) $('f_client_id').value=clientId; if ($('acconti-container')) $('acconti-container').innerHTML=''; setTimeout(() => checkCustomerBikes('f'), 100); }
+        function newVehicleFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if($('f_client_id')) $('f_client_id').value=clientId; if ($('acconti-container')) $('acconti-container').innerHTML=''; }
 
         function viewHistoryCognome(encodedChiave) {
-            const chiave = safeDecode(encodedChiave); const hList = getJobsByClient(chiave).filter(j => j.stato !== 'preventivo'); $('st-titolo').innerText = `Storia Interventi & Conti: ${chiave}`;
+            const clientId = safeDecode(encodedChiave); const hList = getJobsByClientId(clientId).filter(j => j.stato !== 'preventivo'); const _fj = hList[0] || {}; const _label = `${(_fj.cognome||'').toUpperCase()} ${_fj.nome||''}`.trim() || clientId; $('st-titolo').innerText = `Storia Interventi & Conti: ${_label}`;
             const stCorpo = $('st-corpo'); if(!stCorpo) return;
             stCorpo.innerHTML = hList.reverse().map(h => {
                 const acc = (h.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); const lordo = parseFloat(h.totale_lordo)||0; const netto = lordo - acc;
@@ -3916,7 +3957,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 }
                 previewHtml += '</div>';
                 
-                const safeKey = safeEncode(chiave); const safeTarga = safeEncode(h.targa);
+                const safeKey = safeEncode(clientId); const safeTarga = safeEncode(h.targa);
                 
                 // Bottoni sistemati per non far "rompere" il codice
                 const isWorking = ['todo','doing','special'].includes(h.stato);
@@ -4052,7 +4093,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if ($('stat-crediti')) $('stat-crediti').innerText = crediti.toFixed(2) + " €";
 
             // Clienti unici (per cognome+nome) e moto distinte (per targa)
-            const clientiUnici = new Set(db.filter(j => j.cognome).map(j => `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim()));
+            const clientiUnici = new Set(db.filter(j => j.cognome).map(j => j.clientId || `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim()));
             const motoDistinte = new Set(db.filter(j => j.targa).map(j => j.targa.toUpperCase().trim()));
             if ($('stat-clienti')) $('stat-clienti').innerText = clientiUnici.size;
             if ($('stat-clienti-sub')) $('stat-clienti-sub').innerText = `${motoDistinte.size} moto distinte`;
@@ -4875,7 +4916,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 else if (v.stato === 'ok') badgeLabel = `🟢 ${formattaData(v.dataTag)} (${v.giorniAllaScadenza}gg)`;
 
                 const safeEncodedTarga = safeEncode(v.targa);
-                const safeChiave = safeEncode(`${v.cognome} ${v.nome}`.trim().toUpperCase());
+                const _tagJob = db.find(j => j.targa === v.targa && j.clientId);
+                const safeChiave = safeEncode(_tagJob ? _tagJob.clientId : `${v.cognome} ${v.nome}`.trim().toUpperCase());
 
                 const extrasHtml = [
                     v.tag.km   ? `<span style="color:var(--muted); font-size:0.72rem;">🏁 ${v.tag.km} km</span>` : '',
