@@ -40,8 +40,12 @@
 
         .sidebar { width: 260px; background: var(--sidebar); padding: 25px; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; z-index: 1000; }
         .brand { font-size: 1.1rem; font-weight: 900; color: var(--accent); text-transform: uppercase; margin-bottom: 20px; margin-top: 36px; border-left: 4px solid var(--accent); padding-left: 14px; line-height: 1.35; }
-        .nav-link { text-decoration: none; color: var(--muted); display: block; padding: 10px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; margin-bottom: 4px; transition: 0.3s; border: none; background: none; width: 100%; text-align: left; font-size: 0.9rem; }
+        .nav-link { text-decoration: none; color: var(--muted); display: block; padding: 10px 12px 10px 28px; border-radius: 10px; cursor: pointer; font-weight: 600; margin-bottom: 4px; transition: 0.3s; border: none; background: none; width: 100%; text-align: left; font-size: 0.9rem; position: relative; }
         .nav-link:hover, .nav-link.active { background: var(--accent); color: white; }
+        .nav-link::before { content: '⠿'; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); opacity: 0; color: var(--muted); font-size: 1rem; transition: opacity 0.15s; cursor: grab; pointer-events: none; }
+        .nav-link:hover::before { opacity: 0.45; }
+        .nav-link.dragging { opacity: 0.35; }
+        .nav-link.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
         .nav-sep { height: 1px; background: rgba(255,255,255,0.07); margin: 6px 4px; }
         .main-content { flex-grow: 1; display: flex; flex-direction: column; padding: 20px 30px; position: relative; overflow: hidden; z-index: 1; }
         .view { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px 28px 28px; overflow-x: hidden; }
@@ -338,33 +342,26 @@
            onmouseout="this.style.background='rgba(239,68,68,0.1)'; this.style.color='var(--accent)';">
             🚪 Esci
         </button>
-        <button class="nav-link active" onclick="switchView('board', this)">📊 Board Lavori</button>
-        <button class="nav-link" onclick="switchView('nuova', this)">➕ Nuova Commessa</button>
-        <button class="nav-link" onclick="switchView('specials', this)" style="color:#d8b4fe;">🕰️ Lavori Lunghi</button>
-        <button class="nav-link" onclick="switchView('agenda', this)" style="color:var(--info);">📅 Agenda</button>
-
-        <div class="nav-sep"></div>
-
-        <button class="nav-link" onclick="switchView('archivio', this)">📁 Anagrafica</button>
-        <button class="nav-link" onclick="switchView('preventivi', this)" style="color:var(--purple);">📝 Preventivi</button>
-        <button class="nav-link" onclick="switchView('ordini', this)" style="color:#fca5a5;">📦 Ordini Ricambi</button>
-        <button class="nav-link" onclick="switchView('tagliandi', this)" style="color:#fb923c;">🔧 Scad. Tagliando</button>
-
-        <div class="nav-sep"></div>
-
-        <button class="nav-link" onclick="switchView('ledger', this)" style="color:#34d399;">💸 Prima Nota</button>
-        <button class="nav-link" onclick="switchView('scadenze', this)" style="color:#f43f5e;">📅 Scadenzario <span id="scadenze-badge" style="display:none;background:#f43f5e;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
-        <button class="nav-link" onclick="switchView('magazzino', this)" style="color:#14b8a6;">📦 Magazzino</button>
-        <button class="nav-link" onclick="switchView('lista-attesa', this)" style="color:#a78bfa;">🏍️ Lista Attesa Moto <span id="attesa-badge" style="display:none;background:#a78bfa;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
-        <button class="nav-link" onclick="switchView('stats', this)">📈 Statistiche</button>
-
-        <div class="nav-sep"></div>
-
-        <button class="nav-link" onclick="document.getElementById('notes-panel').classList.toggle('show')" style="color:var(--warning);">📝 Appunti Rapidi</button>
-        <button class="nav-link" onclick="switchView('rubrica', this)" style="color:#60a5fa;">📞 Rubrica</button>
-        <button class="nav-link" onclick="exportExcel()" style="color:#10b981;">📊 Export Excel</button>
-        <button class="nav-link" onclick="exportData()" style="color:var(--success);">💾 Backup</button>
-        <button class="nav-link" onclick="document.getElementById('importInput').click()" style="color:var(--info);">📂 Ripristina</button>
+        <div id="nav-sortable">
+        <button class="nav-link active" data-nav-id="board" onclick="switchView('board', this)">📊 Board Lavori</button>
+        <button class="nav-link" data-nav-id="nuova" onclick="switchView('nuova', this)">➕ Nuova Commessa</button>
+        <button class="nav-link" data-nav-id="specials" style="color:#d8b4fe;" onclick="switchView('specials', this)">🕰️ Lavori Lunghi</button>
+        <button class="nav-link" data-nav-id="agenda" style="color:var(--info);" onclick="switchView('agenda', this)">📅 Agenda</button>
+        <button class="nav-link" data-nav-id="archivio" onclick="switchView('archivio', this)">📁 Anagrafica</button>
+        <button class="nav-link" data-nav-id="preventivi" style="color:var(--purple);" onclick="switchView('preventivi', this)">📝 Preventivi</button>
+        <button class="nav-link" data-nav-id="ordini" style="color:#fca5a5;" onclick="switchView('ordini', this)">📦 Ordini Ricambi</button>
+        <button class="nav-link" data-nav-id="tagliandi" style="color:#fb923c;" onclick="switchView('tagliandi', this)">🔧 Scad. Tagliando</button>
+        <button class="nav-link" data-nav-id="ledger" style="color:#34d399;" onclick="switchView('ledger', this)">💸 Prima Nota</button>
+        <button class="nav-link" data-nav-id="scadenze" style="color:#f43f5e;" onclick="switchView('scadenze', this)">📅 Scadenzario <span id="scadenze-badge" style="display:none;background:#f43f5e;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
+        <button class="nav-link" data-nav-id="magazzino" style="color:#14b8a6;" onclick="switchView('magazzino', this)">📦 Magazzino</button>
+        <button class="nav-link" data-nav-id="lista-attesa" style="color:#a78bfa;" onclick="switchView('lista-attesa', this)">🏍️ Lista Attesa Moto <span id="attesa-badge" style="display:none;background:#a78bfa;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
+        <button class="nav-link" data-nav-id="stats" onclick="switchView('stats', this)">📈 Statistiche</button>
+        <button class="nav-link" data-nav-id="appunti" style="color:var(--warning);" onclick="document.getElementById('notes-panel').classList.toggle('show')">📝 Appunti Rapidi</button>
+        <button class="nav-link" data-nav-id="rubrica" style="color:#60a5fa;" onclick="switchView('rubrica', this)">📞 Rubrica</button>
+        <button class="nav-link" data-nav-id="export" style="color:#10b981;" onclick="exportExcel()">📊 Export Excel</button>
+        <button class="nav-link" data-nav-id="backup" style="color:var(--success);" onclick="exportData()">💾 Backup</button>
+        <button class="nav-link" data-nav-id="ripristina" style="color:var(--info);" onclick="document.getElementById('importInput').click()">📂 Ripristina</button>
+        </div>
         <input type="file" id="importInput" class="hidden" onchange="importData(event)" accept=".json">
 
         <div class="nav-sep" style="margin-top:auto;"></div>
@@ -1504,12 +1501,58 @@
         }
 
         // Intercetta Enter nel form di login
+        function initNavSortable() {
+            const container = document.getElementById('nav-sortable');
+            if (!container) return;
+            // Ripristina ordine salvato
+            try {
+                const saved = JSON.parse(localStorage.getItem('nav-order') || 'null');
+                if (saved && Array.isArray(saved)) {
+                    const map = {};
+                    container.querySelectorAll('[data-nav-id]').forEach(el => map[el.dataset.navId] = el);
+                    saved.forEach(id => { if (map[id]) container.appendChild(map[id]); });
+                    Object.values(map).forEach(el => { if (!saved.includes(el.dataset.navId)) container.appendChild(el); });
+                }
+            } catch(e) {}
+            // Attach drag events
+            let dragSrc = null;
+            container.querySelectorAll('[data-nav-id]').forEach(item => {
+                item.setAttribute('draggable', 'true');
+                item.addEventListener('dragstart', e => {
+                    dragSrc = item;
+                    e.dataTransfer.effectAllowed = 'move';
+                    setTimeout(() => item.classList.add('dragging'), 0);
+                });
+                item.addEventListener('dragend', () => {
+                    item.classList.remove('dragging');
+                    container.querySelectorAll('[data-nav-id]').forEach(el => el.classList.remove('drag-over'));
+                });
+                item.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    container.querySelectorAll('[data-nav-id]').forEach(el => el.classList.remove('drag-over'));
+                    if (item !== dragSrc) item.classList.add('drag-over');
+                });
+                item.addEventListener('drop', e => {
+                    e.preventDefault();
+                    item.classList.remove('drag-over');
+                    if (!dragSrc || dragSrc === item) return;
+                    const all = [...container.querySelectorAll('[data-nav-id]')];
+                    const si = all.indexOf(dragSrc), di = all.indexOf(item);
+                    container.insertBefore(dragSrc, si < di ? item.nextSibling : item);
+                    const order = [...container.querySelectorAll('[data-nav-id]')].map(el => el.dataset.navId);
+                    try { localStorage.setItem('nav-order', JSON.stringify(order)); } catch(e) {}
+                });
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const lp = document.getElementById('login-pass');
             if (lp) lp.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
             const le = document.getElementById('login-email');
             if (le) le.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-pass').focus(); });
             initNavGroups();
+            initNavSortable();
         });
 
         // Listener principale — mostra/nasconde l'app in base allo stato auth
