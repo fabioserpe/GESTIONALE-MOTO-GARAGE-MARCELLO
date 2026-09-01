@@ -150,6 +150,9 @@
         .sidebar-close-btn { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.07); border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
         .sidebar-close-btn:hover { background: rgba(255,255,255,0.15); color: white; }
         .mobile-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 0; flex-shrink: 0; background: var(--bg); position: sticky; top: 0; z-index: 10; }
+        .topbar-qbtn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--muted); border-radius: 8px; padding: 5px 11px; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: 0.2s; white-space: nowrap; }
+        .topbar-qbtn:hover { background: rgba(255,255,255,0.1); color: white; }
+        .topbar-qbtn.tq-active { background: var(--accent); color: white; border-color: var(--accent); }
         .main-content { flex-grow: 1; width: 100%; display: flex; flex-direction: column; overflow-y: auto; overflow-x: clip; padding: 0; position: relative; z-index: 1; }
         /* .view padding already set globally above */
         #app-shell { overflow: visible !important; }
@@ -387,8 +390,14 @@
     <main class="main-content">
         <div class="mobile-header no-print">
             <button class="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
-            <span style="font-weight:900; color:var(--accent); font-size:1rem; text-transform:uppercase; letter-spacing:1px; flex:1;">🏍️ Garage Marcello</span>
-            <span id="topbar-section" style="font-size:0.72rem; color:var(--muted); font-weight:600; letter-spacing:0.5px; text-transform:uppercase;"></span>
+            <span style="font-weight:900; color:var(--accent); font-size:1rem; text-transform:uppercase; letter-spacing:1px; flex-shrink:0;">🏍️ Garage Marcello</span>
+            <div id="topbar-quicklinks" style="display:flex; gap:5px; flex:1; justify-content:center; overflow:hidden;">
+                <button class="topbar-qbtn tq-active" data-view="board" onclick="switchView('board',null)">📊 Board</button>
+                <button class="topbar-qbtn" data-view="nuova" onclick="switchView('nuova',null)">➕ Nuova</button>
+                <button class="topbar-qbtn" data-view="agenda" onclick="switchView('agenda',null)">📅 Agenda</button>
+                <button class="topbar-qbtn" data-view="archivio" onclick="switchView('archivio',null)">📁 Clienti</button>
+            </div>
+            <span id="topbar-section" style="font-size:0.72rem; color:var(--muted); font-weight:600; letter-spacing:0.5px; text-transform:uppercase; flex-shrink:0;"></span>
         </div>
         <div id="print-area"></div> 
 
@@ -1966,6 +1975,9 @@
             }
             ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('.topbar-qbtn').forEach(b => b.classList.toggle('tq-active', b.dataset.view === viewId));
+            const _sidebarBtn = document.querySelector(`[data-nav-id="${viewId}"]`);
+            if (_sidebarBtn) _sidebarBtn.classList.add('active');
             const t = $('view-' + viewId); if(t) t.classList.remove('hidden'); if(el) el.classList.add('active');
             updateNavGroupHighlight();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') currentView = viewId;
