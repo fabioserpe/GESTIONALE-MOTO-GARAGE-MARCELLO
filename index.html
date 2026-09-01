@@ -3843,7 +3843,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (currentArchiveFilter === 'dapagare' && !isDebitore) return; 
                 if (currentArchiveFilter === 'fatti' && (inLavorazione || isDebitore || hasSpecial)) return; 
                 
-                const targheStr = c.targhe.join(' '); const veicoliStr = c.veicoliDettagli.map(v => `${v.marca} ${v.modello}`).join(' '); const stringaRicerca = `${chiave} ${c.tel} ${targheStr} ${veicoliStr}`.toLowerCase(); const match = searchTerms.every(term => stringaRicerca.includes(term)); 
+                const targheStr = c.targhe.join(' '); const veicoliStr = c.veicoliDettagli.map(v => `${v.marca} ${v.modello}`).join(' '); const stringaRicerca = `${c.cognome} ${c.nome} ${c.tel} ${targheStr} ${veicoliStr}`.toLowerCase(); const match = searchTerms.every(term => stringaRicerca.includes(term));
                 
                 if(match) { 
                     let borderCol = isDebitore ? 'var(--accent)' : (inLavorazione ? 'var(--warning)' : (hasSpecial ? 'var(--purple)' : 'var(--success)')); 
