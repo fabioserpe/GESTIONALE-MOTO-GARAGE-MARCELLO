@@ -226,6 +226,51 @@
             /* ---- HEADER CON BADGE (tagliandi, ordini) ---- */
             .flex-between { flex-wrap: wrap; gap: 6px; }
             #view-tagliandi .flex-row, #view-ordini .flex-row { flex-wrap: wrap; }
+
+            /* ---- TOPBAR QUICK-ACCESS ---- */
+            #topbar-quicklinks { overflow-x: auto; justify-content: flex-start !important; scrollbar-width: none; -ms-overflow-style: none; }
+            #topbar-quicklinks::-webkit-scrollbar { display: none; }
+            .topbar-qbtn { padding: 4px 9px !important; font-size: 0.72rem !important; }
+            #topbar-section { display: none; }
+
+            /* ---- ARCHIVIO CLIENTI: card multi-col → verticale ---- */
+            .archive-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
+            .archive-card-row > div:nth-child(4) { justify-content: flex-start !important; }
+
+            /* ---- LISTA ATTESA MOTO: card multi-col → verticale ---- */
+            .attesa-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
+            .attesa-card-row > div:last-child { flex-direction: row !important; flex-wrap: wrap !important; justify-content: flex-start !important; }
+
+            /* ---- TAGLIANDI: 5 col → 2 col ---- */
+            .tag-card-row { grid-template-columns: 110px 1fr !important; gap: 8px !important; }
+            .tag-card-row > :nth-child(3),
+            .tag-card-row > :nth-child(4),
+            .tag-card-row > :nth-child(5) { grid-column: 2; }
+
+            /* ---- SCADENZARIO: form griglia → colonna unica ---- */
+            #scad-form-wrap > div[style*="grid-template-columns:2fr 1fr 1fr 1fr"] { grid-template-columns: 1fr 1fr !important; }
+            #scad-form-wrap > div[style*="grid-template-columns:2fr 1fr;"] { grid-template-columns: 1fr !important; }
+
+            /* ---- ORDINI: form griglia → 2 col ---- */
+            #view-ordini .card .mob-form-grid { grid-template-columns: 1fr 1fr !important; }
+            #view-ordini .card > div[style*="grid-template-columns: 1fr 1fr 1fr"] { grid-template-columns: 1fr 1fr !important; }
+
+            /* ---- MODAL APPUNTAMENTO: affiancato → colonna ---- */
+            #modal-appuntamento .modal-content { flex-direction: column !important; gap: 15px !important; overflow-y: auto !important; }
+            #modal-appuntamento .modal-content > div:first-child { max-width: 100% !important; }
+
+            /* ---- MODAL CONTO: affiancato → colonna ---- */
+            #modal-conto .modal-content { flex-direction: column !important; height: auto !important; max-height: 92dvh !important; overflow-y: auto !important; }
+            #modal-conto .modal-content > div:first-child { max-height: none !important; }
+
+            /* ---- FORM PREVENTIVO ---- */
+            #view-crea-prev > div { padding: 18px !important; margin: 0 !important; border-radius: 14px !important; }
+
+            /* ---- GRID PREVENTIVI (min 280px su mobile) ---- */
+            #preventivi-results { grid-template-columns: 1fr !important; }
+
+            /* ---- STATISTICHE p-grid ---- */
+            .p-grid { grid-template-columns: 1fr !important; }
         }
 
         @media print {
@@ -3884,7 +3929,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     let revertHtml = ''; 
                     if (inLavorazione || hasSpecial) { revertHtml = `<button onclick="revertClientJobsToToday('${safeKey}')" style="color:var(--warning); width:100%; text-align:left;">📅 Sposta a OGGI</button>`; } 
                     
-                    const row = document.createElement('div'); row.className = 'card'; row.style.display = 'grid'; row.style.gridTemplateColumns = 'minmax(200px, 1.5fr) minmax(200px, 1.5fr) 130px auto'; row.style.alignItems = 'start'; row.style.padding = '15px 20px'; row.style.margin = '0'; row.style.gap = '15px'; row.style.borderLeft = `6px solid ${borderCol}`; 
+                    const row = document.createElement('div'); row.className = 'card archive-card-row'; row.style.display = 'grid'; row.style.gridTemplateColumns = 'minmax(200px, 1.5fr) minmax(200px, 1.5fr) 130px auto'; row.style.alignItems = 'start'; row.style.padding = '15px 20px'; row.style.margin = '0'; row.style.gap = '15px'; row.style.borderLeft = `6px solid ${borderCol}`; 
                     const billingKey = c.clientId;
                     const billingNameFallback = `${c.cognome.toUpperCase().trim()} ${c.nome.toUpperCase().trim()}`.trim();
                     const _bData = billingDB[billingKey] || billingDB[billingNameFallback] || {};
@@ -5030,7 +5075,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     v.tag.note ? `<span style="color:var(--info); font-size:0.72rem;">📝 ${v.tag.note}</span>` : ''
                 ].filter(Boolean).join('');
 
-                return `<div style="background:var(--card); border-left:4px solid ${ss.border}; ${ss.bg?'background:'+ss.bg+';':''} border-radius:10px; padding:10px 16px; display:grid; grid-template-columns: 120px 1fr auto auto auto; gap:10px; align-items:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">
+                return `<div class="tag-card-row" style="background:var(--card); border-left:4px solid ${ss.border}; ${ss.bg?'background:'+ss.bg+';':''} border-radius:10px; padding:10px 16px; display:grid; grid-template-columns: 120px 1fr auto auto auto; gap:10px; align-items:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">
 
                     <!-- Col 1: Targa + moto -->
                     <div>
@@ -5578,7 +5623,7 @@ if ('serviceWorker' in navigator) {
                 const contattatoItem = e.stato==='attesa' ? `<button onclick="setStatoAttesa(${e.id},'contattato')" style="color:#fbbf24;width:100%;text-align:left;">🟡 Segna Contattato</button>` : '';
                 const vendutoItem = e.stato!=='venduto' ? `<button onclick="setStatoAttesa(${e.id},'venduto')" style="color:#4ade80;width:100%;text-align:left;">✅ Segna Venduto</button>` : '';
                 const riapriItem = e.stato!=='attesa' ? `<button onclick="setStatoAttesa(${e.id},'attesa')" style="color:#818cf8;width:100%;text-align:left;">🔵 Riattiva in Attesa</button>` : '';
-                return `<div class="card" style="display:grid;grid-template-columns:minmax(200px,1.5fr) minmax(200px,1.5fr) 130px auto;align-items:start;padding:15px 20px;margin:0;gap:15px;border-left:6px solid ${statoColor};">
+                return `<div class="card attesa-card-row" style="display:grid;grid-template-columns:minmax(200px,1.5fr) minmax(200px,1.5fr) 130px auto;align-items:start;padding:15px 20px;margin:0;gap:15px;border-left:6px solid ${statoColor};">
                     <div>
                         <div style="font-weight:bold;font-size:1.1rem;color:white;line-height:1.2;text-transform:uppercase;">${e.cognome} ${e.nome}</div>
                         <div style="margin-top:5px;"><span style="font-size:0.7rem;font-weight:bold;padding:2px 7px;border-radius:8px;background:${statoColor}20;color:${statoColor};border:1px solid ${statoColor}40;">${statoIcon} ${statoLabel}</span> <span style="font-size:0.72rem;color:var(--muted);">dal ${formattaData(e.data)}</span></div>
