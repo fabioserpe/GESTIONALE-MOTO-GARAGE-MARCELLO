@@ -1485,6 +1485,18 @@
         </div>
     </div>
 
+    <!-- ═══ MODAL CAMBIO STATO LAVORI (da Anagrafica) ═══ -->
+    <div id="modal-stato-lavori" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:620px;">
+            <div class="flex-between mb-20">
+                <h2 id="stato-lav-titolo" style="color:var(--info);">🔄 Cambia Stato Lavori</h2>
+                <button onclick="closeModal('modal-stato-lavori')" style="background:none;border:none;color:var(--muted);font-size:2rem;cursor:pointer;line-height:1;">&times;</button>
+            </div>
+            <div id="stato-lav-corpo"></div>
+            <button class="btn btn-dark mt-20" onclick="closeModal('modal-stato-lavori')">Chiudi</button>
+        </div>
+    </div>
+
     <div id="modal-billing" class="modal hidden no-print" style="z-index: 10001;">
         <div class="modal-content" style="max-width:560px;">
             <div class="flex-between mb-20">
@@ -4015,7 +4027,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     const billingBadge = hasBilling ? `<span title="Dati fatturazione presenti" style="font-size:0.7rem; background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 6px; border-radius:4px; font-weight:bold; margin-left:8px;">🧾 FAT.</span>` : '';
                     const omonimoBadge = isOmonimo ? `<span title="Esiste un altro cliente con lo stesso nome" style="font-size:0.65rem; background:rgba(239,68,68,0.15); color:#f87171; padding:2px 6px; border-radius:4px; font-weight:bold; margin-left:8px;">⚠️ OMONIMO</span>` : '';
                     const _billingEncoded = safeEncode(billingKey); const _billingFallbackEncoded = safeEncode(billingNameFallback);
-                    row.innerHTML = `<div style="cursor:pointer;" onclick="viewHistoryCognome('${safeKey}')" title="Clicca per aprire conto e storico lavori"><div style="font-weight:bold; font-size:1.1rem; color:white; line-height:1.2; text-transform:uppercase;">${c.cognome} ${c.nome}${billingBadge}${omonimoBadge}</div>${badgesHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">VEICOLI INTESTATI:</div>${veicoliHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">CONTATTO:</div><div style="color:var(--text); font-size:0.9rem;">📞 ${c.tel || 'N/D'}</div></div><div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;"><div class="dropdown"><button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.85rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button><div class="dropdown-content" style="right:0; top:100%; min-width:180px; z-index:100;">${revertHtml}<button onclick="sendWhatsAppArchiveCognome('${safeKey}')" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button><button onclick="newJobFromArchiveCognome('${safeKey}')" style="color:#10b981; width:100%; text-align:left;">🔧 Lavoro (Commessa)</button><button onclick="newVehicleFromArchiveCognome('${safeKey}')" style="color:#f59e0b; width:100%; text-align:left;">🏍️ Aggiungi Mezzo</button><button onclick="newPreventivoFromArchiveCognome('${safeKey}')" style="color:var(--purple); width:100%; text-align:left;">📝 Preventivo</button><button onclick="viewHistoryCognome('${safeKey}')" style="color:var(--info); width:100%; text-align:left;">📂 Storia Interventi</button><button onclick="openEditClienteCognome('${safeKey}')" style="color:var(--text); width:100%; text-align:left;">✏️ Modifica Dati Veicoli</button><button onclick="openBillingModal('${_billingEncoded}','${_billingFallbackEncoded}','${billingNameFallback}')" style="color:#f59e0b; width:100%; text-align:left;">🧾 Fatturazione</button><button onclick="deleteCustomerCognome('${safeKey}')" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina Cliente</button></div></div></div>`; container.appendChild(row); 
+                    row.innerHTML = `<div style="cursor:pointer;" onclick="viewHistoryCognome('${safeKey}')" title="Clicca per aprire conto e storico lavori"><div style="font-weight:bold; font-size:1.1rem; color:white; line-height:1.2; text-transform:uppercase;">${c.cognome} ${c.nome}${billingBadge}${omonimoBadge}</div>${badgesHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">VEICOLI INTESTATI:</div>${veicoliHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">CONTATTO:</div><div style="color:var(--text); font-size:0.9rem;">📞 ${c.tel || 'N/D'}</div></div><div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;"><div class="dropdown"><button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.85rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button><div class="dropdown-content" style="right:0; top:100%; min-width:180px; z-index:100;"><button onclick="openStatoLavoriModal('${safeKey}')" style="color:var(--info); width:100%; text-align:left; font-weight:bold;">🔄 Cambia Stato Lavori</button>${revertHtml}<button onclick="sendWhatsAppArchiveCognome('${safeKey}')" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button><button onclick="newJobFromArchiveCognome('${safeKey}')" style="color:#10b981; width:100%; text-align:left;">🔧 Lavoro (Commessa)</button><button onclick="newVehicleFromArchiveCognome('${safeKey}')" style="color:#f59e0b; width:100%; text-align:left;">🏍️ Aggiungi Mezzo</button><button onclick="newPreventivoFromArchiveCognome('${safeKey}')" style="color:var(--purple); width:100%; text-align:left;">📝 Preventivo</button><button onclick="viewHistoryCognome('${safeKey}')" style="color:var(--info); width:100%; text-align:left;">📂 Storia Interventi</button><button onclick="openEditClienteCognome('${safeKey}')" style="color:var(--text); width:100%; text-align:left;">✏️ Modifica Dati Veicoli</button><button onclick="openBillingModal('${_billingEncoded}','${_billingFallbackEncoded}','${billingNameFallback}')" style="color:#f59e0b; width:100%; text-align:left;">🧾 Fatturazione</button><button onclick="deleteCustomerCognome('${safeKey}')" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina Cliente</button></div></div></div>`; container.appendChild(row); 
                 } 
             }); 
         }
@@ -4134,6 +4146,52 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         function deleteCustomerCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Eliminare definitivamente il cliente e TUTTI i suoi veicoli e lavori?`)) { if(typeof saveSnapshot === 'function') saveSnapshot(); const _jobIds = new Set(db.filter(j => j.clientId === clientId).map(j => String(j.id))); db = db.filter(j => j.clientId !== clientId); agendaDB = agendaDB.filter(a => !_jobIds.has(String(a.jobId))); saveDBAgenda(); setTimeout(refreshArchive, 300); } }
+        function openStatoLavoriModal(encodedChiave) {
+            const clientId = safeDecode(encodedChiave);
+            const jobs = getJobsByClientId(clientId).filter(j => !['cliente','preventivo','archived'].includes(j.stato));
+            const nome = (jobs[0] ? `${jobs[0].cognome||''} ${jobs[0].nome||''}`.trim() : clientId);
+            $('stato-lav-titolo').textContent = `🔄 Stato Lavori — ${nome}`;
+            const corpo = $('stato-lav-corpo');
+
+            const statiCfg = [
+                { id:'todo',    label:'Da Fare',         color:'var(--warning)',  emoji:'📋' },
+                { id:'doing',   label:'In Lavorazione',  color:'#3b82f6',         emoji:'⚙️' },
+                { id:'special', label:'Lavoro Lungo',    color:'var(--purple)',   emoji:'🕰️' },
+                { id:'done',    label:'Lavoro Fatto',    color:'var(--success)',  emoji:'✅' },
+            ];
+
+            if (jobs.length === 0) {
+                corpo.innerHTML = '<p style="color:var(--muted); text-align:center; padding:20px 0;">Nessun lavoro attivo per questo cliente.</p>';
+            } else {
+                corpo.innerHTML = jobs.map(j => {
+                    const statoAttr = statiCfg.find(s => s.id === j.stato) || { label: j.stato, color:'var(--muted)', emoji:'❓' };
+                    const descr = (j.lavori_richiesti || j.descrizione || '').substring(0, 80) || 'Nessuna descrizione';
+                    const veicolo = [j.marca, j.modello, j.targa].filter(Boolean).join(' ');
+                    const bottoni = statiCfg.filter(s => s.id !== j.stato).map(s =>
+                        `<button onclick="cambiaStatoDaArchivio(${j.id},'${s.id}','${encodedChiave}')" style="background:${s.color}22; color:${s.color}; border:1px solid ${s.color}55; border-radius:7px; padding:5px 10px; font-size:0.78rem; font-weight:bold; cursor:pointer; white-space:nowrap;">${s.emoji} ${s.label}</button>`
+                    ).join('');
+                    return `<div style="border:1px solid #334155; border-left:4px solid ${statoAttr.color}; border-radius:10px; padding:14px 16px; margin-bottom:12px;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                            <span style="font-size:0.72rem; font-weight:bold; background:${statoAttr.color}22; color:${statoAttr.color}; border:1px solid ${statoAttr.color}44; border-radius:6px; padding:2px 8px;">${statoAttr.emoji} ${statoAttr.label}</span>
+                            <span style="color:var(--muted); font-size:0.78rem;">${veicolo}</span>
+                        </div>
+                        <div style="color:var(--text); font-size:0.88rem; margin-bottom:10px; opacity:0.85;">${descr}</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:6px;">${bottoni}</div>
+                    </div>`;
+                }).join('');
+            }
+            $('modal-stato-lavori').classList.remove('hidden');
+        }
+
+        function cambiaStatoDaArchivio(jobId, nuovoStato, encodedChiave) {
+            moveStatus(jobId, nuovoStato);
+            mostraToast(`✅ Spostato in: ${({'todo':'Da Fare','doing':'In Lavorazione','special':'Lavoro Lungo','done':'Lavoro Fatto'})[nuovoStato]||nuovoStato}`, '#10b981');
+            setTimeout(() => {
+                openStatoLavoriModal(encodedChiave);
+                refreshArchive();
+            }, 200);
+        }
+
         function saldaDebitoCliente(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Saldare l'intero debito per questo cliente?`)) { const oggi = getOggiLocale(); getJobsByClientId(clientId).filter(j=>['done','archived'].includes(j.stato)).forEach(j=>{ const d = (parseFloat(j.totale_lordo)||0) - (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); if(d>0.01){ if(!j.acconti) j.acconti=[]; j.acconti.push({val:d, date:oggi}); } }); saveDB(); setTimeout(refreshArchive, 300); } }
         function revertClientJobsToToday(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Spostare in "Da Fare" per OGGI tutti i lavori aperti? Verrà aggiornato anche il calendario.`)) { let modified = false; const oggi = getOggiLocale(); getJobsByClientId(clientId).filter(j => ['todo','doing'].includes(j.stato)).forEach(j => { j.stato = 'todo'; j.data = oggi; modified = true; const appIndex = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if(appIndex > -1) { agendaDB[appIndex].data = oggi; } else { agendaDB.push({ id: Date.now() + Math.floor(Math.random()*1000), tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00', cliente: `${j.cognome} ${j.nome}`.trim(), moto: `${j.marca} ${j.modello} - ${j.targa}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } }); if(modified) { const todayObj = new Date(); todayObj.setHours(0,0,0,0); const gD = todayObj.getDay(); const diff = todayObj.getDate() - gD + (gD === 0 ? -6 : 1); dataInizioSettimana = new Date(todayObj.setDate(diff)); saveDBAgenda(); mostraToast("Lavori spostati a OGGI!"); } } }
         function newJobFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if($('f_client_id')) $('f_client_id').value=clientId; if ($('acconti-container')) $('acconti-container').innerHTML=''; setTimeout(() => checkCustomerBikes('f'), 100); }
