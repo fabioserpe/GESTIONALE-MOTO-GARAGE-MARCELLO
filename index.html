@@ -233,6 +233,9 @@
             .topbar-qbtn { padding: 4px 9px !important; font-size: 0.72rem !important; }
             #topbar-section { display: none; }
 
+            /* ---- FORM NUOVO CLIENTE ---- */
+            #form-nuovo-cliente > div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr 1fr !important; }
+
             /* ---- ARCHIVIO CLIENTI: card multi-col → verticale ---- */
             .archive-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
             .archive-card-row > div:nth-child(4) { justify-content: flex-start !important; }
@@ -836,9 +839,49 @@
 
         <div id="view-archivio" class="view hidden">
             <div style="position: sticky; top: 0; background: var(--bg); padding-bottom: 15px; z-index: 5;">
-                <input type="text" id="search-input" placeholder="🔍 Cerca parola chiave (es. Rossi Mario o Honda)..." oninput="refreshArchive()" style="background:var(--card); border: 2px solid var(--info); margin-bottom: 10px;">
-                
-                <div class="flex-row">
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+                    <input type="text" id="search-input" placeholder="🔍 Cerca parola chiave (es. Rossi Mario o Honda)..." oninput="refreshArchive()" style="background:var(--card); border: 2px solid var(--info); margin-bottom:0; flex:1;">
+                    <button class="btn" style="background:var(--success); color:white; white-space:nowrap; flex-shrink:0;" onclick="toggleNuovoClienteForm()">➕ Nuovo Cliente</button>
+                </div>
+
+                <!-- Form Nuovo Cliente -->
+                <div id="form-nuovo-cliente" class="card" style="display:none; border-top:3px solid var(--success); margin-bottom:12px; flex-shrink:0;">
+                    <h3 style="color:var(--success); margin:0 0 14px 0;">➕ Nuovo Cliente in Anagrafica</h3>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <div>
+                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">COGNOME *</label>
+                            <input id="nc-cognome" type="text" placeholder="Es. Rossi" style="margin:0;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">NOME</label>
+                            <input id="nc-nome" type="text" placeholder="Es. Mario" style="margin:0;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">TELEFONO</label>
+                            <input id="nc-tel" type="tel" placeholder="Es. 333 1234567" style="margin:0;">
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px;">
+                        <div>
+                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">TARGA (opz.)</label>
+                            <input id="nc-targa" type="text" placeholder="Es. AB123CD" style="margin:0; text-transform:uppercase;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">MARCA (opz.)</label>
+                            <input id="nc-marca" type="text" placeholder="Es. Honda" style="margin:0;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">MODELLO (opz.)</label>
+                            <input id="nc-modello" type="text" placeholder="Es. CBR 600" style="margin:0;">
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn" style="background:var(--success); color:white;" onclick="salvaNuovoCliente()">💾 Salva Cliente</button>
+                        <button class="btn btn-dark" onclick="toggleNuovoClienteForm()">Annulla</button>
+                    </div>
+                </div>
+
+                <div class="flex-row" style="flex-wrap:wrap; gap:6px;">
                     <button class="btn btn-info" id="filt-all" onclick="setArchiveFilter('all')">Tutti</button>
                     <button class="btn btn-dark" id="filt-dafare" onclick="setArchiveFilter('dafare')">⚙️ Da Fare</button>
                     <button class="btn btn-dark" id="filt-special" onclick="setArchiveFilter('special')">🕰️ Lavori Lunghi</button>
@@ -3878,8 +3921,34 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             refreshArchive(); 
         }
 
+        function toggleNuovoClienteForm() {
+            const f = $('form-nuovo-cliente');
+            if (!f) return;
+            const open = f.style.display !== 'none';
+            f.style.display = open ? 'none' : 'block';
+            if (!open) { ['nc-cognome','nc-nome','nc-tel','nc-targa','nc-marca','nc-modello'].forEach(id => { const el = $(id); if(el) el.value = ''; }); setTimeout(() => { const el = $('nc-cognome'); if(el) el.focus(); }, 50); }
+        }
+
+        function salvaNuovoCliente() {
+            const cognome = ($('nc-cognome').value || '').trim();
+            if (!cognome) { mostraErrore('Il cognome è obbligatorio.'); return; }
+            const nome    = ($('nc-nome').value || '').trim();
+            const tel     = ($('nc-tel').value || '').trim();
+            const targa   = ($('nc-targa').value || '').toUpperCase().trim();
+            const marca   = ($('nc-marca').value || '').trim();
+            const modello = ($('nc-modello').value || '').trim();
+            const clientId = genClientId();
+            const record = { id: Date.now(), clientId, cognome, nome, tel, targa, marca, modello, stato: 'cliente', data: getOggiLocale(), descrizione: '', totale_lordo: 0, acconti: [] };
+            if(typeof saveSnapshot === 'function') saveSnapshot();
+            db.push(record);
+            saveDB();
+            toggleNuovoClienteForm();
+            setTimeout(refreshArchive, 300);
+            mostraToast(`✅ Cliente ${cognome} ${nome} aggiunto all'anagrafica.`, '#10b981');
+        }
+
         function refreshArchive() {
-            const query = $('search-input').value.toLowerCase().trim(); const searchTerms = query.split(/\s+/); const container = $('archive-results'); if (!container) return; container.classList.remove('grid-cards'); container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px'; container.innerHTML = ''; const clientiMap = {}; db.forEach(j => { if(!j.cognome) return; const key = j.clientId || `${j.cognome.toUpperCase().trim()} ${j.nome ? j.nome.toUpperCase().trim() : ''}`.trim(); if(!clientiMap[key]) { clientiMap[key] = { clientId: j.clientId || key, cognome: j.cognome, nome: j.nome || '', tel: j.tel || '', veicoli: new Set(), veicoliDettagli: [], storia: [], targhe: [] }; } if(j.tel) clientiMap[key].tel = j.tel; if(j.targa && !clientiMap[key].veicoli.has(j.targa)) { clientiMap[key].veicoli.add(j.targa); clientiMap[key].targhe.push(j.targa); clientiMap[key].veicoliDettagli.push({ targa: j.targa, marca: j.marca || '', modello: j.modello || '' }); } if (j.stato !== 'preventivo') { clientiMap[key].storia.push(j); } });
+            const query = $('search-input').value.toLowerCase().trim(); const searchTerms = query.split(/\s+/); const container = $('archive-results'); if (!container) return; container.classList.remove('grid-cards'); container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px'; container.innerHTML = ''; const clientiMap = {}; db.forEach(j => { if(!j.cognome) return; const key = j.clientId || `${j.cognome.toUpperCase().trim()} ${j.nome ? j.nome.toUpperCase().trim() : ''}`.trim(); if(!clientiMap[key]) { clientiMap[key] = { clientId: j.clientId || key, cognome: j.cognome, nome: j.nome || '', tel: j.tel || '', veicoli: new Set(), veicoliDettagli: [], storia: [], targhe: [] }; } if(j.tel) clientiMap[key].tel = j.tel; if(j.targa && !clientiMap[key].veicoli.has(j.targa)) { clientiMap[key].veicoli.add(j.targa); clientiMap[key].targhe.push(j.targa); clientiMap[key].veicoliDettagli.push({ targa: j.targa, marca: j.marca || '', modello: j.modello || '' }); } if (j.stato !== 'preventivo' && j.stato !== 'cliente') { clientiMap[key].storia.push(j); } });
             // Rileva omonimi: stessi nomi ma clientId diversi
             const _nomeCount = {}; Object.values(clientiMap).forEach(c => { const _n = `${c.cognome.toUpperCase().trim()} ${c.nome.toUpperCase().trim()}`.trim(); _nomeCount[_n] = (_nomeCount[_n]||0) + 1; });
             const chiaviOrdinate = Object.keys(clientiMap).sort((a, b) => { const ca = clientiMap[a], cb = clientiMap[b]; return `${ca.cognome} ${ca.nome}`.localeCompare(`${cb.cognome} ${cb.nome}`); }); 
@@ -4062,7 +4131,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function newVehicleFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if($('f_client_id')) $('f_client_id').value=clientId; if ($('acconti-container')) $('acconti-container').innerHTML=''; }
 
         function viewHistoryCognome(encodedChiave) {
-            const clientId = safeDecode(encodedChiave); const hList = getJobsByClientId(clientId).filter(j => j.stato !== 'preventivo'); const _fj = hList[0] || {}; const _label = `${(_fj.cognome||'').toUpperCase()} ${_fj.nome||''}`.trim() || clientId; $('st-titolo').innerText = `Storia Interventi & Conti: ${_label}`;
+            const clientId = safeDecode(encodedChiave); const hList = getJobsByClientId(clientId).filter(j => j.stato !== 'preventivo' && j.stato !== 'cliente'); const _fj = getJobsByClientId(clientId).find(j => j.cognome) || {}; const _label = `${(_fj.cognome||'').toUpperCase()} ${_fj.nome||''}`.trim() || clientId; $('st-titolo').innerText = `Storia Interventi & Conti: ${_label}`;
             const stCorpo = $('st-corpo'); if(!stCorpo) return;
             stCorpo.innerHTML = hList.reverse().map(h => {
                 const acc = (h.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); const lordo = parseFloat(h.totale_lordo)||0; const netto = lordo - acc;
