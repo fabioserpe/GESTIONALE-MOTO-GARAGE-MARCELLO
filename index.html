@@ -234,7 +234,8 @@
             #topbar-section { display: none; }
 
             /* ---- FORM NUOVO CLIENTE ---- */
-            #form-nuovo-cliente > div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr 1fr !important; }
+            #view-nuovo-cliente .form-panel { padding: 20px !important; }
+            #view-nuovo-cliente div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
 
             /* ---- ARCHIVIO CLIENTI: card multi-col → verticale ---- */
             .archive-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -396,6 +397,7 @@
         <div id="nav-sortable">
         <button class="nav-link active" data-nav-id="board" onclick="switchView('board', this)">📊 Board Lavori</button>
         <button class="nav-link" data-nav-id="nuova" onclick="switchView('nuova', this)">➕ Nuova Commessa</button>
+        <button class="nav-link" data-nav-id="nuovo-cliente" style="color:var(--success);" onclick="switchView('nuovo-cliente', this)">👤 Nuovo Cliente</button>
         <button class="nav-link" data-nav-id="specials" style="color:#d8b4fe;" onclick="switchView('specials', this)">🕰️ Lavori Lunghi</button>
         <button class="nav-link" data-nav-id="agenda" style="color:var(--info);" onclick="switchView('agenda', this)">📅 Agenda</button>
         <button class="nav-link" data-nav-id="archivio" onclick="switchView('archivio', this)">📁 Anagrafica</button>
@@ -442,6 +444,7 @@
             <div id="topbar-quicklinks" style="display:flex; gap:5px; flex:1; justify-content:center; overflow:hidden;">
                 <button class="topbar-qbtn tq-active" data-view="board" onclick="switchView('board',null)">📊 Board</button>
                 <button class="topbar-qbtn" data-view="nuova" onclick="switchView('nuova',null)">➕ Nuova</button>
+                <button class="topbar-qbtn" data-view="nuovo-cliente" onclick="switchView('nuovo-cliente',null)">👤 Cliente</button>
                 <button class="topbar-qbtn" data-view="agenda" onclick="switchView('agenda',null)">📅 Agenda</button>
                 <button class="topbar-qbtn" data-view="archivio" onclick="switchView('archivio',null)">📁 Clienti</button>
                 <button class="topbar-qbtn" data-view="magazzino" onclick="switchView('magazzino',null)">📦 Magazzino</button>
@@ -837,50 +840,59 @@
             </div>
         </div>
 
+        <!-- NUOVO CLIENTE — view dedicata -->
+        <div id="view-nuovo-cliente" class="view hidden">
+            <div style="max-width:700px; margin:0 auto;">
+                <div class="form-panel" style="background:var(--card); padding:35px; border-radius:20px; border:1px solid #334155; border-top:4px solid var(--success);">
+                    <h2 style="color:var(--success); margin:0 0 22px 0;">👤 Nuovo Cliente in Anagrafica</h2>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+                        <div>
+                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:5px; font-weight:bold;">COGNOME *</label>
+                            <input id="nc-cognome" type="text" placeholder="Es. Rossi" style="margin:0;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:5px; font-weight:bold;">NOME</label>
+                            <input id="nc-nome" type="text" placeholder="Es. Mario" style="margin:0;">
+                        </div>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:5px; font-weight:bold;">TELEFONO</label>
+                        <input id="nc-tel" type="tel" placeholder="Es. 333 1234567" style="margin:0;">
+                    </div>
+
+                    <div style="border-top:1px solid #334155; padding-top:16px; margin-bottom:16px;">
+                        <div style="font-size:0.8rem; color:var(--muted); font-weight:bold; margin-bottom:12px; letter-spacing:0.5px;">VEICOLO (opzionale)</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;">
+                            <div>
+                                <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:5px;">TARGA</label>
+                                <input id="nc-targa" type="text" placeholder="Es. AB123CD" style="margin:0; text-transform:uppercase;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:5px;">MARCA</label>
+                                <input id="nc-marca" type="text" placeholder="Es. Honda" style="margin:0;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:5px;">MODELLO</label>
+                                <input id="nc-modello" type="text" placeholder="Es. CBR 600" style="margin:0;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn" style="background:var(--success); color:white; flex:1;" onclick="salvaNuovoCliente()">💾 Salva Cliente</button>
+                        <button class="btn btn-dark" style="flex:1;" onclick="switchView('archivio',null)">Annulla</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="view-archivio" class="view hidden">
             <div style="position: sticky; top: 0; background: var(--bg); padding-bottom: 15px; z-index: 5;">
                 <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
                     <input type="text" id="search-input" placeholder="🔍 Cerca parola chiave (es. Rossi Mario o Honda)..." oninput="refreshArchive()" style="background:var(--card); border: 2px solid var(--info); margin-bottom:0; flex:1;">
-                    <button class="btn" style="background:var(--success); color:white; white-space:nowrap; flex-shrink:0;" onclick="toggleNuovoClienteForm()">➕ Nuovo Cliente</button>
+                    <button class="btn" style="background:var(--success); color:white; white-space:nowrap; flex-shrink:0;" onclick="switchView('nuovo-cliente',null)">👤 Nuovo Cliente</button>
                 </div>
-
-                <!-- Form Nuovo Cliente -->
-                <div id="form-nuovo-cliente" class="card" style="display:none; border-top:3px solid var(--success); margin-bottom:12px; flex-shrink:0;">
-                    <h3 style="color:var(--success); margin:0 0 14px 0;">➕ Nuovo Cliente in Anagrafica</h3>
-                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
-                        <div>
-                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">COGNOME *</label>
-                            <input id="nc-cognome" type="text" placeholder="Es. Rossi" style="margin:0;">
-                        </div>
-                        <div>
-                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">NOME</label>
-                            <input id="nc-nome" type="text" placeholder="Es. Mario" style="margin:0;">
-                        </div>
-                        <div>
-                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">TELEFONO</label>
-                            <input id="nc-tel" type="tel" placeholder="Es. 333 1234567" style="margin:0;">
-                        </div>
-                    </div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px;">
-                        <div>
-                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">TARGA (opz.)</label>
-                            <input id="nc-targa" type="text" placeholder="Es. AB123CD" style="margin:0; text-transform:uppercase;">
-                        </div>
-                        <div>
-                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">MARCA (opz.)</label>
-                            <input id="nc-marca" type="text" placeholder="Es. Honda" style="margin:0;">
-                        </div>
-                        <div>
-                            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">MODELLO (opz.)</label>
-                            <input id="nc-modello" type="text" placeholder="Es. CBR 600" style="margin:0;">
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <button class="btn" style="background:var(--success); color:white;" onclick="salvaNuovoCliente()">💾 Salva Cliente</button>
-                        <button class="btn btn-dark" onclick="toggleNuovoClienteForm()">Annulla</button>
-                    </div>
-                </div>
-
                 <div class="flex-row" style="flex-wrap:wrap; gap:6px;">
                     <button class="btn btn-info" id="filt-all" onclick="setArchiveFilter('all')">Tutti</button>
                     <button class="btn btn-dark" id="filt-dafare" onclick="setArchiveFilter('dafare')">⚙️ Da Fare</button>
@@ -2063,7 +2075,7 @@
                 initMagazzino();
                 refreshListaOrdini();
             }
-            ['view-board', 'view-nuova', 'view-archivio', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
+            ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.topbar-qbtn').forEach(b => b.classList.toggle('tq-active', b.dataset.view === viewId));
             const _sidebarBtn = document.querySelector(`[data-nav-id="${viewId}"]`);
@@ -2072,6 +2084,7 @@
             updateNavGroupHighlight();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') currentView = viewId;
             if(viewId === 'nuova' && !isEditing) clearForm();
+            if(viewId === 'nuovo-cliente') _resetNuovoClienteForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
             if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') refreshAttesa();
         }
@@ -3921,12 +3934,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             refreshArchive(); 
         }
 
-        function toggleNuovoClienteForm() {
-            const f = $('form-nuovo-cliente');
-            if (!f) return;
-            const open = f.style.display !== 'none';
-            f.style.display = open ? 'none' : 'block';
-            if (!open) { ['nc-cognome','nc-nome','nc-tel','nc-targa','nc-marca','nc-modello'].forEach(id => { const el = $(id); if(el) el.value = ''; }); setTimeout(() => { const el = $('nc-cognome'); if(el) el.focus(); }, 50); }
+        function toggleNuovoClienteForm() { switchView('nuovo-cliente', null); }
+
+        function _resetNuovoClienteForm() {
+            ['nc-cognome','nc-nome','nc-tel','nc-targa','nc-marca','nc-modello'].forEach(id => { const el = $(id); if(el) el.value = ''; });
+            setTimeout(() => { const el = $('nc-cognome'); if(el) el.focus(); }, 80);
         }
 
         function salvaNuovoCliente() {
@@ -3942,8 +3954,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if(typeof saveSnapshot === 'function') saveSnapshot();
             db.push(record);
             saveDB();
-            toggleNuovoClienteForm();
-            setTimeout(refreshArchive, 300);
+            _resetNuovoClienteForm();
+            switchView('archivio', null);
             mostraToast(`✅ Cliente ${cognome} ${nome} aggiunto all'anagrafica.`, '#10b981');
         }
 
