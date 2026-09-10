@@ -1784,12 +1784,12 @@
                 }
                 updateDatalist();
                 const v = currentView;
-                if (v === 'board') refreshBoard();
-                else if (v === 'archivio') refreshArchive();
+                if (v === 'board') _dRefreshBoard();
+                else if (v === 'archivio') _dRefreshArchive();
                 else if (v === 'stats') refreshStats();
                 else if (v === 'preventivi') refreshPreventivi();
                 else if (v === 'specials') refreshSpecials();
-                else refreshBoard(); // default: aggiorna sempre la board alla prima ricezione dati
+                else _dRefreshBoard();
             });
 
             database.ref('/agenda').on('value', (snap) => {
