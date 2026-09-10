@@ -477,7 +477,7 @@
                 <div id="board-search-wrapper" style="display:none; overflow:hidden; transition:max-height 0.25s ease; padding-bottom:12px;">
                     <input type="text" id="board-search-input"
                         placeholder="Cerca per Targa, Cliente o Moto..."
-                        oninput="refreshBoard(); aggiornaSearchBadge();"
+                        oninput="_dRefreshBoard()"
                         onkeydown="if(event.key==='Escape') chiudiBoardSearch();"
                         style="background:var(--card); border: 2px solid var(--warning); margin-bottom:0;">
                 </div>
@@ -509,7 +509,7 @@
                     <button class="btn btn-info w-auto" style="margin-left:15px;" onclick="apriModalApp()">➕ Nuova Voce</button>
                 </div>
             </div>
-            <input type="text" id="agenda-search-input" placeholder="🔍 Cerca in agenda per Cliente, Moto, Telefono o Note..." oninput="refreshAgenda()" style="background:var(--card); border: 2px solid var(--info); margin-bottom: 10px;">
+            <input type="text" id="agenda-search-input" placeholder="🔍 Cerca in agenda per Cliente, Moto, Telefono o Note..." oninput="_dRefreshAgenda()" style="background:var(--card); border: 2px solid var(--info); margin-bottom: 10px;">
             <div class="agenda-grid" id="agenda-grid"></div>
             <div id="agenda-search-results" class="hidden" style="flex-grow:1; overflow-y:auto; padding-right:10px;"></div>
         </div>
@@ -889,7 +889,7 @@
 
         <div id="view-archivio" class="view hidden">
             <div style="position: sticky; top: 0; background: var(--bg); padding-bottom: 15px; z-index: 5;">
-                <input type="text" id="search-input" placeholder="🔍 Cerca parola chiave (es. Rossi Mario o Honda)..." oninput="refreshArchive()" style="background:var(--card); border: 2px solid var(--info); margin-bottom: 10px;">
+                <input type="text" id="search-input" placeholder="🔍 Cerca parola chiave (es. Rossi Mario o Honda)..." oninput="_dRefreshArchive()" style="background:var(--card); border: 2px solid var(--info); margin-bottom: 10px;">
                 <div class="flex-row">
                     <button class="btn btn-info" id="filt-all" onclick="setArchiveFilter('all')">Tutti</button>
                     <button class="btn btn-dark" id="filt-dafare" onclick="setArchiveFilter('dafare')">⚙️ Da Fare</button>
@@ -978,7 +978,7 @@
                         <button class="btn btn-dark w-auto" onclick="esportaExcelMag()" title="Esporta lista magazzino in Excel">📊 Excel</button>
                     </div>
                 </div>
-                <input type="text" id="mag-search-input" placeholder="🔍 Cerca articolo per codice, descrizione o marca..." oninput="magFiltroSottosoglia=false; renderTableMag(); renderSummaryMag();" style="background:var(--card); border:2px solid var(--warning); margin-bottom:0;">
+                <input type="text" id="mag-search-input" placeholder="🔍 Cerca articolo per codice, descrizione o marca..." oninput="_dRenderMag()" style="background:var(--card); border:2px solid var(--warning); margin-bottom:0;">
             </div>
 
             <!-- Toolbar azioni magazzino -->
@@ -1138,7 +1138,7 @@
                     </div>
                 </div>
                 <div class="flex-row" style="gap:8px;">
-                    <input type="text" id="tag-search-input" placeholder="🔍 Cerca per targa, cliente o moto..." oninput="refreshTagliandi()" style="background:var(--card); border:2px solid #fb923c; margin:0; flex:1;">
+                    <input type="text" id="tag-search-input" placeholder="🔍 Cerca per targa, cliente o moto..." oninput="_dRefreshTagliandi()" style="background:var(--card); border:2px solid #fb923c; margin:0; flex:1;">
                     <select id="tag-filter-stato" onchange="refreshTagliandi()" style="width:180px; margin:0; border-color:#fb923c;">
                         <option value="tutti">Tutti i veicoli</option>
                         <option value="scaduto">🔴 Scaduti</option>
@@ -1715,6 +1715,13 @@
         // =====================================================================
         function safeEncode(str) { return !str ? '' : encodeURIComponent(str).replace(/'/g, "%27"); }
         function safeDecode(str) { return !str ? '' : decodeURIComponent(str); }
+        function htmlEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+        function debounce(fn, ms) { let t; return function(...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); }; }
+        const _dRefreshBoard    = debounce(() => { refreshBoard(); aggiornaSearchBadge(); }, 250);
+        const _dRefreshArchive  = debounce(refreshArchive, 250);
+        const _dRefreshAgenda   = debounce(refreshAgenda, 250);
+        const _dRefreshTagliandi = debounce(refreshTagliandi, 250);
+        const _dRenderMag       = debounce(() => { magFiltroSottosoglia = false; renderTableMag(); renderSummaryMag(); }, 250);
         function formatDateISO(d) { const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${dd}`; }
         function getOggiLocale() { return formatDateISO(new Date()); }
         function formatPhoneForWa(tel) { if (!tel) return ''; let t = String(tel).replace(/\D/g, ''); if (t.startsWith('0039')) t = t.substring(4); if (!t.startsWith('39') && t.startsWith('3')) t = '39' + t; return t; }
@@ -1743,7 +1750,7 @@
             initMagazzino();
 
             database.ref('/db').on('value', (snap) => {
-                db = snap.val() || [];
+                db = snap.val() ? Object.values(snap.val()) : [];
                 // Migrazione silenziosa: pulizie varie
                 let needsSaveChiusura = false;
                 let needsCleanSpecialCat = false;
@@ -1782,7 +1789,7 @@
             });
 
             database.ref('/agenda').on('value', (snap) => {
-                agendaDB = snap.val() || [];
+                agendaDB = snap.val() ? Object.values(snap.val()) : [];
                 if (currentView === 'agenda') refreshAgenda();
             });
 
@@ -1795,17 +1802,17 @@
             });
 
             database.ref('/ordini').on('value', (snap) => {
-                ordiniDB = snap.val() || [];
+                ordiniDB = snap.val() ? Object.values(snap.val()) : [];
                 if (currentView === 'ordini') refreshOrdini();
             });
 
             database.ref('/lista_ordini').on('value', snap => {
-                listaOrdiniMag = snap.val() || [];
+                listaOrdiniMag = snap.val() ? Object.values(snap.val()) : [];
                 if (currentView === 'magazzino') refreshListaOrdini();
             });
 
             database.ref('/rubrica').on('value', (snap) => {
-                rubricaDB = snap.val() || [];
+                rubricaDB = snap.val() ? Object.values(snap.val()) : [];
                 if (currentView === 'rubrica') refreshRubrica();
             });
 
@@ -2122,7 +2129,7 @@
                 const apps = agendaDB.filter(a => a.data === dStr).sort((a,b) => (a.ora||'00:00').localeCompare(b.ora||'00:00'));
                 const nomeGiorno = nomiGiorni[cur.getDay()];
                 
-                let appsHtml = apps.map(a => `<div style="font-size:0.85rem; background:rgba(0,0,0,0.2); padding:6px 8px; border-radius:6px; margin-bottom:4px; border-left:3px solid ${a.tipo==='personale'?'var(--warning)':'var(--info)'};"><span style="color:white; font-weight:bold;">${a.ora||'--:--'}</span> - ${a.cliente} <span style="color:var(--muted); font-size:0.75rem;">${a.moto||''}</span></div>`).join('');
+                let appsHtml = apps.map(a => `<div style="font-size:0.85rem; background:rgba(0,0,0,0.2); padding:6px 8px; border-radius:6px; margin-bottom:4px; border-left:3px solid ${a.tipo==='personale'?'var(--warning)':'var(--info)'};"><span style="color:white; font-weight:bold;">${htmlEsc(a.ora||'--:--')}</span> - ${htmlEsc(a.cliente)} <span style="color:var(--muted); font-size:0.75rem;">${htmlEsc(a.moto||'')}</span></div>`).join('');
                 if(!appsHtml) appsHtml = `<div style="font-size:0.8rem; color:var(--muted); padding:4px;">Nessun appuntamento in agenda.</div>`;
 
                 html += `
@@ -2140,6 +2147,7 @@
         function getJobsByClient(chiave) { return db.filter(j => `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim() === chiave); }
         function getJobsByClientId(clientId) { return db.filter(j => j.clientId === clientId); }
         function genClientId() { return (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'c_' + Date.now() + '_' + Math.random().toString(36).substr(2,9); }
+        function genId() { return (typeof crypto !== 'undefined' && crypto.randomUUID) ? parseInt(crypto.randomUUID().replace(/-/g,'').slice(0,13), 16) : Date.now() + Math.floor(Math.random()*100000); }
 
         // =====================================================================
         // 4. AUTOCOMPILAZIONE E ANAGRAFICA VELOCE
@@ -2335,7 +2343,7 @@
                 if (c.km && $(p+'_km')) $(p+'_km').value = c.km;
             }
         }
-        function sincronizzaAnagrafica(targa, nome, cognome, tel, marca, modello, clientId) { if (!targa || String(targa).trim() === '') return; targa = String(targa).toUpperCase().trim(); const ex = db.filter(j => j.targa === targa); if (ex.length > 0) { db.forEach(j => { if (j.targa === targa) { if(nome) j.nome = nome; if(cognome) j.cognome = cognome; if(tel) j.tel = tel; if(marca) j.marca = marca; if(modello) j.modello = modello; if(clientId && !j.clientId) j.clientId = clientId; } }); } else { db.push({ id: Date.now() + Math.floor(Math.random() * 1000), data: getOggiLocale(), nome: nome || '', cognome: cognome || '', tel: tel || '', marca: marca || '', modello: modello || '', targa: targa, km: '', acconti: [], lavori_richiesti: 'Inserimento rapido', stato: 'archived', conto: [], totale_lordo: 0, clientId: clientId || genClientId() }); } }
+        function sincronizzaAnagrafica(targa, nome, cognome, tel, marca, modello, clientId) { if (!targa || String(targa).trim() === '') return; targa = String(targa).toUpperCase().trim(); const ex = db.filter(j => j.targa === targa); if (ex.length > 0) { db.forEach(j => { if (j.targa === targa) { if(nome) j.nome = nome; if(cognome) j.cognome = cognome; if(tel) j.tel = tel; if(marca) j.marca = marca; if(modello) j.modello = modello; if(clientId && !j.clientId) j.clientId = clientId; } }); } else { db.push({ id: genId(), data: getOggiLocale(), nome: nome || '', cognome: cognome || '', tel: tel || '', marca: marca || '', modello: modello || '', targa: targa, km: '', acconti: [], lavori_richiesti: 'Inserimento rapido', stato: 'archived', conto: [], totale_lordo: 0, clientId: clientId || genClientId() }); } }
 
         function addAcconto(cId, vCls, dCls, calcFn = null, val = '', date = '', aF = false) { const div = document.createElement('div'); div.className = `flex-row mb-15 acc-row`; div.innerHTML = `<input type="number" class="${vCls}" value="${val}" step="0.01" style="flex:1; margin:0;" placeholder="Importo €" ${calcFn?`oninput="${calcFn.name}()"`:''}> <input type="date" class="${dCls}" value="${date || getOggiLocale()}" style="flex:1; margin:0;"> <button tabindex="-1" onclick="this.parentElement.remove(); ${calcFn?calcFn.name+'()':''}" style="background:none; border:none; color:var(--accent); cursor:pointer; font-weight:bold; padding:0 5px; font-size:1.1rem;">×</button>`; const c = $(cId); if (c) c.appendChild(div); if (aF) setTimeout(() => { div.querySelector(`.${vCls}`).focus(); }, 10); }
         function addVoce(cId, dCls, pCls, calcFn, dStr = '', pNum = '', aF = false) { const tr = document.createElement('tr'); tr.className = 'voce-row'; tr.innerHTML = `<td><input type="text" class="${dCls}" placeholder="Voce..." value="${dStr}" style="margin-bottom:5px;"></td><td style="width:110px"><input type="number" class="${pCls}" value="${pNum}" step="0.01" placeholder="0.00" style="margin-bottom:5px;" oninput="${calcFn.name}()"></td><td style="width:30px; text-align:right;"><button tabindex="-1" onclick="this.parentElement.parentElement.remove(); ${calcFn.name}();" style="color:var(--accent); background:none; border:none; cursor:pointer; font-weight:bold; font-size:1.1rem;">×</button></td>`; const c = $(cId); if (c) c.appendChild(tr); if (aF) setTimeout(() => { tr.querySelector(`.${dCls}`).focus(); }, 10); }
@@ -2402,7 +2410,7 @@
         // =====================================================================
         // 6. RUBRICA E ORDINI
         // =====================================================================
-        function saveContatto() { const id = $('rub_edit_id').value, n = $('rub_nome').value.trim(), t1 = $('rub_tel').value.trim(), t2 = $('rub_tel2').value.trim(); if(!n || !t1) return mostraErrore("Nome e Telefono Principale obbligatori!"); if(id) { const i = rubricaDB.findIndex(x => String(x.id) === String(id)); if(i > -1) { rubricaDB[i].nome = n.toUpperCase(); rubricaDB[i].tel = t1; rubricaDB[i].tel2 = t2; } } else { rubricaDB.push({ id: Date.now(), nome: n.toUpperCase(), tel: t1, tel2: t2 }); } cancelEditContatto(); saveRubrica(); }
+        function saveContatto() { const id = $('rub_edit_id').value, n = $('rub_nome').value.trim(), t1 = $('rub_tel').value.trim(), t2 = $('rub_tel2').value.trim(); if(!n || !t1) return mostraErrore("Nome e Telefono Principale obbligatori!"); if(id) { const i = rubricaDB.findIndex(x => String(x.id) === String(id)); if(i > -1) { rubricaDB[i].nome = n.toUpperCase(); rubricaDB[i].tel = t1; rubricaDB[i].tel2 = t2; } } else { rubricaDB.push({ id: genId(), nome: n.toUpperCase(), tel: t1, tel2: t2 }); } cancelEditContatto(); saveRubrica(); }
         function editContatto(id) { const c = rubricaDB.find(x => String(x.id) === String(id)); if(!c) return; $('rub_edit_id').value = c.id; $('rub_nome').value = c.nome; $('rub_tel').value = c.tel; $('rub_tel2').value = c.tel2 || ''; $('btn-save-rubrica').className = "btn btn-warning w-auto"; $('btn-save-rubrica').innerHTML = "💾 Salva"; $('btn-cancel-rubrica').classList.remove('hidden'); }
         function cancelEditContatto() { $('rub_edit_id').value = ''; $('rub_nome').value = ''; $('rub_tel').value = ''; $('rub_tel2').value = ''; $('btn-save-rubrica').className = "btn btn-success w-auto"; $('btn-save-rubrica').innerHTML = "➕ Aggiungi"; $('btn-cancel-rubrica').classList.add('hidden'); }
         function deleteContatto(id) { if(confirm("Eliminare contatto?")) { rubricaDB = rubricaDB.filter(x => String(x.id) !== String(id)); saveRubrica(); } }
@@ -2430,7 +2438,7 @@
                 const idx = ordiniDB.findIndex(x => String(x.id) === String(editId));
                 if (idx > -1) { ordiniDB[idx] = { ...ordiniDB[idx], ...obj }; }
             } else {
-                obj.id = Date.now();
+                obj.id = genId();
                 ordiniDB.push(obj);
             }
             cancelEditOrdine();
@@ -2635,7 +2643,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const i = parseFloat($('ld_importo').value) || 0, q = parseFloat($('ld_qta').value) || 1, e = $('ld_edit_id').value;
             if(!d || !ds) return mostraErrore("Data e Descrizione obbligatori!");
             if(e) { const idx = ledgerDB.findIndex(x => String(x.id) === String(e)); if(idx > -1) ledgerDB[idx] = { id: parseInt(e), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }; } 
-            else { ledgerDB.push({ id: Date.now(), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }); }
+            else { ledgerDB.push({ id: genId(), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }); }
             cancelLedgerEdit(); saveLedger();
         }
 
@@ -2708,7 +2716,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const tot = (m.importo || 0) * (m.qta || 1);
                 if(m.tipo === 'in') ti += tot; else to += tot;
                 const pTxt = tot > 0 ? `€ ${tot.toFixed(2)}` : `<span style="color:var(--warning); font-size:0.8rem;">DA DEF.</span>`;
-                tb.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:12px;">${formattaData(m.data)}</td><td style="padding:12px;"><span class="cat-badge">${m.cat || 'OFF'}</span></td><td style="padding:12px;">${m.qta>1?m.qta+'x ':''}${m.desc}</td><td style="padding:12px; text-align:right; color:var(--success); font-weight:bold; font-size:1.1rem;">${m.tipo==='in'?'+ '+pTxt:''}</td><td style="padding:12px; text-align:right; color:var(--accent); font-weight:bold; font-size:1.1rem;">${m.tipo==='out'?'- '+pTxt:''}</td><td style="padding:12px; text-align:center;"><div class="flex-row flex-center" style="gap:5px;"><button class="btn-icon" style="background:transparent; color:var(--warning); border:1px solid var(--warning); padding:6px 10px; cursor:pointer;" onclick="editLedgerEntry(${m.id})">✏️</button><button class="btn-icon" style="background:transparent; color:var(--accent); border:1px solid var(--accent); padding:6px 10px; cursor:pointer;" onclick="deleteLedgerEntry(${m.id})">🗑️</button></div></td></tr>`;
+                tb.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:12px;">${formattaData(m.data)}</td><td style="padding:12px;"><span class="cat-badge">${htmlEsc(m.cat || 'OFF')}</span></td><td style="padding:12px;">${m.qta>1?m.qta+'x ':''}${htmlEsc(m.desc)}</td><td style="padding:12px; text-align:right; color:var(--success); font-weight:bold; font-size:1.1rem;">${m.tipo==='in'?'+ '+pTxt:''}</td><td style="padding:12px; text-align:right; color:var(--accent); font-weight:bold; font-size:1.1rem;">${m.tipo==='out'?'- '+pTxt:''}</td><td style="padding:12px; text-align:center;"><div class="flex-row flex-center" style="gap:5px;"><button class="btn-icon" style="background:transparent; color:var(--warning); border:1px solid var(--warning); padding:6px 10px; cursor:pointer;" onclick="editLedgerEntry(${m.id})">✏️</button><button class="btn-icon" style="background:transparent; color:var(--accent); border:1px solid var(--accent); padding:6px 10px; cursor:pointer;" onclick="deleteLedgerEntry(${m.id})">🗑️</button></div></td></tr>`;
                 if(isMob && mobList) {
                     const colore = m.tipo === 'in' ? 'var(--success)' : 'var(--accent)';
                     const segno = m.tipo === 'in' ? '+' : '−';
@@ -2745,7 +2753,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 ledgerDB = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() !== name.toUpperCase());
                 
                 ledgerDB.push({
-                    id: Date.now(),
+                    id: genId(),
                     data: getOggiLocale(),
                     tipo: 'in',
                     cat: 'officina',
@@ -2779,7 +2787,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(j.id));
                 if (appIdx === -1) {
                     agendaDB.push({
-                        id: Date.now() + Math.floor(Math.random() * 1000),
+                        id: genId(),
                         tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00',
                         cliente: `${j.cognome||''} ${j.nome||''}`.trim(),
                         moto: `${j.marca||''} ${j.modello||''} - ${j.targa||''}`.trim(),
@@ -2805,7 +2813,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
         function saveJob(stato) { 
             const idField = $('f_id').value; 
-            const nowId = idField ? parseInt(idField) : Date.now(); 
+            const nowId = idField ? parseInt(idField) : genId();
             const exIdx = db.findIndex(x => String(x.id) === String(nowId)); 
             
             let oldConto = [];
@@ -2850,7 +2858,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             
             if(!data.cognome) return mostraErrore("Il Cognome è obbligatorio!"); 
             
-            exIdx > -1 ? db[exIdx] = data : db.push(data); 
+            exIdx > -1 ? db[exIdx] = { ...db[exIdx], ...data } : db.push(data);
             
             const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(nowId)); 
             if (appIdx > -1) { 
@@ -2860,7 +2868,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 agendaDB[appIdx].note = data.lavori_richiesti; 
                 agendaDB[appIdx].tel = data.tel; 
             } else if (finalStato === 'todo' || finalStato === 'doing') { 
-                agendaDB.push({ id: Date.now() + Math.floor(Math.random() * 1000), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); 
+                agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); 
             } 
             
             sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello, data.clientId);
@@ -3051,7 +3059,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         <b>Telefono:</b> ${j.tel||'Nessun numero'}
                     </div>
                     <h3 style="color:var(--info); margin-bottom:10px;">Note Lavori:</h3>
-                    <div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; border-left:4px solid var(--accent); white-space:pre-wrap; color:white; min-height:60px; font-size:1.1rem; margin-bottom:20px;">${j.lavori_richiesti || 'Nessuna nota.'}</div>
+                    <div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; border-left:4px solid var(--accent); white-space:pre-wrap; color:white; min-height:60px; font-size:1.1rem; margin-bottom:20px;">${htmlEsc(j.lavori_richiesti || 'Nessuna nota.')}</div>
                     ${contoHtml}
                     ${billingHtml}
                 </div>
@@ -3284,7 +3292,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
     ${j.tel ? `<a href="tel:${j.tel}" onclick="event.stopPropagation();" class="tel-link" style="display:inline-flex; align-items:center; gap:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.35); color:#93c5fd; font-size:0.88rem; font-weight:700; padding:3px 9px; border-radius:20px; margin-left:6px; text-decoration:none; letter-spacing:0.3px; flex-shrink:0;">📞 ${j.tel}</a>` : ''}
 </div>
                     ${accTot>0?`<div style="font-size:0.75rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €${accTot.toFixed(2)}</div>`:''}
-                    <div class="work-box-compact" style="margin-top:8px; pointer-events:none; max-height:55px; overflow:hidden;">${j.lavori_richiesti||'...'}</div>
+                    <div class="work-box-compact" style="margin-top:8px; pointer-events:none; max-height:55px; overflow:hidden;">${htmlEsc(j.lavori_richiesti||'...')}</div>
                 </div>
                 <div class="card-btns" style="display:flex; gap:5px; margin-top:8px; align-items:center; flex-wrap:wrap;">
                     ${primaryBtns}
@@ -3366,7 +3374,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     ${a.raw_targa ? `<span style="background:rgba(255,255,255,0.08); padding:1px 6px; border-radius:4px; color:white; font-weight:bold; font-family:monospace;">${a.raw_targa}</span> ` : ''}
                     ${a.moto ? `🏍️ ${a.moto}` : ''}${a.tel ? ` | 📞 ${a.tel}` : ''}
                 </div>` : ''}
-                ${a.note ? `<div style="font-size:0.75rem; margin-top:6px; padding-top:6px; border-top:1px dashed #334155; color:var(--info); pointer-events:none;">${a.note}</div>` : ''}
+                ${a.note ? `<div style="font-size:0.75rem; margin-top:6px; padding-top:6px; border-top:1px dashed #334155; color:var(--info); pointer-events:none;">${htmlEsc(a.note)}</div>` : ''}
             </div>`;
         }
 
@@ -3569,12 +3577,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const motoStr = tipoVal === 'officina' ? `${marca} ${modello} - ${targa}`.trim() : ''; 
             
             const kmVal = $(p+'_km') ? ($(p+'_km').value || '') : '';
-            const app = { id: idVal ? parseInt(idVal) : Date.now(), tipo: tipoVal, jobId: (tipoVal === 'officina' && jobIdVal) ? parseInt(jobIdVal) : null, data: dataVal, ora: oraVal, cliente: clienteStr, moto: motoStr, tel: tel, note: note, km: kmVal, raw_nome: nome, raw_cognome: cognome, raw_marca: marca, raw_modello: modello, raw_targa: targa }; 
+            const app = { id: idVal ? parseInt(idVal) : genId(), tipo: tipoVal, jobId: (tipoVal === 'officina' && jobIdVal) ? parseInt(jobIdVal) : null, data: dataVal, ora: oraVal, cliente: clienteStr, moto: motoStr, tel: tel, note: note, km: kmVal, raw_nome: nome, raw_cognome: cognome, raw_marca: marca, raw_modello: modello, raw_targa: targa }; 
             
             if(!app.data || !cognome) return mostraErrore("Data e Cognome/Oggetto sono obbligatori!"); 
             
             if(tipoVal === 'officina' && !jobIdVal) {
-                const nJobId = Date.now() + 1;
+                const nJobId = genId();
                 const accontiApp = !isModal ? extractList('#app-acconti-container .acc-row', '.app_acc_val', '.app_acc_date', true) : [];
                 let _agCId = ''; if(targa){const _ex=db.find(j=>j.targa===targa&&j.clientId);if(_ex)_agCId=_ex.clientId;} if(!_agCId){const _k=`${cognome.toUpperCase().trim()} ${nome.toUpperCase().trim()}`.trim();const _ex2=db.find(j=>j.clientId&&`${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim()===_k);if(_ex2)_agCId=_ex2.clientId;} if(!_agCId)_agCId=genClientId();
                 db.push({ id: nJobId, data: app.data, nome: nome, cognome: cognome, tel: tel, marca: marca, modello: modello, targa: targa, km: kmVal || "", acconti: accontiApp, lavori_richiesti: note, stato: 'todo', conto: [], totale_lordo: 0, clientId: _agCId });
@@ -3611,7 +3619,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (jX > -1) { 
                 db[jX].stato = targetState; 
             } else {
-                const nI = Date.now();
+                const nI = genId();
                 let _ponCId = ''; if(tg){const _ex=db.find(j=>j.targa===tg&&j.clientId);if(_ex)_ponCId=_ex.clientId;} if(!_ponCId){const _k=`${cg.toUpperCase().trim()} ${nm.toUpperCase().trim()}`.trim();const _ex2=db.find(j=>j.clientId&&`${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim()===_k);if(_ex2)_ponCId=_ex2.clientId;} if(!_ponCId)_ponCId=genClientId();
                 db.push({ id: nI, data: a.data, nome: nm, cognome: cg, tel: a.tel || '', marca: mc, modello: md, targa: tg, km: "", acconti: [], lavori_richiesti: a.note || '', stato: targetState, conto: [], totale_lordo: 0, clientId: _ponCId });
                 a.jobId = nI;
@@ -3677,7 +3685,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 return `<div class="agenda-card ${a.tipo==='personale'?'personal':''} ${stC}" style="cursor:default;">
                     <div style="font-weight:bold;">🕒 ${a.ora||'--:--'} — ${a.cliente}</div>
                     ${a.tipo!=='personale'&&a.moto?`<div style="font-size:0.75rem; color:var(--muted);">🏍️ ${a.moto}</div>`:''}
-                    ${a.note?`<div style="font-size:0.75rem; color:var(--info); margin-top:4px;">${a.note}</div>`:''}
+                    ${a.note?`<div style="font-size:0.75rem; color:var(--info); margin-top:4px;">${htmlEsc(a.note)}</div>`:''}
                 </div>`;
             }).join('');
         }
@@ -3697,7 +3705,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const apps = agendaDB.filter(a => a.data === dStr).sort((a,b) => (a.ora||'00:00').localeCompare(b.ora||'00:00'));
                 const nomeGiorno = nomiGiorni[cur.getDay()];
                 
-                let appsHtml = apps.map(a => `<div style="font-size:0.8rem; background:rgba(0,0,0,0.2); padding:5px 8px; border-radius:6px; margin-bottom:3px; border-left:3px solid ${a.tipo==='personale'?'var(--warning)':'var(--info)'};"><span style="color:white; font-weight:bold;">${a.ora||'--:--'}</span> - ${a.cliente}</div>`).join('');
+                let appsHtml = apps.map(a => `<div style="font-size:0.8rem; background:rgba(0,0,0,0.2); padding:5px 8px; border-radius:6px; margin-bottom:3px; border-left:3px solid ${a.tipo==='personale'?'var(--warning)':'var(--info)'};"><span style="color:white; font-weight:bold;">${htmlEsc(a.ora||'--:--')}</span> - ${htmlEsc(a.cliente)}</div>`).join('');
                 if(!appsHtml) appsHtml = `<div style="font-size:0.75rem; color:var(--muted); padding:2px;">Libero</div>`;
 
                 html += `
@@ -3917,9 +3925,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function openPreventivoForm(id = null) { isEditing = !!id; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal,c.desc,c.price)):addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); } calcPrevTotal(); }
         function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); calcPrevTotal(); setTimeout(() => checkCustomerBikes('p'), 100); }
         function calcPrevTotal() { $('p-totale').innerText = `TOTALE: ${extractList('#p-conto-rows tr', '.p-desc', '.p-price', false).reduce((a,b)=>a+b.price,0).toFixed(2)} €`; }
-        function savePreventivo(inviaWA = false, comeCommessa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : Date.now(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = extractList('#p-conto-rows tr', '.p-desc', '.p-price', false); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const data = { id: nowId, data: getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: [], lavori_richiesti: 'Vedi voci preventivo', stato: comeCommessa ? 'todo' : 'preventivo', conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa) { agendaDB.push({ id: Date.now() + Math.floor(Math.random() * 1000), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(comeCommessa) switchView('board'); else switchView('preventivi'); }
+        function savePreventivo(inviaWA = false, comeCommessa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = extractList('#p-conto-rows tr', '.p-desc', '.p-price', false); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const data = { id: nowId, data: getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: [], lavori_richiesti: 'Vedi voci preventivo', stato: comeCommessa ? 'todo' : 'preventivo', conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(comeCommessa) switchView('board'); else switchView('preventivi'); }
         function refreshPreventivi() { const c = $('preventivi-results'); if (!c) return; c.innerHTML = ''; const pvs = db.filter(j => j.stato === 'preventivo').sort((a,b) => new Date(b.data) - new Date(a.data)); if(pvs.length === 0) { c.innerHTML = `<p style="color:var(--muted)">Nessun preventivo.</p>`; return; } pvs.forEach(p => { c.innerHTML += `<div class="card" style="border-left:8px solid var(--purple)"><div class="flex-between"><b style="font-size:1.1rem;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</b><span class="targa-badge" style="background:var(--purple); border:none;">${p.targa||'NO TARGA'}</span></div><p style="color:var(--muted); margin: 5px 0;">🏍️ ${p.marca||''} ${p.modello||''}</p><h2 style="color:white; margin: 10px 0;">€ ${(p.totale_lordo||0).toFixed(2)}</h2><button class="btn btn-success mb-15" onclick="accettaPreventivo(${p.id})">✅ Accetta (Invia Officina)</button><div class="flex-row mb-15"><button class="btn btn-wa" onclick="sendWhatsAppPreventivo(${p.id})">📲 Invia WA</button><button class="btn btn-dark" onclick="openPreventivoForm(${p.id})">✏️ Modifica</button></div><div class="flex-row"><button class="btn btn-dark" onclick="printPreventivo(${p.id})">🖨️ Stampa</button><button class="btn btn-dark" style="color:var(--accent);" onclick="deleteJob(${p.id})">🗑️ Elimina</button></div></div>`; }); }
-        function accettaPreventivo(id) { if(confirm("Convertire in lavoro (In Attesa)?")) { const j = db.find(x=>String(x.id)===String(id)); if(j) { j.stato='todo'; j.data=getOggiLocale(); const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if (appIdx === -1) { agendaDB.push({ id: Date.now() + Math.floor(Math.random() * 1000), tipo: 'officina', jobId: j.id, data: j.data, ora: '09:00', cliente: `${j.cognome||''} ${j.nome||''}`.trim(), moto: `${j.marca||''} ${j.modello||''} - ${j.targa||''}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } saveDBAgenda(); } } }
+        function accettaPreventivo(id) { if(confirm("Convertire in lavoro (In Attesa)?")) { const j = db.find(x=>String(x.id)===String(id)); if(j) { j.stato='todo'; j.data=getOggiLocale(); const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if (appIdx === -1) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: j.id, data: j.data, ora: '09:00', cliente: `${j.cognome||''} ${j.nome||''}`.trim(), moto: `${j.marca||''} ${j.modello||''} - ${j.targa||''}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } saveDBAgenda(); } } }
 
         // =====================================================================
         // 11. OMNI-EDIT E ARCHIVIO (CRM)
@@ -3959,7 +3967,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const marca   = ($('nc-marca').value || '').trim();
             const modello = ($('nc-modello').value || '').trim();
             const clientId = genClientId();
-            const record = { id: Date.now(), clientId, cognome, nome, tel, targa, marca, modello, stato: 'cliente', data: getOggiLocale(), descrizione: '', totale_lordo: 0, acconti: [] };
+            const record = { id: genId(), clientId, cognome, nome, tel, targa, marca, modello, stato: 'cliente', data: getOggiLocale(), descrizione: '', totale_lordo: 0, acconti: [] };
             if(typeof saveSnapshot === 'function') saveSnapshot();
             db.push(record);
             saveDB();
@@ -4193,7 +4201,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         function saldaDebitoCliente(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Saldare l'intero debito per questo cliente?`)) { const oggi = getOggiLocale(); getJobsByClientId(clientId).filter(j=>['done','archived'].includes(j.stato)).forEach(j=>{ const d = (parseFloat(j.totale_lordo)||0) - (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); if(d>0.01){ if(!j.acconti) j.acconti=[]; j.acconti.push({val:d, date:oggi}); } }); saveDB(); setTimeout(refreshArchive, 300); } }
-        function revertClientJobsToToday(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Spostare in "Da Fare" per OGGI tutti i lavori aperti? Verrà aggiornato anche il calendario.`)) { let modified = false; const oggi = getOggiLocale(); getJobsByClientId(clientId).filter(j => ['todo','doing'].includes(j.stato)).forEach(j => { j.stato = 'todo'; j.data = oggi; modified = true; const appIndex = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if(appIndex > -1) { agendaDB[appIndex].data = oggi; } else { agendaDB.push({ id: Date.now() + Math.floor(Math.random()*1000), tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00', cliente: `${j.cognome} ${j.nome}`.trim(), moto: `${j.marca} ${j.modello} - ${j.targa}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } }); if(modified) { const todayObj = new Date(); todayObj.setHours(0,0,0,0); const gD = todayObj.getDay(); const diff = todayObj.getDate() - gD + (gD === 0 ? -6 : 1); dataInizioSettimana = new Date(todayObj.setDate(diff)); saveDBAgenda(); mostraToast("Lavori spostati a OGGI!"); } } }
+        function revertClientJobsToToday(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Spostare in "Da Fare" per OGGI tutti i lavori aperti? Verrà aggiornato anche il calendario.`)) { let modified = false; const oggi = getOggiLocale(); getJobsByClientId(clientId).filter(j => ['todo','doing'].includes(j.stato)).forEach(j => { j.stato = 'todo'; j.data = oggi; modified = true; const appIndex = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if(appIndex > -1) { agendaDB[appIndex].data = oggi; } else { agendaDB.push({ id: genId(), tipo: 'officina', jobId: j.id, data: oggi, ora: '09:00', cliente: `${j.cognome} ${j.nome}`.trim(), moto: `${j.marca} ${j.modello} - ${j.targa}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } }); if(modified) { const todayObj = new Date(); todayObj.setHours(0,0,0,0); const gD = todayObj.getDay(); const diff = todayObj.getDate() - gD + (gD === 0 ? -6 : 1); dataInizioSettimana = new Date(todayObj.setDate(diff)); saveDBAgenda(); mostraToast("Lavori spostati a OGGI!"); } } }
         function newJobFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if($('f_client_id')) $('f_client_id').value=clientId; if ($('acconti-container')) $('acconti-container').innerHTML=''; setTimeout(() => checkCustomerBikes('f'), 100); }
         function newVehicleFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if($('f_client_id')) $('f_client_id').value=clientId; if ($('acconti-container')) $('acconti-container').innerHTML=''; }
 
@@ -4223,7 +4231,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
                 let previewHtml = '<div style="margin-top: 15px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">';
                 if (h.lavori_richiesti && h.lavori_richiesti.trim() !== '') { 
-                    previewHtml += `<div style="color: var(--muted); margin-bottom: ${h.conto && h.conto.length > 0 ? '15px' : '0'}; border-left:3px solid var(--info); padding-left:10px;"><i>Note Lavori:</i> ${h.lavori_richiesti}</div>`; 
+                    previewHtml += `<div style="color: var(--muted); margin-bottom: ${h.conto && h.conto.length > 0 ? '15px' : '0'}; border-left:3px solid var(--info); padding-left:10px;"><i>Note Lavori:</i> ${htmlEsc(h.lavori_richiesti)}</div>`; 
                 }
                 if (h.conto && h.conto.length > 0) { 
                     previewHtml += contoHtml; 
@@ -4270,7 +4278,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     agendaDB[appIdx].note = "[RIAPERTO] " + (j.lavori_richiesti||'');
                 } else {
                     agendaDB.push({ 
-                        id: Date.now() + Math.floor(Math.random()*1000), 
+                        id: genId(), 
                         tipo: 'officina', 
                         jobId: j.id, 
                         data: oggi, 
@@ -4704,7 +4712,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const nome = $('lo-nome').value.toUpperCase().trim();
                 if (!nome) return mostraErrore('Inserisci la descrizione!');
                 listaOrdiniMag.push({
-                    id: Date.now(),
+                    id: genId(),
                     codice:   $('lo-codice').value.toUpperCase().trim(),
                     nome,
                     marca:    $('lo-marca').value.toUpperCase().trim(),
@@ -5382,7 +5390,7 @@ A presto!`;
                 const u = lavoriConTagliando[0];
                 const dataLav = formattaData(u.data_chiusura || u.data);
                 const voci = (u.conto||[]).filter(c=>(c.desc||'').toUpperCase().includes('TAGLIANDO')||(c.desc||'').toUpperCase().includes('CAMBIO OLIO')||(c.desc||'').toUpperCase().includes('FILTRO OLIO')).map(c=>c.desc).join(', ');
-                ultimoTesto.innerHTML = `<b>${dataLav}</b> — ${voci || u.lavori_richiesti || 'Tagliando eseguito'}${u.km ? ` · 🏁 KM: ${u.km}` : ''}`;
+                ultimoTesto.innerHTML = `<b>${htmlEsc(dataLav)}</b> — ${htmlEsc(voci || u.lavori_richiesti || 'Tagliando eseguito')}${u.km ? ` · 🏁 KM: ${htmlEsc(u.km)}` : ''}`;
                 ultimoPanel.style.display = 'block';
             } else {
                 ultimoPanel.style.display = 'none';
@@ -5710,7 +5718,7 @@ if ('serviceWorker' in navigator) {
             if (!tel) return mostraErrore("Telefono obbligatorio!");
             const editId = $('attesa-edit-id').value;
             const entry = {
-                id: editId ? parseInt(editId) : Date.now(),
+                id: editId ? parseInt(editId) : genId(),
                 cognome,
                 nome: ($('attesa-nome').value||'').trim().toUpperCase(),
                 tel,
@@ -5767,7 +5775,7 @@ if ('serviceWorker' in navigator) {
                     <div>
                         <div style="font-size:0.8rem;color:var(--muted);margin-bottom:5px;font-weight:bold;">MOTO CERCATA:</div>
                         ${moto ? `<div style="color:var(--info);font-size:0.85rem;">🏍️ ${moto}${e.colore?' — '+e.colore:''}</div>` : '<small style="color:var(--muted)">Nessuna moto specificata</small>'}
-                        ${e.note ? `<div style="color:var(--muted);font-size:0.76rem;font-style:italic;margin-top:3px;">${e.note}</div>` : ''}
+                        ${e.note ? `<div style="color:var(--muted);font-size:0.76rem;font-style:italic;margin-top:3px;">${htmlEsc(e.note)}</div>` : ''}
                     </div>
                     <div>
                         <div style="font-size:0.8rem;color:var(--muted);margin-bottom:5px;font-weight:bold;">CONTATTO:</div>
@@ -5975,7 +5983,7 @@ if ('serviceWorker' in navigator) {
             if (!scad) return mostraErrore('Inserisci la data di scadenza.');
             const editId = parseInt($('scad-edit-id').value) || null;
             const obj = {
-                id: editId || Date.now(),
+                id: editId || genId(),
                 desc: desc.toUpperCase(),
                 categoria: $('scad-cat').value,
                 importo: parseFloat($('scad-importo').value) || 0,
@@ -6003,7 +6011,7 @@ if ('serviceWorker' in navigator) {
                     const prossima = new Date(s.scadenza);
                     prossima.setMonth(prossima.getMonth() + mesi);
                     scadenzeDB.push({
-                        id: Date.now(),
+                        id: genId(),
                         desc: s.desc,
                         categoria: s.categoria,
                         importo: s.importo,
