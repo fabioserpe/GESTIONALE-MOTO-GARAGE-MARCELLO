@@ -647,15 +647,21 @@
                     <input type="hidden" id="f_client_id">
                     <label>Data di Riferimento</label>
                     <input type="date" id="f_data" onchange="refreshMiniAgenda()">
-                    
-                    <div style="position:relative;">
-                        <div class="flex-row">
-                            <input id="f_nome" placeholder="Nome" oninput="cercaClienteNuova()">
-                            <input id="f_cognome" placeholder="Cognome (Obbligatorio)" oninput="cercaClienteNuova()" onblur="setTimeout(()=>{const r=document.getElementById('nuova-cliente-results');if(r)r.style.display='none';},200)">
-                        </div>
-                        <div id="nuova-cliente-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--warning);border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;z-index:200;box-shadow:0 6px 24px rgba(0,0,0,0.5);"></div>
+
+                    <label style="color:var(--warning);">🔍 Cerca cliente esistente</label>
+                    <div style="position:relative; margin-bottom:10px;">
+                        <input id="f_search_cliente" placeholder="Digita cognome, nome o targa..." autocomplete="off"
+                            style="border-color:var(--warning); margin-bottom:0;"
+                            oninput="cercaClienteNuova()"
+                            onblur="setTimeout(()=>{const r=document.getElementById('nuova-cliente-results');if(r)r.style.display='none';},200)">
+                        <div id="nuova-cliente-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--warning);border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,0.5);"></div>
                     </div>
                     <div id="nuova-cliente-info" style="display:none; margin-bottom:10px;"></div>
+
+                    <div class="flex-row">
+                        <input id="f_nome" placeholder="Nome">
+                        <input id="f_cognome" placeholder="Cognome (Obbligatorio)">
+                    </div>
                     <input id="f_tel" placeholder="Telefono Cliente">
                     <div class="flex-row"><input id="f_marca" placeholder="Marca"> <input id="f_modello" placeholder="Modello"></div>
                     <div class="flex-row">
@@ -2110,7 +2116,7 @@
             if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); }
         }
 
-        function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; refreshMiniAgenda(); }
+        function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; const _sc=$('f_search_cliente'); if(_sc) _sc.value=''; refreshMiniAgenda(); }
         
         function refreshMiniAgenda() {
             const container = $('mini-agenda-grid');
@@ -2177,10 +2183,10 @@
             }
         }
         function cercaClienteNuova() {
-            const cEl = $('f_cognome'), nEl = $('f_nome');
+            const searchEl = $('f_search_cliente');
             const res = $('nuova-cliente-results');
             if (!res) return;
-            const q = (cEl?.value || '').trim();
+            const q = (searchEl?.value || '').trim();
             if (q.length < 2) { res.style.display = 'none'; return; }
 
             // Raggruppa per targa (veicolo unico = cliente unico)
@@ -2193,11 +2199,15 @@
             });
 
             const qU = q.toUpperCase();
-            const nQ = (nEl?.value || '').trim().toUpperCase();
             const matches = Object.values(clientiMap)
-                .filter(j => { const cog = (j.cognome || '').toUpperCase(); return cog.startsWith(qU) || cog.includes(qU); })
+                .filter(j => {
+                    const cog = (j.cognome || '').toUpperCase();
+                    const nom = (j.nome || '').toUpperCase();
+                    const tar = (j.targa || '').toUpperCase();
+                    return cog.startsWith(qU) || cog.includes(qU) || nom.includes(qU) || tar.startsWith(qU);
+                })
                 .sort((a, b) => b.nLavori - a.nLavori)
-                .slice(0, 6);
+                .slice(0, 8);
 
             if (!matches.length) { res.style.display = 'none'; return; }
 
@@ -2233,6 +2243,7 @@
             if ($('f_modello')) $('f_modello').value = data.modello || '';
             if ($('f_km')) $('f_km').value = data.km || '';
             if ($('f_client_id')) $('f_client_id').value = data.clientId || '';
+            const sc = $('f_search_cliente'); if (sc) sc.value = '';
             const res = $('nuova-cliente-results');
             if (res) res.style.display = 'none';
             if (data.targa) mostraInfoClienteNuova(data.targa);
