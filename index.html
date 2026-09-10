@@ -1749,8 +1749,11 @@
             // Inizializza magazzino in background così inventarioMag è sempre disponibile
             initMagazzino();
 
+            let _dbMigrateGuard = false;
             database.ref('/db').on('value', (snap) => {
                 db = snap.val() ? Object.values(snap.val()) : [];
+                if (_dbMigrateGuard) { _dbMigrateGuard = false; }
+                else {
                 // Migrazione silenziosa: pulizie varie
                 let needsSaveChiusura = false;
                 let needsCleanSpecialCat = false;
@@ -1777,7 +1780,8 @@
                         _needsClientIdSave = true;
                     }
                 });
-                if (needsSaveChiusura || needsCleanSpecialCat || _needsClientIdSave) saveDB();
+                if (needsSaveChiusura || needsCleanSpecialCat || _needsClientIdSave) { _dbMigrateGuard = true; saveDB(); }
+                }
                 updateDatalist();
                 const v = currentView;
                 if (v === 'board') refreshBoard();
@@ -1790,6 +1794,7 @@
 
             database.ref('/agenda').on('value', (snap) => {
                 agendaDB = snap.val() ? Object.values(snap.val()) : [];
+                _agendaCleanDone = false;
                 if (currentView === 'agenda') refreshAgenda();
             });
 
@@ -2102,7 +2107,7 @@
             if(viewId === 'nuova' && !isEditing) clearForm();
             if(viewId === 'nuovo-cliente') _resetNuovoClienteForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
-            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') refreshAttesa();
+            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); }
         }
 
         function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; refreshMiniAgenda(); }
@@ -2882,7 +2887,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
         function saveSnapshot() {
             historyStack.push({ db: JSON.parse(JSON.stringify(db)), agenda: JSON.parse(JSON.stringify(agendaDB)), ordini: JSON.parse(JSON.stringify(ordiniDB)) });
-            if(historyStack.length > 5) historyStack.shift(); 
+            if(historyStack.length > 10) historyStack.shift();
             
             let undoBtn = document.getElementById('magic-undo-btn');
             if(!undoBtn) {
@@ -3378,20 +3383,19 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             </div>`;
         }
 
-        function refreshAgenda() { 
-            // --- AUTO-PULIZIA: Rimuove le vecchie commesse già spostate in Lavori Lunghi
-            let cleanNeeded = false;
-            agendaDB.forEach(a => {
-                if(a.jobId) {
+        let _agendaCleanDone = false;
+        function refreshAgenda() {
+            // AUTO-PULIZIA: Rimuove una-tantum le voci agenda orphane di job spostati in Lavori Lunghi
+            if (!_agendaCleanDone) {
+                _agendaCleanDone = true;
+                const before = agendaDB.length;
+                agendaDB = agendaDB.filter(a => {
+                    if (!a.jobId) return true;
                     const j = db.find(x => String(x.id) === String(a.jobId));
-                    if(j && j.stato === 'special') { a._toDelete = true; cleanNeeded = true; }
-                }
-            });
-            if(cleanNeeded) {
-                agendaDB = agendaDB.filter(a => !a._toDelete);
-                saveAgenda();
+                    return !(j && j.stato === 'special');
+                });
+                if (agendaDB.length !== before) saveAgenda();
             }
-            // --- FINE AUTO-PULIZIA
 
             const grid = $('agenda-grid');
             const searchResults = $('agenda-search-results');
@@ -3726,6 +3730,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function addVoceConto(dStr='', pNum='', ivaVal=22, aF=false, magCodice='', qtyVal=1) {
             const tr = document.createElement('tr');
             tr.className = 'voce-row';
+            tr.dataset.iva = ivaVal;
             if (magCodice) tr.dataset.magCodice = magCodice;
             const magBadgeHtml = magCodice ? `<span class="mag-link-badge" style="font-size:0.65rem;background:rgba(20,184,166,0.2);color:#14b8a6;border:1px solid #14b8a6;border-radius:4px;padding:1px 5px;font-weight:bold;white-space:nowrap;flex-shrink:0;">${magCodice}</span>` : '';
             tr.innerHTML = `
@@ -3843,8 +3848,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const unitPrice = parseFloat(tr.querySelector('.r-price')?.value) || 0;
                 const qty = parseFloat(tr.querySelector('.r-qty')?.value) || 1;
                 const price = unitPrice * qty;
-                const ivaRate = 22;
-                const imponibile = price / 1.22;
+                const ivaRate = parseFloat(tr.dataset.iva ?? 22) || 22;
+                const imponibile = price / (1 + ivaRate / 100);
                 const ivaAmt = price - imponibile;
                 totLordo += price;
 
@@ -3891,7 +3896,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 desc:       tr.querySelector('.r-desc')?.value  || '',
                 price:      parseFloat(tr.querySelector('.r-price')?.value) || 0,
                 qty:        parseFloat(tr.querySelector('.r-qty')?.value)   || 1,
-                iva:        22,
+                iva:        parseFloat(tr.dataset.iva || 22) || 22,
                 mag_codice: tr.dataset.magCodice || ''
             })).filter(i => i.price > 0 || i.desc.trim() !== '');
             j.totale_lordo = j.conto.reduce((a,b) => a + b.price * (b.qty || 1), 0);
@@ -4150,7 +4155,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (hasAnyBillingData) { billingDB[oC] = billingData; } else { delete billingDB[oC]; }
             saveBilling();
 
-            if (modified) { saveDBAgenda(); closeModal('modal-anagrafica'); mostraToast("Dati aggiornati con successo!"); } else { saveBilling(); closeModal('modal-anagrafica'); mostraToast("Dati fatturazione aggiornati!"); }
+            if (modified) { saveDBAgenda(); } closeModal('modal-anagrafica'); mostraToast("Dati aggiornati con successo!");
         }
 
         function deleteCustomerCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Eliminare definitivamente il cliente e TUTTI i suoi veicoli e lavori?`)) { if(typeof saveSnapshot === 'function') saveSnapshot(); const _jobIds = new Set(db.filter(j => j.clientId === clientId).map(j => String(j.id))); db = db.filter(j => j.clientId !== clientId); agendaDB = agendaDB.filter(a => !_jobIds.has(String(a.jobId))); saveDBAgenda(); setTimeout(refreshArchive, 300); } }
@@ -5955,6 +5960,7 @@ if ('serviceWorker' in navigator) {
         }
 
         function apriFormScadenza(id = null) {
+            if (id != null) { editScadenza(id); return; }
             $('scad-form-wrap').style.display = 'block';
             $('scad-edit-id').value = '';
             $('scad-desc').value = ''; $('scad-cat').value = 'F24'; $('scad-importo').value = '';
@@ -5999,7 +6005,11 @@ if ('serviceWorker' in navigator) {
             refreshScadenze();
         }
 
+        let _pagataInProgress = false;
         function togglePagataScadenza(id) {
+            if (_pagataInProgress) return;
+            _pagataInProgress = true;
+            setTimeout(() => { _pagataInProgress = false; }, 600);
             const idx = scadenzeDB.findIndex(x => x.id === id); if (idx === -1) return;
             const s = scadenzeDB[idx];
             if (s.stato === 'aperta') {
