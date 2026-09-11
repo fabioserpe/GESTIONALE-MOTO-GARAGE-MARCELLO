@@ -446,7 +446,7 @@
                 <button class="topbar-qbtn" data-view="nuova" onclick="switchView('nuova',null)">➕ Nuova</button>
                 <button class="topbar-qbtn" data-view="nuovo-cliente" onclick="switchView('nuovo-cliente',null)">👤 Cliente</button>
                 <button class="topbar-qbtn" data-view="agenda" onclick="switchView('agenda',null)">📅 Agenda</button>
-                <button class="topbar-qbtn" data-view="archivio" onclick="switchView('archivio',null)">📁 Clienti</button>
+                <button class="topbar-qbtn" data-view="archivio" onclick="switchView('archivio',null)">📁 Anagrafica</button>
                 <button class="topbar-qbtn" data-view="magazzino" onclick="switchView('magazzino',null)">📦 Magazzino</button>
                 <button class="topbar-qbtn" data-view="ordini" onclick="switchView('ordini',null)">📦 Ordini Ricambi</button>
             </div>
@@ -2093,7 +2093,7 @@
             });
         }
 
-        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Clienti', stats:'📈 Stats', preventivi:'📝 Preventivi', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto' };
+        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Stats', preventivi:'📝 Preventivi', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto' };
         function switchView(viewId, el) {
             closeSidebar();
             const ts = $('topbar-section'); if (ts) ts.textContent = _viewLabels[viewId] || '';
