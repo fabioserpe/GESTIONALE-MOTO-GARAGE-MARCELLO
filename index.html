@@ -4077,7 +4077,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 vContainer.innerHTML = '<h3 class="mb-15" style="color:var(--info); font-size:0.9rem;">VEICOLI ASSOCIATI (Modifica per aggiornare tutto lo storico)</h3>';
                 Object.values(vehiclesMap).forEach(v => {
                     const tagData = taggliandiDB[v.targa] || {};
-                    vContainer.innerHTML += `<div class="section-dark mb-15 vehicle-edit-row" style="border-left: 3px solid var(--info); padding: 10px;"><input type="hidden" class="edit_v_old_targa" value="${safeEncode(v.targa)}"><label>Targa Veicolo</label><input class="edit_v_targa" placeholder="Targa" value="${(v.targa||'').replace(/"/g, '&quot;')}" style="margin-bottom:10px;"><div class="flex-row"><div style="flex:1"><label>Marca</label><input class="edit_v_marca" placeholder="Marca" value="${(v.marca||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:1"><label>Modello</label><input class="edit_v_modello" placeholder="Modello" value="${(v.modello||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div></div><div style="margin-top:10px; padding-top:10px; border-top:1px dashed #334155;"><label style="color:#fb923c;">🔧 Prossimo Tagliando</label><div class="flex-row"><div style="flex:1"><label style="font-size:0.7rem;">Data scadenza</label><input type="date" class="edit_v_tagliando_data" value="${tagData.data||''}" style="margin-bottom:0;"></div><div style="flex:1"><label style="font-size:0.7rem;">KM scadenza (opz.)</label><input type="number" class="edit_v_tagliando_km" placeholder="es. 15000" value="${tagData.km||''}" style="margin-bottom:0;"></div><div style="flex:1.5"><label style="font-size:0.7rem;">Note (es. tipo olio)</label><input type="text" class="edit_v_tagliando_note" placeholder="es. Olio 10W40, filtri..." value="${(tagData.note||'').replace(/"/g,'&quot;')}" style="margin-bottom:0; text-transform:uppercase;"></div></div></div></div>`;
+                    const _eCI = safeEncode(clientId);
+                    const _eT  = safeEncode(v.targa);
+                    vContainer.innerHTML += `<div class="section-dark mb-15 vehicle-edit-row" style="border-left: 3px solid var(--info); padding: 10px;"><input type="hidden" class="edit_v_old_targa" value="${safeEncode(v.targa)}"><label>Targa Veicolo</label><input class="edit_v_targa" placeholder="Targa" value="${(v.targa||'').replace(/"/g, '&quot;')}" style="margin-bottom:10px;"><div class="flex-row"><div style="flex:1"><label>Marca</label><input class="edit_v_marca" placeholder="Marca" value="${(v.marca||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:1"><label>Modello</label><input class="edit_v_modello" placeholder="Modello" value="${(v.modello||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div></div><div style="margin-top:10px; padding-top:10px; border-top:1px dashed #334155;"><label style="color:#fb923c;">🔧 Prossimo Tagliando</label><div class="flex-row"><div style="flex:1"><label style="font-size:0.7rem;">Data scadenza</label><input type="date" class="edit_v_tagliando_data" value="${tagData.data||''}" style="margin-bottom:0;"></div><div style="flex:1"><label style="font-size:0.7rem;">KM scadenza (opz.)</label><input type="number" class="edit_v_tagliando_km" placeholder="es. 15000" value="${tagData.km||''}" style="margin-bottom:0;"></div><div style="flex:1.5"><label style="font-size:0.7rem;">Note (es. tipo olio)</label><input type="text" class="edit_v_tagliando_note" placeholder="es. Olio 10W40, filtri..." value="${(tagData.note||'').replace(/"/g,'&quot;')}" style="margin-bottom:0; text-transform:uppercase;"></div></div></div><div style="display:flex; gap:6px; margin-top:10px; padding-top:8px; border-top:1px dashed #334155;"><button type="button" onclick="scollegaVeicoloCliente('${_eCI}','${_eT}')" style="flex:1; background:rgba(99,102,241,0.12); color:#a78bfa; border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:7px 4px; font-size:0.75rem; cursor:pointer;">🔀 Separa in nuovo cliente</button><button type="button" onclick="eliminaVeicoloCliente('${_eCI}','${_eT}')" style="flex:1; background:rgba(239,68,68,0.1); color:#f87171; border:1px solid rgba(239,68,68,0.28); border-radius:8px; padding:7px 4px; font-size:0.75rem; cursor:pointer;">🗑️ Elimina veicolo</button></div></div>`;
                 });
                 if (Object.keys(vehiclesMap).length === 0) vContainer.innerHTML += `<p style="color:var(--muted); font-size:0.8rem; font-style:italic;">Nessun veicolo registrato per questo cliente.</p>`;
             }
@@ -4167,6 +4169,39 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             saveBilling();
 
             if (modified) { saveDBAgenda(); } closeModal('modal-anagrafica'); mostraToast("Dati aggiornati con successo!");
+        }
+
+        function scollegaVeicoloCliente(encodedClientId, encodedTarga) {
+            const clientId = safeDecode(encodedClientId);
+            const targa = safeDecode(encodedTarga).toUpperCase().trim();
+            const affected = db.filter(j => j.clientId === clientId && (j.targa||'').toUpperCase().trim() === targa);
+            if (affected.length === 0) return mostraErrore("Nessun lavoro trovato per questo veicolo.");
+            const nome = `${affected[0].cognome||''} ${affected[0].nome||''}`.trim();
+            if (!confirm(`Separare il veicolo ${targa} in un cliente distinto?\n\nSpostati ${affected.length} lavori intestati a ${nome}.\n\nI due clienti avranno lo stesso nome ma saranno indipendenti (badge OMONIMO).`)) return;
+            const newClientId = genClientId();
+            db.forEach(j => {
+                if (j.clientId === clientId && (j.targa||'').toUpperCase().trim() === targa) j.clientId = newClientId;
+            });
+            saveDBAgenda();
+            closeModal('modal-anagrafica');
+            mostraToast(`Veicolo ${targa} separato — ora è un cliente distinto.`);
+            setTimeout(refreshArchive, 400);
+        }
+
+        function eliminaVeicoloCliente(encodedClientId, encodedTarga) {
+            const clientId = safeDecode(encodedClientId);
+            const targa = safeDecode(encodedTarga).toUpperCase().trim();
+            const toRemoveIds = new Set(db.filter(j => j.clientId === clientId && (j.targa||'').toUpperCase().trim() === targa).map(j => String(j.id)));
+            if (toRemoveIds.size === 0) return mostraErrore("Nessun lavoro trovato per questo veicolo.");
+            if (!confirm(`Eliminare definitivamente il veicolo ${targa} e tutti i suoi ${toRemoveIds.size} lavori?\nQuesta azione non è reversibile.`)) return;
+            if (typeof saveSnapshot === 'function') saveSnapshot();
+            db = db.filter(j => !(j.clientId === clientId && (j.targa||'').toUpperCase().trim() === targa));
+            agendaDB = agendaDB.filter(a => !toRemoveIds.has(String(a.jobId)));
+            if (taggliandiDB[targa]) { delete taggliandiDB[targa]; saveTagliandi(); }
+            saveDBAgenda();
+            closeModal('modal-anagrafica');
+            mostraToast(`Veicolo ${targa} eliminato.`);
+            setTimeout(refreshArchive, 400);
         }
 
         function deleteCustomerCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); if(confirm(`Eliminare definitivamente il cliente e TUTTI i suoi veicoli e lavori?`)) { if(typeof saveSnapshot === 'function') saveSnapshot(); const _jobIds = new Set(db.filter(j => j.clientId === clientId).map(j => String(j.id))); db = db.filter(j => j.clientId !== clientId); agendaDB = agendaDB.filter(a => !_jobIds.has(String(a.jobId))); saveDBAgenda(); setTimeout(refreshArchive, 300); } }
