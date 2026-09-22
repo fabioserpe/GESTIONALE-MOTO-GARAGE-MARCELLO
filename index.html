@@ -1579,6 +1579,47 @@
         </div>
     </div>
 
+    <!-- MODAL ACCETTA PREVENTIVO -->
+    <div id="modal-accetta-prev" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:560px; border:2px solid var(--success);">
+            <div class="flex-between mb-15">
+                <h2 style="color:var(--success); margin:0;">✅ Accetta Preventivo</h2>
+                <button onclick="closeModal('modal-accetta-prev')" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer; line-height:1;">×</button>
+            </div>
+            <input type="hidden" id="ap_job_id">
+
+            <!-- Riepilogo cliente/moto/totale -->
+            <div id="ap-summary" style="background:rgba(34,197,94,0.07); border:1px solid rgba(34,197,94,0.25); border-radius:10px; padding:12px 14px; margin-bottom:14px;"></div>
+
+            <!-- Voci preventivo (readonly) -->
+            <div style="margin-bottom:14px;">
+                <label style="color:var(--muted); font-size:0.78rem; font-weight:bold; letter-spacing:0.06em; margin-bottom:6px; display:block;">VOCI PREVENTIVATE</label>
+                <div id="ap-voci" style="display:flex; flex-direction:column; gap:4px;"></div>
+            </div>
+
+            <!-- Descrizione lavori per la commessa -->
+            <label>Descrizione lavori (visibile in commessa)</label>
+            <textarea id="ap_lavori" rows="3" placeholder="Cosa è stato concordato col cliente..." style="margin-bottom:12px;"></textarea>
+
+            <!-- Data consegna prevista -->
+            <div style="margin-bottom:14px;">
+                <label>Consegna prevista <small style="color:var(--muted); font-weight:normal;">(opzionale)</small></label>
+                <input id="ap_data_consegna" type="date" style="margin:0; max-width:200px;">
+            </div>
+
+            <!-- Toggle WA conferma -->
+            <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:rgba(37,211,102,0.07); border:1px solid rgba(37,211,102,0.2); border-radius:8px; margin-bottom:18px; cursor:pointer;">
+                <input type="checkbox" id="ap_wa" style="width:18px; height:18px; cursor:pointer; accent-color:#25d366; flex-shrink:0;">
+                <span style="color:#25d366; font-size:0.9rem; font-weight:bold;">📲 Invia conferma accettazione al cliente via WhatsApp</span>
+            </label>
+
+            <div class="flex-row">
+                <button class="btn btn-dark" onclick="closeModal('modal-accetta-prev')" style="flex:1;">Annulla</button>
+                <button class="btn btn-success" onclick="confermaAccettaPreventivo()" style="flex:2; font-weight:bold;">✅ Converti in Commessa</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -4009,8 +4050,119 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); calcPrevTotal(); setTimeout(() => checkCustomerBikes('p'), 100); }
         function calcPrevTotal() { $('p-totale').innerText = `TOTALE: ${extractList('#p-conto-rows tr', '.p-desc', '.p-price', false).reduce((a,b)=>a+b.price,0).toFixed(2)} €`; }
         function savePreventivo(inviaWA = false, comeCommessa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = extractList('#p-conto-rows tr', '.p-desc', '.p-price', false); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const data = { id: nowId, data: getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: [], lavori_richiesti: 'Vedi voci preventivo', stato: comeCommessa ? 'todo' : 'preventivo', conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(comeCommessa) switchView('board'); else switchView('preventivi'); }
-        function refreshPreventivi() { const c = $('preventivi-results'); if (!c) return; c.innerHTML = ''; const pvs = db.filter(j => j.stato === 'preventivo').sort((a,b) => new Date(b.data) - new Date(a.data)); if(pvs.length === 0) { c.innerHTML = `<p style="color:var(--muted)">Nessun preventivo.</p>`; return; } pvs.forEach(p => { c.innerHTML += `<div class="card" style="border-left:8px solid var(--purple)"><div class="flex-between"><b style="font-size:1.1rem;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</b><span class="targa-badge" style="background:var(--purple); border:none;">${p.targa||'NO TARGA'}</span></div><p style="color:var(--muted); margin: 5px 0;">🏍️ ${p.marca||''} ${p.modello||''}</p><h2 style="color:white; margin: 10px 0;">€ ${(p.totale_lordo||0).toFixed(2)}</h2><button class="btn btn-success mb-15" onclick="accettaPreventivo(${p.id})">✅ Accetta (Invia Officina)</button><div class="flex-row mb-15"><button class="btn btn-wa" onclick="sendWhatsAppPreventivo(${p.id})">📲 Invia WA</button><button class="btn btn-dark" onclick="openPreventivoForm(${p.id})">✏️ Modifica</button></div><div class="flex-row"><button class="btn btn-dark" onclick="printPreventivo(${p.id})">🖨️ Stampa</button><button class="btn btn-dark" style="color:var(--accent);" onclick="deleteJob(${p.id})">🗑️ Elimina</button></div></div>`; }); }
-        function accettaPreventivo(id) { if(confirm("Convertire in lavoro (In Attesa)?")) { const j = db.find(x=>String(x.id)===String(id)); if(j) { j.stato='todo'; j.data=getOggiLocale(); const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(j.id)); if (appIdx === -1) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: j.id, data: j.data, ora: '09:00', cliente: `${j.cognome||''} ${j.nome||''}`.trim(), moto: `${j.marca||''} ${j.modello||''} - ${j.targa||''}`.trim(), tel: j.tel||'', note: j.lavori_richiesti||'', raw_nome: j.nome||'', raw_cognome: j.cognome||'', raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' }); } saveDBAgenda(); } } }
+        function refreshPreventivi() {
+            const c = $('preventivi-results');
+            if (!c) return;
+            c.innerHTML = '';
+            const pvs = db.filter(j => j.stato === 'preventivo').sort((a,b) => new Date(b.data) - new Date(a.data));
+            if (pvs.length === 0) { c.innerHTML = `<p style="color:var(--muted)">Nessun preventivo aperto.</p>`; return; }
+            pvs.forEach(p => {
+                const vociHtml = (p.conto||[]).map(c =>
+                    `<div style="display:flex; justify-content:space-between; padding:4px 8px; background:#1e293b; border-radius:5px; font-size:0.8rem; margin-bottom:3px;">
+                        <span style="color:var(--text);">${c.desc||''}</span>
+                        <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:8px;">€${parseFloat(c.price||0).toFixed(2)}</span>
+                    </div>`
+                ).join('');
+                c.innerHTML += `
+                <div class="card" style="border-left:8px solid var(--purple);">
+                    <div class="flex-between" style="margin-bottom:6px;">
+                        <b style="font-size:1.1rem;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</b>
+                        <span class="targa-badge" style="background:var(--purple); border:none;">${p.targa||'NO TARGA'}</span>
+                    </div>
+                    <div style="color:var(--muted); font-size:0.85rem; margin-bottom:4px;">🏍️ ${[p.marca,p.modello].filter(Boolean).join(' ')||'—'} &nbsp;·&nbsp; <span style="color:var(--info);">📞 ${p.tel||'N/D'}</span></div>
+                    <div style="color:var(--muted); font-size:0.75rem; margin-bottom:10px;">📅 ${formattaData(p.data)}</div>
+                    ${vociHtml ? `<div style="margin-bottom:10px;">${vociHtml}</div>` : ''}
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-top:8px; border-top:1px solid #334155;">
+                        <span style="color:var(--muted); font-size:0.82rem;">Totale</span>
+                        <span style="font-weight:bold; font-size:1.3rem; color:var(--success);">€ ${(p.totale_lordo||0).toFixed(2)}</span>
+                    </div>
+                    <button class="btn btn-success mb-10" onclick="accettaPreventivo(${p.id})" style="font-weight:bold; font-size:1rem;">✅ Accetta Preventivo</button>
+                    <div class="flex-row mb-10">
+                        <button class="btn btn-wa" onclick="sendWhatsAppPreventivo(${p.id})">📲 Invia WA</button>
+                        <button class="btn btn-dark" onclick="openPreventivoForm(${p.id})">✏️ Modifica</button>
+                    </div>
+                    <div class="flex-row">
+                        <button class="btn btn-dark" onclick="printPreventivo(${p.id})">🖨️ Stampa</button>
+                        <button class="btn btn-dark" style="color:var(--accent);" onclick="deleteJob(${p.id})">🗑️ Elimina</button>
+                    </div>
+                </div>`;
+            });
+        }
+        function accettaPreventivo(id) {
+            const p = db.find(x => String(x.id) === String(id));
+            if (!p) return;
+            $('ap_job_id').value = p.id;
+
+            // Riepilogo
+            $('ap-summary').innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                    <div>
+                        <div style="font-weight:bold; font-size:1.05rem; color:white;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</div>
+                        <div style="color:var(--muted); font-size:0.82rem; margin-top:2px;">🏍️ ${[p.marca,p.modello].filter(Boolean).join(' ')||'—'}</div>
+                        ${p.tel ? `<div style="color:var(--info); font-size:0.82rem;">📞 ${p.tel}</div>` : ''}
+                    </div>
+                    <div style="text-align:right; flex-shrink:0;">
+                        <span class="targa-badge" style="background:var(--success); border:none;">${p.targa||'—'}</span>
+                        <div style="font-weight:bold; font-size:1.2rem; color:var(--success); margin-top:6px;">€ ${(p.totale_lordo||0).toFixed(2)}</div>
+                        <div style="color:var(--muted); font-size:0.75rem;">${formattaData(p.data)}</div>
+                    </div>
+                </div>`;
+
+            // Voci preventivo
+            $('ap-voci').innerHTML = (p.conto||[]).length > 0
+                ? (p.conto||[]).map(c => `
+                    <div style="display:flex; justify-content:space-between; padding:5px 10px; background:#1e293b; border-radius:6px; font-size:0.83rem;">
+                        <span style="color:var(--text);">${c.desc||''}</span>
+                        <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:10px;">€${parseFloat(c.price||0).toFixed(2)}</span>
+                    </div>`).join('')
+                : `<div style="color:var(--muted); font-size:0.82rem; padding:6px 0;">Nessuna voce registrata</div>`;
+
+            // Pre-compila descrizione lavori dalle voci
+            $('ap_lavori').value = (p.conto||[]).map(c => c.desc).filter(Boolean).join(' / ');
+            $('ap_data_consegna').value = '';
+            $('ap_wa').checked = !!(p.tel);
+            openModal('modal-accetta-prev');
+        }
+
+        function confermaAccettaPreventivo() {
+            const id = $('ap_job_id').value;
+            const j = db.find(x => String(x.id) === String(id));
+            if (!j) return;
+
+            j.stato = 'todo';
+            j.data = getOggiLocale();
+            j.lavori_richiesti = $('ap_lavori').value.trim() || 'Vedi voci preventivo';
+
+            const dataConsegna = $('ap_data_consegna').value;
+            if (dataConsegna) j.data_consegna = dataConsegna;
+
+            const inviaWA = $('ap_wa').checked;
+
+            // Agenda
+            if (agendaDB.findIndex(a => String(a.jobId) === String(j.id)) === -1) {
+                agendaDB.push({ id: genId(), tipo: 'officina', jobId: j.id, data: j.data, ora: '09:00',
+                    cliente: `${j.cognome||''} ${j.nome||''}`.trim(),
+                    moto: `${j.marca||''} ${j.modello||''} - ${j.targa||''}`.trim(),
+                    tel: j.tel||'', note: j.lavori_richiesti,
+                    raw_nome: j.nome||'', raw_cognome: j.cognome||'',
+                    raw_marca: j.marca||'', raw_modello: j.modello||'', raw_targa: j.targa||'' });
+            }
+
+            saveDBAgenda();
+            closeModal('modal-accetta-prev');
+            mostraToast('Preventivo convertito in commessa ✅');
+
+            if (inviaWA && j.tel) {
+                const tel = formatPhoneForWa(j.tel);
+                const nome = (j.nome||j.cognome||'').trim();
+                const moto = [j.marca, j.modello, j.targa].filter(Boolean).join(' ');
+                const voci = (j.conto||[]).map(c => `▪️ ${c.desc}`).join('\n');
+                const txt = `Ciao ${nome} 👋, abbiamo preso in carico la tua *${moto||'moto'}* per:\n\n${voci}\n\nTotale preventivato: *€${(j.totale_lordo||0).toFixed(2)}*${dataConsegna ? '\n\n📅 Consegna prevista: *'+formattaData(dataConsegna)+'*' : ''}\n\nTi avviseremo appena pronta. Per info chiamaci al ${MGM_INFO.tel}. 🏍️`;
+                if (tel) window.open(`https://wa.me/${tel}?text=${encodeURIComponent(txt)}`, '_blank');
+            }
+
+            setTimeout(() => switchView('board'), 250);
+        }
 
         // =====================================================================
         // 11. OMNI-EDIT E ARCHIVIO (CRM)
