@@ -542,7 +542,11 @@
             </div>
 
             <!-- FORM INSERIMENTO -->
-            <div class="card mb-20" style="border-top:3px solid #fca5a5; flex-shrink:0;">
+            <div style="flex-shrink:0; margin-bottom:10px;">
+                <button id="ord-form-toggle-btn" onclick="toggleOrdForm()" style="background:rgba(252,165,165,0.12); border:1px solid rgba(252,165,165,0.4); color:#fca5a5; border-radius:8px; padding:8px 18px; font-size:0.85rem; cursor:pointer; font-weight:bold; transition:all 0.2s;">➕ Nuovo Ordine</button>
+            </div>
+            <div id="ord-form-container" style="display:none; flex-shrink:0;">
+            <div class="card mb-20" style="border-top:3px solid #fca5a5;">
                 <input type="hidden" id="ord_edit_id">
                 <div class="mob-form-grid" style="display:grid; grid-template-columns: 70px 2fr 1fr 1fr 1fr 1fr 120px 120px; gap:10px; align-items:end;">
                     <div>
@@ -596,19 +600,26 @@
                     </div>
                 </div>
             </div>
+            </div><!-- /ord-form-container -->
+
+            <!-- FILTRO FORNITORI -->
+            <div id="ord-filter-bar" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; flex-shrink:0; align-items:center;"></div>
 
             <!-- KANBAN -->
             <div class="board" style="flex-grow:1;">
                 <div class="col">
                     <div class="col-title" style="color:var(--accent);">🔴 DA ORDINARE</div>
+                    <div id="ord-col-total-todo" style="font-size:0.72rem; text-align:right; min-height:14px; margin-bottom:4px; padding-right:2px;"></div>
                     <div class="col-list" id="list-ord-todo"></div>
                 </div>
                 <div class="col">
                     <div class="col-title" style="color:var(--info);">🔵 ORDINATI — IN ATTESA</div>
+                    <div id="ord-col-total-doing" style="font-size:0.72rem; text-align:right; min-height:14px; margin-bottom:4px; padding-right:2px;"></div>
                     <div class="col-list" id="list-ord-doing"></div>
                 </div>
                 <div class="col">
                     <div class="col-title" style="color:var(--success);">🟢 ARRIVATI — DA CONSEGNARE</div>
+                    <div id="ord-col-total-done" style="font-size:0.72rem; text-align:right; min-height:14px; margin-bottom:4px; padding-right:2px;"></div>
                     <div class="col-list" id="list-ord-done"></div>
                 </div>
             </div>
@@ -2434,6 +2445,22 @@
         function deleteContatto(id) { if(confirm("Eliminare contatto?")) { rubricaDB = rubricaDB.filter(x => String(x.id) !== String(id)); saveRubrica(); } }
         function refreshRubrica() { const c = $('rubrica-results'); if (!c) return; c.innerHTML = ''; [...rubricaDB].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')).forEach(r => { const tw1 = formatPhoneForWa(r.tel), tw2 = r.tel2 ? formatPhoneForWa(r.tel2) : ''; let t2H = r.tel2 ? `<div style="font-size:0.95rem; color:var(--muted); font-weight:bold; text-align:center; margin-top:5px;">📞 ${r.tel2} <a href="tel:${r.tel2}" style="color:var(--info); text-decoration:none; margin-left:10px;">Chiama</a> | <a href="https://wa.me/${tw2}" target="_blank" style="color:var(--whatsapp); text-decoration:none;">WA</a></div>` : ''; c.innerHTML += `<div class="card" style="border-left:6px solid #60a5fa; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><div style="flex: 2;"><div style="font-weight:900; font-size:1.1rem; color:white;">${r.nome}</div></div><div style="flex: 2; text-align:center;"><div style="font-size:1.1rem; color:var(--info); font-weight:bold;">📞 ${r.tel}</div>${t2H}</div><div style="flex: 1.5; display:flex; justify-content:flex-end; gap:8px;"><button class="btn-icon" style="background:var(--whatsapp); padding:8px 12px; border-radius:8px;" onclick="window.open('https://wa.me/${tw1}','_blank')">💬 WA</button><button class="btn-icon" style="background:var(--info); padding:8px 12px; border-radius:8px;" onclick="window.location.href='tel:${r.tel}'">📞 Chiama</button><button class="btn-icon" style="background:transparent; border:1px solid var(--warning); color:var(--warning); padding:8px 12px; border-radius:8px;" onclick="editContatto(${r.id})">✏️</button><button class="btn-icon" style="background:transparent; border:1px solid var(--accent); color:var(--accent); padding:8px 12px; border-radius:8px;" onclick="deleteContatto(${r.id})">🗑️</button></div></div>`; }); if(rubricaDB.length === 0) c.innerHTML = '<p style="color:var(--muted); text-align:center; margin-top:20px;">Nessun contatto.</p>'; }
 
+        let currentOrdFilter = 'all';
+
+        function toggleOrdForm() {
+            const c = $('ord-form-container'), btn = $('ord-form-toggle-btn');
+            if (!c) return;
+            const open = c.style.display !== 'none';
+            c.style.display = open ? 'none' : '';
+            if (btn) btn.innerHTML = open ? '➕ Nuovo Ordine' : '✖ Chiudi Form';
+            if (!open) setTimeout(() => { const d = $('ord_desc'); if(d) d.focus(); }, 50);
+        }
+
+        function setOrdFilter(f) {
+            currentOrdFilter = f;
+            refreshOrdini();
+        }
+
         function addOrdine() {
             const d = $('ord_desc').value.trim();
             if (!d) return mostraErrore("Inserisci la descrizione del ricambio!");
@@ -2515,6 +2542,9 @@
             $('btn-save-ordine').className = "btn btn-warning";
             $('btn-save-ordine').innerHTML = "💾 Salva";
             $('btn-cancel-ordine').classList.remove('hidden');
+            // Espandi form se collassato
+            const _ofc = $('ord-form-container');
+            if (_ofc && _ofc.style.display === 'none') { _ofc.style.display = ''; const _tb = $('ord-form-toggle-btn'); if(_tb) _tb.innerHTML = '✖ Chiudi Form'; }
             // Scroll al form
             $('ord_desc').focus();
         }
@@ -2526,6 +2556,11 @@
             $('btn-save-ordine').className = "btn btn-success";
             $('btn-save-ordine').innerHTML = "➕ Aggiungi";
             $('btn-cancel-ordine').classList.add('hidden');
+            // Chiudi form
+            const _cfc = $('ord-form-container');
+            if (_cfc) _cfc.style.display = 'none';
+            const _ftb = $('ord-form-toggle-btn');
+            if (_ftb) _ftb.innerHTML = '➕ Nuovo Ordine';
         }
 
         function moveOrdine(id, s) {
@@ -2558,13 +2593,31 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function refreshOrdini() {
             const ls  = { todo: $('list-ord-todo'), doing: $('list-ord-doing'), done: $('list-ord-done') };
             const cnt = { todo: 0, doing: 0, done: 0 };
+            const totals = { todo: 0, doing: 0, done: 0 };
             Object.values(ls).forEach(l => { if (l) l.innerHTML = ''; });
             const col = { todo: 'var(--accent)', doing: 'var(--info)', done: 'var(--success)' };
 
             updateOrdiniDatalist();
 
+            // Aggiorna pill filtro fornitori
+            const filterBar = $('ord-filter-bar');
+            if (filterBar) {
+                const forniList = [...new Set(ordiniDB.map(o => o.fornitore).filter(Boolean))].sort();
+                const pills = ['all', ...forniList];
+                filterBar.innerHTML = '<span style="font-size:0.75rem; color:var(--muted); margin-right:2px;">Fornitore:</span>' +
+                    pills.map(f => {
+                        const lbl = f === 'all' ? 'Tutti' : f;
+                        const active = currentOrdFilter === f;
+                        return `<button onclick="setOrdFilter('${f.replace(/'/g,"\'")}')` +
+                            `" style="padding:3px 11px; border-radius:20px; border:1px solid ${active ? '#fca5a5' : 'rgba(252,165,165,0.25)'}; background:${active ? 'rgba(252,165,165,0.18)' : 'transparent'}; color:${active ? '#fca5a5' : 'var(--muted)'}; font-size:0.73rem; cursor:pointer; font-weight:${active ? 'bold' : 'normal'}; transition:all 0.15s;">${lbl}</button>`;
+                    }).join('');
+            }
+
+            // Filtra per fornitore selezionato
+            const source = currentOrdFilter === 'all' ? ordiniDB : ordiniDB.filter(o => (o.fornitore || '') === currentOrdFilter);
+
             // Ordina: prima gli urgenti (consegna più vicina), poi per data inserimento
-            const sorted = [...ordiniDB].sort((a, b) => {
+            const sorted = [...source].sort((a, b) => {
                 if (a.data_consegna && b.data_consegna) return a.data_consegna.localeCompare(b.data_consegna);
                 if (a.data_consegna) return -1;
                 if (b.data_consegna) return 1;
@@ -2574,17 +2627,23 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             sorted.forEach(o => {
                 if (!ls[o.stato]) return;
                 cnt[o.stato]++;
+                if (o.prezzo > 0) totals[o.stato] += o.prezzo * (o.qta || 1);
 
                 const oggi = getOggiLocale();
-                const isScaduto = o.data_consegna && o.stato === 'doing' && o.data_consegna < oggi;
-                const isOggi    = o.data_consegna && o.data_consegna === oggi;
+                const dTra2 = (() => { const d = new Date(); d.setDate(d.getDate() + 2); return d.toISOString().split('T')[0]; })();
+                const isScaduto   = o.data_consegna && o.stato === 'doing' && o.data_consegna < oggi;
+                const isOggi      = o.data_consegna && o.data_consegna === oggi;
+                const isImminente = o.data_consegna && !isScaduto && !isOggi && o.data_consegna <= dTra2;
 
-                // Badge consegna
+                // Badge consegna con semaforo colorato
                 let consegnaBadge = '';
                 if (o.data_consegna) {
-                    const col2 = isScaduto ? 'var(--accent)' : isOggi ? 'var(--warning)' : 'var(--muted)';
-                    const icon = isScaduto ? '⚠️ ' : isOggi ? '🔔 ' : '📅 ';
-                    consegnaBadge = `<span style="color:${col2}; font-size:0.75rem; font-weight:bold;">${icon}Cons: ${formattaData(o.data_consegna)}</span>`;
+                    let bg, tc, icon, label;
+                    if (isScaduto)      { bg='rgba(239,68,68,0.18)';   tc='var(--accent)';   icon='⚠️'; label='In ritardo! '+formattaData(o.data_consegna); }
+                    else if (isOggi)    { bg='rgba(245,158,11,0.18)';  tc='var(--warning)';  icon='🔔'; label='Oggi!'; }
+                    else if (isImminente){ bg='rgba(251,191,36,0.12)'; tc='#fbbf24';         icon='📅'; label=formattaData(o.data_consegna); }
+                    else                { bg='rgba(100,116,139,0.12)'; tc='var(--muted)';    icon='📅'; label=formattaData(o.data_consegna); }
+                    consegnaBadge = `<span style="background:${bg}; color:${tc}; padding:2px 7px; border-radius:12px; font-size:0.68rem; font-weight:bold; white-space:nowrap;">${icon} ${label}</span>`;
                 }
 
                 // Bottoni azione principali
@@ -2595,7 +2654,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     actionBtns = `<button class="btn btn-success" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="moveOrdine(${o.id}, 'done')">📦 Arrivato!</button>
                         <button class="btn btn-dark" style="padding:5px 7px;" onclick="moveOrdine(${o.id}, 'todo')" title="Riporta in Da Ordinare">⬅️</button>`;
                 } else {
-                    actionBtns = `${o.tel_cliente ? `<button class="btn btn-wa" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="waOrdineArrivato(${o.id})">📲 WA Cliente</button>` : '<button class="btn btn-dark" style="flex:1; padding:5px 8px; font-size:0.72rem; opacity:0.4; cursor:default;">📲 Aggiungi tel.</button>'}
+                    actionBtns = `${o.tel_cliente ? `<button class="btn btn-wa" style="flex:1; padding:6px 8px; font-size:0.78rem; font-weight:bold;" onclick="waOrdineArrivato(${o.id})">📦 Avvisa Arrivo</button>` : '<button class="btn btn-dark" style="flex:1; padding:5px 8px; font-size:0.72rem; opacity:0.4; cursor:default;">📲 Aggiungi tel.</button>'}
                         <button class="btn btn-dark" style="padding:5px 7px;" onclick="moveOrdine(${o.id}, 'doing')" title="Riporta in Attesa">⬅️</button>`;
                 }
 
@@ -2608,13 +2667,13 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
                 c.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="display:flex; gap:4px; align-items:center;">
+                        <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
                             <span style="background:transparent; border:1px solid ${col[o.stato]}; color:${col[o.stato]}; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold;">×${o.qta}</span>
                             ${o.sku ? `<span style="background:#1e293b; color:var(--muted); padding:1px 5px; border-radius:4px; font-size:0.68rem; font-family:monospace;">${o.sku}</span>` : ''}
                             ${o.fornitore ? `<span style="color:#fca5a5; font-size:0.7rem; font-weight:bold;">🏭 ${o.fornitore}</span>` : ''}
                             ${o.prezzo > 0 ? `<span style="color:var(--success); font-size:0.7rem; font-weight:bold;">€${o.prezzo.toFixed(2)}</span>` : ''}
                         </div>
-                        <div style="display:flex; align-items:center; gap:4px;">
+                        <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
                             ${consegnaBadge}
                             <small style="color:var(--muted); font-size:0.68rem;">${formattaData(o.data)}</small>
                         </div>
@@ -2635,6 +2694,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if ($('ord-stats-todo')) $('ord-stats-todo').innerText = `🔴 Da Ordinare: ${cnt.todo}`;
             if ($('ord-stats-doing')) $('ord-stats-doing').innerText = `🔵 In Attesa: ${cnt.doing}`;
             if ($('ord-stats-done')) $('ord-stats-done').innerText = `🟢 Arrivati: ${cnt.done}`;
+
+            // Totali valore per colonna
+            ['todo','doing','done'].forEach(s => {
+                const tel = $(`ord-col-total-${s}`);
+                if (tel) tel.innerHTML = totals[s] > 0 ? `<span style="color:var(--success); font-weight:bold;">€ ${totals[s].toFixed(2)}</span>` : '';
+            });
 
             // Mostra messaggio se vuoto
             Object.entries(ls).forEach(([stato, el]) => {
