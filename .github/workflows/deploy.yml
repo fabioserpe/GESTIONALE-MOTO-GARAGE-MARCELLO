@@ -1,0 +1,77 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main, beta]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Deploy to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          BRANCH="${{ github.ref_name }}"
+
+          # Salva i file sorgente prima di cambiare branch
+          mkdir -p /tmp/src
+          cp index.html   /tmp/src/
+          cp sw.js        /tmp/src/
+          [ -f manifest.json ] && cp manifest.json /tmp/src/ || true
+          [ -f icon-192.png  ] && cp icon-192.png  /tmp/src/ || true
+          [ -f icon-512.png  ] && cp icon-512.png  /tmp/src/ || true
+          [ -f README.md     ] && cp README.md     /tmp/src/ || true
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Prepara branch gh-pages (crea se non esiste)
+          if git ls-remote --heads origin gh-pages | grep -q gh-pages; then
+            git fetch origin gh-pages
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf . > /dev/null 2>&1 || true
+            touch .nojekyll
+            git add .nojekyll
+            git commit -m "Init gh-pages [skip ci]"
+            git push origin gh-pages
+          fi
+
+          if [ "$BRANCH" = "main" ]; then
+            # Produzione → root /
+            cp /tmp/src/index.html   ./index.html
+            cp /tmp/src/sw.js        ./sw.js
+            [ -f /tmp/src/manifest.json ] && cp /tmp/src/manifest.json . || true
+            [ -f /tmp/src/icon-192.png  ] && cp /tmp/src/icon-192.png  . || true
+            [ -f /tmp/src/icon-512.png  ] && cp /tmp/src/icon-512.png  . || true
+            [ -f /tmp/src/README.md     ] && cp /tmp/src/README.md     . || true
+            touch .nojekyll
+          else
+            # Beta → /beta/ (radice produzione intatta)
+            mkdir -p beta
+            cp /tmp/src/index.html   ./beta/index.html
+            cp /tmp/src/sw.js        ./beta/sw.js
+            [ -f /tmp/src/manifest.json ] && cp /tmp/src/manifest.json ./beta/ || true
+            [ -f /tmp/src/icon-192.png  ] && cp /tmp/src/icon-192.png  ./beta/ || true
+            [ -f /tmp/src/icon-512.png  ] && cp /tmp/src/icon-512.png  ./beta/ || true
+            touch .nojekyll
+          fi
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nessuna modifica, skip."
+          else
+            git commit -m "Deploy $BRANCH → $( [ "$BRANCH" = "main" ] && echo "root" || echo "beta/" ) [skip ci]"
+            git push origin gh-pages
+          fi
