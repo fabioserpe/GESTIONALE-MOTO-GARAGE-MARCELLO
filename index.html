@@ -240,6 +240,8 @@
             /* ---- ARCHIVIO CLIENTI: card multi-col → verticale ---- */
             .archive-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
             .archive-card-row > div:nth-child(4) { justify-content: flex-start !important; }
+            .prev-card-row { grid-template-columns: 1fr !important; gap: 6px !important; padding: 12px 14px !important; }
+            .prev-card-row > div:last-child { justify-content: flex-start !important; }
 
             /* ---- LISTA ATTESA MOTO: card multi-col → verticale ---- */
             .attesa-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -4100,96 +4102,136 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 archived: { txt:'Archiviato',      col:'var(--muted)' }
             };
 
-            // ── TAB APERTI: lista compatta (stesso stile storico) ─────────
+            // ── HELPER: build voci rows ───────────────────────────────────
+            function _buildVociRows(p) {
+                return (p.conto||[]).map(v =>
+                    `<div style="display:flex; justify-content:space-between; padding:3px 8px; background:#0f172a; border-radius:5px; font-size:0.78rem; margin-bottom:2px;">
+                        <span style="color:var(--text);">${v.desc||''}</span>
+                        <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:8px;">€${parseFloat(v.price||0).toFixed(2)}</span>
+                    </div>`
+                ).join('');
+            }
+
+            // ── TAB APERTI: stile Anagrafica ──────────────────────────────
             if (_prevTab === 'aperti') {
                 if (aperti.length === 0) {
                     c.innerHTML = `<p style="color:var(--muted);">Nessun preventivo aperto.</p>`;
                     return;
                 }
                 const list = document.createElement('div');
-                list.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+                list.style.cssText = 'display:flex; flex-direction:column; gap:8px;';
                 aperti.forEach(p => {
                     const nVoci = (p.conto||[]).length;
                     const totale = (p.totale_lordo||0).toFixed(2);
-                    const vociRows = (p.conto||[]).map(v =>
-                        `<div style="display:flex; justify-content:space-between; padding:3px 8px; background:#0f172a; border-radius:5px; font-size:0.78rem; margin-bottom:2px;">
-                            <span style="color:var(--text);">${v.desc||''}</span>
-                            <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:8px;">€${parseFloat(v.price||0).toFixed(2)}</span>
-                        </div>`
-                    ).join('');
+                    const vociRows = _buildVociRows(p);
+                    const moto = [p.marca, p.modello].filter(Boolean).join(' ') || '—';
                     const row = document.createElement('div');
-                    row.style.cssText = 'background:var(--card); border-left:4px solid var(--purple); border-radius:10px; padding:10px 14px;';
+                    row.className = 'card prev-card-row';
+                    row.style.cssText = 'display:grid; grid-template-columns: minmax(180px,1.6fr) minmax(140px,1fr) minmax(140px,1fr) auto; align-items:start; gap:14px; padding:14px 18px; margin:0; border-left:5px solid var(--purple);';
                     row.innerHTML = `
-                        <!-- Riga principale -->
-                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                            <b style="font-size:0.9rem; min-width:140px;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</b>
-                            <span class="targa-badge" style="background:var(--purple); border:none; font-size:0.68rem; padding:2px 8px;">${p.targa||'NO TARGA'}</span>
-                            <span style="color:var(--muted); font-size:0.78rem; flex:1; min-width:100px;">🏍️ ${[p.marca,p.modello].filter(Boolean).join(' ')||'—'}</span>
-                            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-left:auto;">
-                                <span style="color:var(--muted); font-size:0.72rem; white-space:nowrap;">📅 ${formattaData(p.data)}</span>
-                                ${p.tel ? `<span style="color:var(--info); font-size:0.72rem; white-space:nowrap;">📞 ${p.tel}</span>` : ''}
-                                <span style="font-weight:bold; color:var(--success); font-size:0.9rem; white-space:nowrap;">€ ${totale}</span>
-                                <span style="background:rgba(167,139,250,0.15); color:var(--purple); padding:2px 9px; border-radius:20px; font-size:0.72rem; font-weight:bold; border:1px solid rgba(167,139,250,0.35); white-space:nowrap;">In attesa risposta</span>
+                        <!-- COL 1: Nominativo + targa -->
+                        <div>
+                            <div style="font-weight:bold; font-size:1rem; color:white; text-transform:uppercase; line-height:1.3;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</div>
+                            <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
+                                <span class="targa-badge" style="background:var(--purple); border:none; font-size:0.68rem; padding:2px 8px;">${p.targa||'NO TARGA'}</span>
+                                <span style="background:rgba(167,139,250,0.15); color:var(--purple); padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:bold; border:1px solid rgba(167,139,250,0.3);">In attesa risposta</span>
                             </div>
                         </div>
-                        <!-- Toggle voci + azioni -->
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:7px; border-top:1px solid #1e293b; flex-wrap:wrap; gap:6px;">
-                            <button onclick="_prevToggleVoci('a${p.id}')" id="pv-tog-a${p.id}" style="background:none; border:none; color:var(--muted); font-size:0.75rem; cursor:pointer; padding:0;">${nVoci} voce${nVoci!==1?'i':''} ▼</button>
-                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                                <button class="btn btn-success" onclick="accettaPreventivo(${p.id})" style="padding:4px 12px; font-size:0.78rem; font-weight:bold;">✅ Accetta</button>
-                                <button class="btn btn-wa" onclick="sendWhatsAppPreventivo(${p.id})" style="padding:4px 10px; font-size:0.75rem;">📲 WA</button>
-                                <button class="btn btn-dark" onclick="openPreventivoForm(${p.id})" style="padding:4px 10px; font-size:0.75rem;">✏️ Modifica</button>
-                                <button class="btn btn-dark" onclick="printPreventivo(${p.id})" style="padding:4px 10px; font-size:0.75rem;">🖨️ Stampa</button>
-                                <button class="btn btn-dark" onclick="deleteJob(${p.id})" style="padding:4px 8px; font-size:0.75rem; color:var(--accent);">🗑️</button>
-                            </div>
+                        <!-- COL 2: Moto + data -->
+                        <div>
+                            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">MOTO:</div>
+                            <div style="color:var(--text); font-size:0.88rem;">🏍️ ${moto}</div>
+                            <div style="color:var(--muted); font-size:0.75rem; margin-top:3px;">📅 ${formattaData(p.data)}</div>
                         </div>
-                        <div id="pv-voci-a${p.id}" style="display:none; margin-top:6px;">${vociRows}</div>`;
+                        <!-- COL 3: Totale + tel + voci toggle -->
+                        <div>
+                            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">TOTALE:</div>
+                            <div style="font-weight:bold; font-size:1.1rem; color:var(--success);">€ ${totale}</div>
+                            ${p.tel ? `<div style="color:var(--info); font-size:0.78rem; margin-top:4px;">📞 ${p.tel}</div>` : ''}
+                            <button onclick="_prevToggleVoci('a${p.id}')" id="pv-tog-a${p.id}" style="background:none; border:none; color:var(--muted); font-size:0.72rem; cursor:pointer; padding:0; margin-top:6px; display:block;">${nVoci} voce${nVoci!==1?'i':''} ▼</button>
+                        </div>
+                        <!-- COL 4: Dropdown azioni -->
+                        <div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;">
+                            <div class="dropdown">
+                                <button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.83rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button>
+                                <div class="dropdown-content" style="right:0; top:100%; min-width:190px; z-index:100;">
+                                    <button onclick="accettaPreventivo(${p.id})" style="color:var(--success); width:100%; text-align:left; font-weight:bold;">✅ Accetta → Commessa</button>
+                                    <button onclick="sendWhatsAppPreventivo(${p.id})" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button>
+                                    <button onclick="openPreventivoForm(${p.id})" style="color:var(--info); width:100%; text-align:left;">✏️ Modifica</button>
+                                    <button onclick="printPreventivo(${p.id})" style="color:var(--text); width:100%; text-align:left;">🖨️ Stampa Preventivo</button>
+                                    <button onclick="deleteJob(${p.id})" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina</button>
+                                </div>
+                            </div>
+                        </div>`;
+                    if (nVoci > 0) {
+                        const vociDiv = document.createElement('div');
+                        vociDiv.id = 'pv-voci-a' + p.id;
+                        vociDiv.style.cssText = 'display:none; margin-top:8px; padding-top:8px; border-top:1px solid #1e293b; grid-column:1/-1;';
+                        vociDiv.innerHTML = vociRows;
+                        row.appendChild(vociDiv);
+                    }
                     list.appendChild(row);
                 });
                 c.appendChild(list);
             }
 
-            // ── TAB STORICO: lista compatta ────────────────────────────────
+            // ── TAB STORICO: stile Anagrafica ─────────────────────────────
             if (_prevTab === 'storico') {
                 if (storico.length === 0) {
                     c.innerHTML = `<p style="color:var(--muted);">Nessun preventivo convertito trovato.</p>`;
                     return;
                 }
                 const list = document.createElement('div');
-                list.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+                list.style.cssText = 'display:flex; flex-direction:column; gap:8px;';
                 storico.forEach(p => {
                     const sl = statoLbl[p.stato] || { txt: p.stato||'—', col:'var(--muted)' };
                     const nVoci = (p.conto||[]).length;
                     const totale = (p.totale_lordo||0).toFixed(2);
-                    const vociRows = (p.conto||[]).map(v =>
-                        `<div style="display:flex; justify-content:space-between; padding:3px 8px; background:#0f172a; border-radius:5px; font-size:0.78rem; margin-bottom:2px;">
-                            <span style="color:var(--text);">${v.desc||''}</span>
-                            <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:8px;">€${parseFloat(v.price||0).toFixed(2)}</span>
-                        </div>`
-                    ).join('');
+                    const vociRows = _buildVociRows(p);
+                    const moto = [p.marca, p.modello].filter(Boolean).join(' ') || '—';
+                    const dataStr = formattaData(p.data) + (p.data_accettazione ? ' → ✅ ' + formattaData(p.data_accettazione) : '');
                     const row = document.createElement('div');
-                    row.style.cssText = 'background:var(--card); border-left:4px solid #475569; border-radius:10px; padding:10px 14px;';
+                    row.className = 'card prev-card-row';
+                    row.style.cssText = 'display:grid; grid-template-columns: minmax(180px,1.6fr) minmax(140px,1fr) minmax(140px,1fr) auto; align-items:start; gap:14px; padding:14px 18px; margin:0; border-left:5px solid #475569;';
                     row.innerHTML = `
-                        <!-- Riga principale compatta -->
-                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                            <b style="font-size:0.9rem; min-width:140px;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</b>
-                            <span class="targa-badge" style="background:#475569; border:none; font-size:0.68rem; padding:2px 8px;">${p.targa||'—'}</span>
-                            <span style="color:var(--muted); font-size:0.78rem; flex:1; min-width:100px;">🏍️ ${[p.marca,p.modello].filter(Boolean).join(' ')||'—'}</span>
-                            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-left:auto;">
-                                <span style="color:var(--muted); font-size:0.72rem; white-space:nowrap;">📅 ${formattaData(p.data)}${p.data_accettazione ? ' → ✅ '+formattaData(p.data_accettazione) : ''}</span>
-                                <span style="font-weight:bold; color:var(--success); font-size:0.9rem; white-space:nowrap;">€ ${totale}</span>
-                                <span style="background:rgba(100,116,139,0.15); color:${sl.col}; padding:2px 9px; border-radius:20px; font-size:0.72rem; font-weight:bold; border:1px solid ${sl.col}44; white-space:nowrap;">${sl.txt}</span>
+                        <!-- COL 1: Nominativo + targa + stato badge -->
+                        <div>
+                            <div style="font-weight:bold; font-size:1rem; color:white; text-transform:uppercase; line-height:1.3;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</div>
+                            <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
+                                <span class="targa-badge" style="background:#475569; border:none; font-size:0.68rem; padding:2px 8px;">${p.targa||'—'}</span>
+                                <span style="background:rgba(100,116,139,0.15); color:${sl.col}; padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:bold; border:1px solid ${sl.col}44;">${sl.txt}</span>
                             </div>
                         </div>
-                        <!-- Toggle voci + azioni -->
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:7px; border-top:1px solid #1e293b;">
-                            <button onclick="_prevToggleVoci('s${p.id}')" id="pv-tog-s${p.id}" style="background:none; border:none; color:var(--muted); font-size:0.75rem; cursor:pointer; padding:0;">${nVoci} voce${nVoci!==1?'i':''} ▼</button>
-                            <div style="display:flex; gap:6px;">
-                                <button class="btn btn-dark" onclick="printPreventivo(${p.id})" style="padding:4px 10px; font-size:0.75rem;">🖨️ Stampa</button>
-                                <button class="btn btn-dark" onclick="sendWhatsAppPreventivo(${p.id})" style="padding:4px 10px; font-size:0.75rem;">📲 WA</button>
-                            </div>
+                        <!-- COL 2: Moto + date -->
+                        <div>
+                            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">MOTO:</div>
+                            <div style="color:var(--text); font-size:0.88rem;">🏍️ ${moto}</div>
+                            <div style="color:var(--muted); font-size:0.72rem; margin-top:3px;">${dataStr}</div>
                         </div>
-                        <div id="pv-voci-s${p.id}" style="display:none; margin-top:6px;">${vociRows}</div>`;
+                        <!-- COL 3: Totale + tel + voci toggle -->
+                        <div>
+                            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">TOTALE:</div>
+                            <div style="font-weight:bold; font-size:1.1rem; color:var(--success);">€ ${totale}</div>
+                            ${p.tel ? `<div style="color:var(--info); font-size:0.78rem; margin-top:4px;">📞 ${p.tel}</div>` : ''}
+                            <button onclick="_prevToggleVoci('s${p.id}')" id="pv-tog-s${p.id}" style="background:none; border:none; color:var(--muted); font-size:0.72rem; cursor:pointer; padding:0; margin-top:6px; display:block;">${nVoci} voce${nVoci!==1?'i':''} ▼</button>
+                        </div>
+                        <!-- COL 4: Dropdown azioni -->
+                        <div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;">
+                            <div class="dropdown">
+                                <button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.83rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button>
+                                <div class="dropdown-content" style="right:0; top:100%; min-width:190px; z-index:100;">
+                                    <button onclick="printPreventivo(${p.id})" style="color:var(--text); width:100%; text-align:left;">🖨️ Stampa Preventivo</button>
+                                    <button onclick="sendWhatsAppPreventivo(${p.id})" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button>
+                                </div>
+                            </div>
+                        </div>`;
+                    if (nVoci > 0) {
+                        const vociDiv = document.createElement('div');
+                        vociDiv.id = 'pv-voci-s' + p.id;
+                        vociDiv.style.cssText = 'display:none; margin-top:8px; padding-top:8px; border-top:1px solid #1e293b; grid-column:1/-1;';
+                        vociDiv.innerHTML = vociRows;
+                        row.appendChild(vociDiv);
+                    }
                     list.appendChild(row);
                 });
                 c.appendChild(list);
