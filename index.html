@@ -4049,44 +4049,130 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function openPreventivoForm(id = null) { isEditing = !!id; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal,c.desc,c.price)):addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); } calcPrevTotal(); }
         function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); calcPrevTotal(); setTimeout(() => checkCustomerBikes('p'), 100); }
         function calcPrevTotal() { $('p-totale').innerText = `TOTALE: ${extractList('#p-conto-rows tr', '.p-desc', '.p-price', false).reduce((a,b)=>a+b.price,0).toFixed(2)} €`; }
-        function savePreventivo(inviaWA = false, comeCommessa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = extractList('#p-conto-rows tr', '.p-desc', '.p-price', false); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const data = { id: nowId, data: getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: [], lavori_richiesti: 'Vedi voci preventivo', stato: comeCommessa ? 'todo' : 'preventivo', conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(comeCommessa) switchView('board'); else switchView('preventivi'); }
+        function savePreventivo(inviaWA = false, comeCommessa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = extractList('#p-conto-rows tr', '.p-desc', '.p-price', false); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const data = { id: nowId, data: getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: [], lavori_richiesti: 'Vedi voci preventivo', stato: comeCommessa ? 'todo' : 'preventivo', era_preventivo: true, data_accettazione: comeCommessa ? getOggiLocale() : null, conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(comeCommessa) switchView('board'); else switchView('preventivi'); }
+        let _prevTab = 'aperti';
+        function setPrevTab(t) { _prevTab = t; refreshPreventivi(); }
+
         function refreshPreventivi() {
             const c = $('preventivi-results');
             if (!c) return;
-            c.innerHTML = '';
-            const pvs = db.filter(j => j.stato === 'preventivo').sort((a,b) => new Date(b.data) - new Date(a.data));
-            if (pvs.length === 0) { c.innerHTML = `<p style="color:var(--muted)">Nessun preventivo aperto.</p>`; return; }
-            pvs.forEach(p => {
-                const vociHtml = (p.conto||[]).map(c =>
+
+            // ── TAB BAR ──────────────────────────────────────────────────
+            const aperti  = db.filter(j => j.stato === 'preventivo').sort((a,b) => new Date(b.data)-new Date(a.data));
+            const storico = db.filter(j =>
+                j.stato !== 'preventivo' && (
+                    j.era_preventivo === true ||
+                    (j.lavori_richiesti === 'Vedi voci preventivo' && (j.conto||[]).length > 0)
+                )
+            ).sort((a,b) => new Date(b.data_accettazione||b.data) - new Date(a.data_accettazione||a.data));
+
+            const tabCfg = [
+                { id:'aperti',  label:`📝 Aperti`,  badge: aperti.length },
+                { id:'storico', label:`📂 Storico`, badge: storico.length }
+            ];
+            c.innerHTML = `<div style="display:flex; gap:8px; margin-bottom:18px; border-bottom:1px solid #334155; padding-bottom:0;">` +
+                tabCfg.map(t => {
+                    const active = _prevTab === t.id;
+                    return `<button onclick="setPrevTab('${t.id}')" style="
+                        padding:8px 18px; border:none; cursor:pointer; font-size:0.88rem; font-weight:bold;
+                        background:transparent; color:${active ? 'var(--purple)' : 'var(--muted)'};
+                        border-bottom:3px solid ${active ? 'var(--purple)' : 'transparent'};
+                        margin-bottom:-1px; transition:all 0.15s;">
+                        ${t.label}
+                        <span style="background:${active ? 'rgba(167,139,250,0.2)' : 'rgba(100,116,139,0.15)'}; color:${active ? 'var(--purple)' : 'var(--muted)'}; padding:1px 7px; border-radius:10px; font-size:0.75rem; margin-left:4px;">${t.badge}</span>
+                    </button>`;
+                }).join('') + `</div><div id="prev-tab-content" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px;"></div>`;
+
+            const target = document.getElementById('prev-tab-content');
+            if (!target) return;
+
+            // ── HELPER: card voci ─────────────────────────────────────────
+            function _vociHtml(p) {
+                return (p.conto||[]).map(v =>
                     `<div style="display:flex; justify-content:space-between; padding:4px 8px; background:#1e293b; border-radius:5px; font-size:0.8rem; margin-bottom:3px;">
-                        <span style="color:var(--text);">${c.desc||''}</span>
-                        <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:8px;">€${parseFloat(c.price||0).toFixed(2)}</span>
+                        <span style="color:var(--text);">${v.desc||''}</span>
+                        <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:8px;">€${parseFloat(v.price||0).toFixed(2)}</span>
                     </div>`
                 ).join('');
-                c.innerHTML += `
-                <div class="card" style="border-left:8px solid var(--purple);">
-                    <div class="flex-between" style="margin-bottom:6px;">
-                        <b style="font-size:1.1rem;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</b>
-                        <span class="targa-badge" style="background:var(--purple); border:none;">${p.targa||'NO TARGA'}</span>
-                    </div>
-                    <div style="color:var(--muted); font-size:0.85rem; margin-bottom:4px;">🏍️ ${[p.marca,p.modello].filter(Boolean).join(' ')||'—'} &nbsp;·&nbsp; <span style="color:var(--info);">📞 ${p.tel||'N/D'}</span></div>
-                    <div style="color:var(--muted); font-size:0.75rem; margin-bottom:10px;">📅 ${formattaData(p.data)}</div>
-                    ${vociHtml ? `<div style="margin-bottom:10px;">${vociHtml}</div>` : ''}
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-top:8px; border-top:1px solid #334155;">
-                        <span style="color:var(--muted); font-size:0.82rem;">Totale</span>
-                        <span style="font-weight:bold; font-size:1.3rem; color:var(--success);">€ ${(p.totale_lordo||0).toFixed(2)}</span>
-                    </div>
-                    <button class="btn btn-success mb-10" onclick="accettaPreventivo(${p.id})" style="font-weight:bold; font-size:1rem;">✅ Accetta Preventivo</button>
-                    <div class="flex-row mb-10">
-                        <button class="btn btn-wa" onclick="sendWhatsAppPreventivo(${p.id})">📲 Invia WA</button>
-                        <button class="btn btn-dark" onclick="openPreventivoForm(${p.id})">✏️ Modifica</button>
-                    </div>
-                    <div class="flex-row">
-                        <button class="btn btn-dark" onclick="printPreventivo(${p.id})">🖨️ Stampa</button>
-                        <button class="btn btn-dark" style="color:var(--accent);" onclick="deleteJob(${p.id})">🗑️ Elimina</button>
-                    </div>
-                </div>`;
-            });
+            }
+
+            // ── TAB APERTI ────────────────────────────────────────────────
+            if (_prevTab === 'aperti') {
+                if (aperti.length === 0) {
+                    target.innerHTML = `<p style="color:var(--muted); grid-column:1/-1;">Nessun preventivo aperto.</p>`;
+                    return;
+                }
+                aperti.forEach(p => {
+                    const vociHtml = _vociHtml(p);
+                    const div = document.createElement('div');
+                    div.className = 'card';
+                    div.style.cssText = 'border-left:8px solid var(--purple);';
+                    div.innerHTML = `
+                        <div class="flex-between" style="margin-bottom:6px;">
+                            <b style="font-size:1.05rem;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</b>
+                            <span class="targa-badge" style="background:var(--purple); border:none;">${p.targa||'NO TARGA'}</span>
+                        </div>
+                        <div style="color:var(--muted); font-size:0.82rem; margin-bottom:3px;">🏍️ ${[p.marca,p.modello].filter(Boolean).join(' ')||'—'} &nbsp;·&nbsp; <span style="color:var(--info);">📞 ${p.tel||'N/D'}</span></div>
+                        <div style="color:var(--muted); font-size:0.73rem; margin-bottom:10px;">📅 ${formattaData(p.data)}</div>
+                        ${vociHtml ? `<div style="margin-bottom:10px;">${vociHtml}</div>` : ''}
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-top:8px; border-top:1px solid #334155;">
+                            <span style="color:var(--muted); font-size:0.82rem;">Totale</span>
+                            <span style="font-weight:bold; font-size:1.3rem; color:var(--success);">€ ${(p.totale_lordo||0).toFixed(2)}</span>
+                        </div>
+                        <button class="btn btn-success mb-10" onclick="accettaPreventivo(${p.id})" style="font-weight:bold; font-size:1rem;">✅ Accetta Preventivo</button>
+                        <div class="flex-row mb-10">
+                            <button class="btn btn-wa" onclick="sendWhatsAppPreventivo(${p.id})">📲 Invia WA</button>
+                            <button class="btn btn-dark" onclick="openPreventivoForm(${p.id})">✏️ Modifica</button>
+                        </div>
+                        <div class="flex-row">
+                            <button class="btn btn-dark" onclick="printPreventivo(${p.id})">🖨️ Stampa</button>
+                            <button class="btn btn-dark" style="color:var(--accent);" onclick="deleteJob(${p.id})">🗑️ Elimina</button>
+                        </div>`;
+                    target.appendChild(div);
+                });
+            }
+
+            // ── TAB STORICO ───────────────────────────────────────────────
+            if (_prevTab === 'storico') {
+                if (storico.length === 0) {
+                    target.innerHTML = `<p style="color:var(--muted); grid-column:1/-1;">Nessun preventivo convertito trovato.</p>`;
+                    return;
+                }
+                const statoLabel = {
+                    todo:      { txt:'In Attesa',    col:'var(--info)' },
+                    doing:     { txt:'In Lavorazione',col:'var(--warning)' },
+                    done:      { txt:'Pronto',        col:'var(--success)' },
+                    pagato:    { txt:'Pagato ✓',      col:'#34d399' },
+                    archived:  { txt:'Archiviato',    col:'var(--muted)' }
+                };
+                storico.forEach(p => {
+                    const sl = statoLabel[p.stato] || { txt: p.stato||'—', col:'var(--muted)' };
+                    const vociHtml = _vociHtml(p);
+                    const div = document.createElement('div');
+                    div.className = 'card';
+                    div.style.cssText = 'border-left:8px solid #64748b; opacity:0.92;';
+                    div.innerHTML = `
+                        <div class="flex-between" style="margin-bottom:6px;">
+                            <b style="font-size:1.05rem;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</b>
+                            <span class="targa-badge" style="background:#64748b; border:none;">${p.targa||'NO TARGA'}</span>
+                        </div>
+                        <div style="color:var(--muted); font-size:0.82rem; margin-bottom:3px;">🏍️ ${[p.marca,p.modello].filter(Boolean).join(' ')||'—'} &nbsp;·&nbsp; <span style="color:var(--info);">📞 ${p.tel||'N/D'}</span></div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                            <span style="color:var(--muted); font-size:0.72rem;">📅 Creato: ${formattaData(p.data)}</span>
+                            ${p.data_accettazione ? `<span style="color:var(--success); font-size:0.72rem;">✅ Accettato: ${formattaData(p.data_accettazione)}</span>` : ''}
+                        </div>
+                        ${vociHtml ? `<div style="margin-bottom:10px;">${vociHtml}</div>` : ''}
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-top:8px; border-top:1px solid #334155;">
+                            <span style="background:rgba(100,116,139,0.15); color:${sl.col}; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:bold; border:1px solid ${sl.col}33;">${sl.txt}</span>
+                            <span style="font-weight:bold; font-size:1.2rem; color:var(--success);">€ ${(p.totale_lordo||0).toFixed(2)}</span>
+                        </div>
+                        <div class="flex-row">
+                            <button class="btn btn-dark" onclick="printPreventivo(${p.id})" style="flex:1;">🖨️ Stampa Prev.</button>
+                            <button class="btn btn-dark" onclick="sendWhatsAppPreventivo(${p.id})" style="flex:1;">📲 Invia WA</button>
+                        </div>`;
+                    target.appendChild(div);
+                });
+            }
         }
         function accettaPreventivo(id) {
             const p = db.find(x => String(x.id) === String(id));
@@ -4130,6 +4216,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (!j) return;
 
             j.stato = 'todo';
+            j.era_preventivo = true;
+            j.data_accettazione = getOggiLocale();
             j.data = getOggiLocale();
             j.lavori_richiesti = $('ap_lavori').value.trim() || 'Vedi voci preventivo';
 
