@@ -301,6 +301,33 @@
         .tema-sfondo { width:34px;height:22px;border-radius:5px;border:2px solid transparent;cursor:pointer;font-size:0.52rem;font-weight:900;color:rgba(255,255,255,0.55);transition:0.15s;padding:0;letter-spacing:0.3px; }
         .tema-sfondo.active { border-color:white;color:white; }
         .tema-sfondo:hover:not(.active) { border-color:rgba(255,255,255,0.4); }
+
+        /* ═══ AI PANEL ═══ */
+        #ai-panel { position:fixed; top:0; right:-420px; width:400px; max-width:100vw; height:100vh; background:var(--card); border-left:1px solid rgba(99,102,241,0.35); box-shadow:-8px 0 40px rgba(0,0,0,0.5); z-index:10000; display:flex; flex-direction:column; transition:right 0.3s cubic-bezier(0.4,0,0.2,1); }
+        #ai-panel.open { right:0; }
+        #ai-panel-header { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid rgba(99,102,241,0.2); background:rgba(99,102,241,0.08); flex-shrink:0; }
+        #ai-panel-header h3 { flex:1; margin:0; font-size:1rem; font-weight:700; color:#a78bfa; }
+        #ai-messages { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
+        .ai-msg { max-width:88%; padding:10px 13px; border-radius:12px; font-size:0.88rem; line-height:1.5; }
+        .ai-msg.user { align-self:flex-end; background:rgba(99,102,241,0.25); color:var(--text); border-bottom-right-radius:3px; }
+        .ai-msg.assistant { align-self:flex-start; background:rgba(255,255,255,0.06); color:var(--text); border-bottom-left-radius:3px; border:1px solid rgba(255,255,255,0.08); }
+        .ai-msg.assistant.thinking::after { content:'▌'; animation:blink 0.7s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        #ai-quick-btns { display:flex; gap:6px; padding:8px 14px; overflow-x:auto; flex-shrink:0; scrollbar-width:none; border-top:1px solid rgba(255,255,255,0.06); }
+        #ai-quick-btns::-webkit-scrollbar { display:none; }
+        .ai-qbtn { background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.25); color:#a78bfa; border-radius:20px; padding:5px 11px; font-size:0.72rem; cursor:pointer; white-space:nowrap; transition:0.15s; flex-shrink:0; }
+        .ai-qbtn:hover { background:rgba(99,102,241,0.25); }
+        #ai-input-area { padding:12px 14px; border-top:1px solid rgba(255,255,255,0.08); flex-shrink:0; display:flex; gap:8px; align-items:flex-end; }
+        #ai-input { flex:1; background:rgba(255,255,255,0.07); border:1px solid rgba(99,102,241,0.3); border-radius:10px; padding:9px 12px; color:var(--text); font-size:0.88rem; resize:none; min-height:40px; max-height:100px; font-family:inherit; }
+        #ai-input:focus { outline:none; border-color:#a78bfa; }
+        #ai-send { background:#6366f1; color:white; border:none; border-radius:10px; padding:9px 14px; cursor:pointer; font-size:1rem; transition:0.15s; flex-shrink:0; }
+        #ai-send:hover { background:#818cf8; }
+        #ai-send:disabled { background:#374151; cursor:not-allowed; }
+        #ai-key-setup { padding:20px; display:flex; flex-direction:column; gap:12px; }
+        #ai-key-setup p { font-size:0.85rem; color:var(--muted); line-height:1.5; margin:0; }
+        #ai-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:9999; display:none; }
+        #ai-overlay.open { display:block; }
+        @media(max-width:480px){ #ai-panel { width:100vw; right:-100vw; } }
     </style>
     <script>
         /* Applica tema salvato prima del primo render per evitare flash */
@@ -450,6 +477,7 @@
                 <button class="topbar-qbtn" data-view="magazzino" onclick="switchView('magazzino',null)">📦 Magazzino</button>
                 <button class="topbar-qbtn" data-view="ordini" onclick="switchView('ordini',null)">📦 Ordini Ricambi</button>
             </div>
+            <button onclick="openAIPanel()" style="flex-shrink:0; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; border:none; border-radius:8px; padding:5px 12px; cursor:pointer; font-size:0.78rem; font-weight:700; letter-spacing:0.3px; white-space:nowrap; box-shadow:0 2px 8px rgba(99,102,241,0.4);">🤖 AI</button>
             <span id="topbar-section" style="font-size:0.72rem; color:var(--muted); font-weight:600; letter-spacing:0.5px; text-transform:uppercase; flex-shrink:0;"></span>
         </div>
         <div id="print-area"></div> 
@@ -1261,6 +1289,33 @@
         </div>
 
     </main>
+
+    <!-- ═══ AI OVERLAY + PANEL ═══ -->
+    <div id="ai-overlay" onclick="closeAIPanel()"></div>
+    <div id="ai-panel">
+        <div id="ai-panel-header">
+            <span style="font-size:1.3rem;">🤖</span>
+            <h3>Assistente AI</h3>
+            <button onclick="openAISettings()" title="Impostazioni chiave API" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;padding:4px;">⚙️</button>
+            <button onclick="clearAIChat()" title="Nuova conversazione" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:4px;">🗑️</button>
+            <button onclick="closeAIPanel()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:4px;line-height:1;">✕</button>
+        </div>
+        <div id="ai-messages"></div>
+        <div id="ai-quick-btns">
+            <button class="ai-qbtn" onclick="aiQuickAsk('Quali lavori sono aperti in questo momento?')">🔧 Lavori aperti</button>
+            <button class="ai-qbtn" onclick="aiQuickAsk('Chi ha ancora fatture non pagate? Elenca con importi.')">💸 Da pagare</button>
+            <button class="ai-qbtn" onclick="aiQuickAsk('Quanti lavori ho chiuso questa settimana e quanto ho incassato in totale?')">📊 Settimana</button>
+            <button class="ai-qbtn" onclick="aiQuickAsk('Quali moto hanno il tagliando in scadenza nei prossimi 60 giorni?')">🔩 Tagliandi</button>
+            <button class="ai-qbtn" onclick="aiQuickAsk('Scrivi un messaggio WhatsApp professionale per avvisare un cliente che la sua moto è pronta per il ritiro.')">📲 WhatsApp</button>
+            <button class="ai-qbtn" onclick="aiQuickAsk('Dammi un riassunto completo della situazione attuale del garage.')">📋 Riassunto</button>
+        </div>
+        <div id="ai-input-area">
+            <textarea id="ai-input" placeholder="Chiedi qualcosa sul tuo gestionale…" rows="1"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAIMessage();}"
+                oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+            <button id="ai-send" onclick="sendAIMessage()">➤</button>
+        </div>
+    </div>
 
     <div class="notes-panel no-print" id="notes-panel">
         <div class="notes-header">
@@ -6094,6 +6149,238 @@ if ('serviceWorker' in navigator) {
             saveScadenzeDB();
             aggiornaScadenzeBadge();
             refreshScadenze();
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  AI PANEL
+        // ═══════════════════════════════════════════════════
+
+        let aiChatHistory = [];
+        let aiStreaming = false;
+
+        function openAIPanel() {
+            const apiKey = localStorage.getItem('claude_api_key');
+            const panel = document.getElementById('ai-panel');
+            const overlay = document.getElementById('ai-overlay');
+            panel.classList.add('open');
+            overlay.classList.add('open');
+            if (!apiKey) {
+                showAIKeySetup();
+            } else if (aiChatHistory.length === 0) {
+                addAIMessage('assistant', '👋 Ciao! Sono il tuo assistente AI. Ho accesso ai dati del tuo gestionale in tempo reale.\n\nPuoi chiedermi cose come:\n• "Quali lavori sono aperti?"\n• "Chi non ha pagato?"\n• "Scrivi un WhatsApp per avvisare che la moto è pronta"\n• "Quanto ho incassato questa settimana?"\n\nUsa i pulsanti rapidi qui sotto o scrivimi direttamente.');
+            }
+            setTimeout(() => document.getElementById('ai-input')?.focus(), 300);
+        }
+
+        function closeAIPanel() {
+            document.getElementById('ai-panel').classList.remove('open');
+            document.getElementById('ai-overlay').classList.remove('open');
+        }
+
+        function showAIKeySetup() {
+            const msgs = document.getElementById('ai-messages');
+            msgs.innerHTML = `
+                <div id="ai-key-setup">
+                    <p style="color:#a78bfa; font-weight:700; font-size:1rem;">🔑 Configura la chiave API</p>
+                    <p>Per usare l'assistente AI hai bisogno di una chiave API di Anthropic. La chiave viene salvata <strong>solo sul tuo browser</strong> e non viene condivisa con nessuno.</p>
+                    <p>Ottieni la tua chiave su <strong>console.anthropic.com</strong> → API Keys.</p>
+                    <input id="ai-key-input" type="password" placeholder="sk-ant-..." style="background:rgba(255,255,255,0.08);border:1px solid rgba(99,102,241,0.4);border-radius:8px;padding:10px;color:var(--text);font-size:0.85rem;font-family:monospace;width:100%;box-sizing:border-box;">
+                    <button onclick="saveAIKey()" style="background:#6366f1;color:white;border:none;border-radius:8px;padding:10px;cursor:pointer;font-weight:700;width:100%;font-size:0.9rem;">💾 Salva e inizia</button>
+                </div>`;
+        }
+
+        function saveAIKey() {
+            const key = document.getElementById('ai-key-input')?.value.trim();
+            if (!key || !key.startsWith('sk-ant-')) return mostraErrore('Chiave non valida. Deve iniziare con sk-ant-');
+            localStorage.setItem('claude_api_key', key);
+            clearAIChat();
+            addAIMessage('assistant', '✅ Chiave salvata! Ora posso aiutarti con il tuo gestionale. Cosa vuoi sapere?');
+        }
+
+        function openAISettings() {
+            const panel = document.getElementById('ai-messages');
+            const cur = localStorage.getItem('claude_api_key') || '';
+            const masked = cur ? cur.slice(0,10) + '...' + cur.slice(-4) : 'non impostata';
+            const html = `<div id="ai-key-setup">
+                <p style="color:#a78bfa; font-weight:700;">⚙️ Impostazioni AI</p>
+                <p>Chiave attuale: <code style="color:#6ee7b7;">${masked}</code></p>
+                <input id="ai-key-input" type="password" placeholder="Nuova chiave sk-ant-..." style="background:rgba(255,255,255,0.08);border:1px solid rgba(99,102,241,0.4);border-radius:8px;padding:10px;color:var(--text);font-size:0.85rem;font-family:monospace;width:100%;box-sizing:border-box;">
+                <button onclick="saveAIKey()" style="background:#6366f1;color:white;border:none;border-radius:8px;padding:10px;cursor:pointer;font-weight:700;width:100%;font-size:0.9rem;margin-top:6px;">💾 Aggiorna chiave</button>
+                <button onclick="clearAIChat()" style="background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:8px;cursor:pointer;width:100%;font-size:0.85rem;margin-top:6px;">🗑️ Elimina chiave e chat</button>
+            </div>`;
+            panel.innerHTML = html;
+            aiChatHistory = [];
+        }
+
+        function clearAIChat() {
+            aiChatHistory = [];
+            document.getElementById('ai-messages').innerHTML = '';
+            addAIMessage('assistant', '🔄 Nuova conversazione. Come posso aiutarti?');
+        }
+
+        function addAIMessage(role, text) {
+            const container = document.getElementById('ai-messages');
+            const div = document.createElement('div');
+            div.className = `ai-msg ${role}`;
+            div.textContent = text;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+            return div;
+        }
+
+        function buildAIContext() {
+            const oggi = getOggiLocale();
+            const sette = new Date(); sette.setDate(sette.getDate() - 7);
+            const setteStr = sette.toISOString().slice(0,10);
+
+            const aperti = db.filter(j => ['todo','doing'].includes(j.stato));
+            const chiusiSettimana = db.filter(j => ['done','archived'].includes(j.stato) && (j.data_chiusura||j.data||'') >= setteStr);
+
+            const daPagare = db.filter(j => ['done','archived'].includes(j.stato) && (() => {
+                const tot = parseFloat(j.totale_lordo)||0;
+                const acc = (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0);
+                return tot - acc > 0.01;
+            })());
+
+            const incassoSettimana = chiusiSettimana.reduce((a,j) => {
+                const tot = parseFloat(j.totale_lordo)||0;
+                const acc = (j.acconti||[]).reduce((s,b)=>s+(parseFloat(b.val)||0),0);
+                return a + Math.min(tot, tot - Math.max(0, tot-acc));
+            }, 0);
+
+            const totDaPagare = daPagare.reduce((a,j) => {
+                const tot = parseFloat(j.totale_lordo)||0;
+                const acc = (j.acconti||[]).reduce((s,b)=>s+(parseFloat(b.val)||0),0);
+                return a + (tot - acc);
+            }, 0);
+
+            // Tagliandi in scadenza (prossimi 90 giorni)
+            const fra90 = new Date(); fra90.setDate(fra90.getDate()+90);
+            const fra90str = fra90.toISOString().slice(0,10);
+            const tagliandi = Object.entries(taggliandiDB||{})
+                .filter(([,v]) => v.data && v.data <= fra90str)
+                .map(([targa,v]) => `  ${targa}: ${v.data}${v.note?' ('+v.note+')':''}`)
+                .join('\n') || '  nessuno';
+
+            const agendaOggi = (agendaDB||[]).filter(a => a.data === oggi)
+                .map(a => `  ${a.ora} — ${a.cliente} (${a.moto||''}): ${a.note||''}`)
+                .join('\n') || '  nessun appuntamento';
+
+            const lines = [
+                `DATA ODIERNA: ${oggi}`,
+                '',
+                `LAVORI APERTI: ${aperti.length}`,
+                aperti.slice(0,15).map(j=>`  [${j.stato.toUpperCase()}] ${j.cognome} ${j.nome} — ${j.targa||''} ${j.marca||''} ${j.modello||''} — Data: ${j.data||''}`).join('\n'),
+                aperti.length > 15 ? `  ...e altri ${aperti.length-15}` : '',
+                '',
+                `LAVORI CHIUSI ULTIMI 7 GIORNI: ${chiusiSettimana.length} — Incassato: €${incassoSettimana.toFixed(2)}`,
+                '',
+                `DA PAGARE: ${daPagare.length} clienti — Totale: €${totDaPagare.toFixed(2)}`,
+                daPagare.slice(0,10).map(j=>{
+                    const tot=parseFloat(j.totale_lordo)||0;
+                    const acc=(j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0);
+                    return `  ${j.cognome} ${j.nome} (${j.targa||''}): €${(tot-acc).toFixed(2)}`;
+                }).join('\n'),
+                '',
+                `AGENDA OGGI:\n${agendaOggi}`,
+                '',
+                `TAGLIANDI IN SCADENZA (entro 90 giorni):\n${tagliandi}`,
+            ];
+            return lines.filter(l => l !== undefined).join('\n');
+        }
+
+        async function sendAIMessage() {
+            if (aiStreaming) return;
+            const input = document.getElementById('ai-input');
+            const text = (input?.value || '').trim();
+            if (!text) return;
+
+            const apiKey = localStorage.getItem('claude_api_key');
+            if (!apiKey) { showAIKeySetup(); return; }
+
+            input.value = '';
+            input.style.height = 'auto';
+            document.getElementById('ai-send').disabled = true;
+
+            addAIMessage('user', text);
+            aiChatHistory.push({ role: 'user', content: text });
+
+            const assistantDiv = addAIMessage('assistant', '');
+            assistantDiv.classList.add('thinking');
+            aiStreaming = true;
+
+            try {
+                const context = buildAIContext();
+                const systemPrompt = `Sei l'assistente AI del Moto Garage Marcello. Rispondi sempre in italiano, in modo conciso e diretto. Usa liste quando utile. Evita lunghe introduzioni.
+
+Dati in tempo reale del gestionale:
+${context}
+
+Puoi aiutare con: analisi lavori, situazione pagamenti, bozze messaggi WhatsApp, preventivi, consigli tecnici su moto.`;
+
+                const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-dangerous-direct-browser-access': 'true'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-haiku-4-5-20251001',
+                        max_tokens: 1024,
+                        stream: true,
+                        system: systemPrompt,
+                        messages: aiChatHistory
+                    })
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(()=>({error:{message:'Errore API'}}));
+                    throw new Error(err.error?.message || `HTTP ${resp.status}`);
+                }
+
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = '';
+
+                while (true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value);
+                    for (const line of chunk.split('\n')) {
+                        if (!line.startsWith('data: ')) continue;
+                        const data = line.slice(6).trim();
+                        if (data === '[DONE]' || !data) continue;
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                                fullText += parsed.delta.text;
+                                assistantDiv.textContent = fullText;
+                                document.getElementById('ai-messages').scrollTop = 9999;
+                            }
+                        } catch(e) {}
+                    }
+                }
+
+                assistantDiv.classList.remove('thinking');
+                aiChatHistory.push({ role: 'assistant', content: fullText });
+
+            } catch(err) {
+                assistantDiv.classList.remove('thinking');
+                assistantDiv.textContent = '❌ ' + (err.message || 'Errore di connessione');
+                assistantDiv.style.color = '#f87171';
+                aiChatHistory.pop();
+            }
+
+            aiStreaming = false;
+            document.getElementById('ai-send').disabled = false;
+            document.getElementById('ai-input')?.focus();
+        }
+
+        function aiQuickAsk(question) {
+            const input = document.getElementById('ai-input');
+            if (input) { input.value = question; sendAIMessage(); }
         }
 </script>
 <div id="board-menu-backdrop" onclick="chiudiTuttiMenuBoard()" style="display:none; position:fixed; inset:0; z-index:9998;"></div>
