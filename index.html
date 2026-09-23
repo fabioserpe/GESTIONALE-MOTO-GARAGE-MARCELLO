@@ -5645,13 +5645,13 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 trH.setAttribute('data-cat', cat);
                 trH.style.cursor = 'pointer';
                 trH.onclick = () => toggleCategoriaMag(cat);
-                const catBg = 'background:#e8ecf1; border-top:2px solid #cbd5e1; border-bottom:1px solid #cbd5e1;';
+                const catBg = 'background:rgba(0,0,0,0.25); border-top:2px solid #334155; border-bottom:1px solid #334155;';
                 trH.innerHTML = `
                     <td colspan="4" style="${catBg} padding:11px 14px;">
                         <div style="display:flex; align-items:center; gap:10px;">
-                            <span class="mag-ic" style="display:inline-block; transition:transform 0.25s; font-size:0.7rem; color:#64748b; transform:rotate(${isOpen?'0':'-90'}deg);">▶</span>
-                            <span style="font-weight:800; font-size:0.88rem; color:#1e293b; text-transform:uppercase; letter-spacing:0.5px;">${catEmoji[cat]||'📂'} ${cat}</span>
-                            <span style="background:#dde3ed; color:#64748b; font-size:0.72rem; padding:2px 8px; border-radius:20px;">${items.length} art.</span>
+                            <span class="mag-ic" style="display:inline-block; transition:transform 0.25s; font-size:0.7rem; color:var(--muted); transform:rotate(${isOpen?'0':'-90'}deg);">▶</span>
+                            <span style="font-weight:800; font-size:0.88rem; color:white; text-transform:uppercase; letter-spacing:0.5px;">${catEmoji[cat]||'📂'} ${cat}</span>
+                            <span style="background:rgba(255,255,255,0.07); color:var(--muted); font-size:0.72rem; padding:2px 8px; border-radius:20px;">${items.length} art.</span>
                         </div>
                     </td>
                     <td style="${catBg} padding:11px 14px; text-align:center;">
@@ -5659,7 +5659,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     </td>
                     <td style="${catBg} padding:11px 14px;"></td>
                     <td style="${catBg} padding:11px 14px; text-align:right;">
-                        <span style="font-size:0.8rem; font-weight:800; color:#1e293b;">€ ${totCat.toLocaleString('it-IT',{minimumFractionDigits:2})}</span>
+                        <span style="font-size:0.8rem; font-weight:800; color:white;">€ ${totCat.toLocaleString('it-IT',{minimumFractionDigits:2})}</span>
                     </td>
                     <td style="${catBg} padding:11px 14px;"></td>`;
                 tbody.appendChild(trH);
