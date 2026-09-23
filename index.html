@@ -322,6 +322,8 @@
         #mag-inventory-table .mag-item-row.row-scarso td:first-child { border-left-color:#f59e0b; }
         #mag-inventory-table .mag-item-row td:nth-child(6) { font-weight:700; }
         #mag-inventory-table .mag-item-row td:nth-child(6) input { font-weight:700 !important; }
+        #mag-inventory-table .mag-item-row td:nth-child(7) { font-weight:700; }
+        #mag-inventory-table .mag-item-row td:nth-child(7) input { font-weight:700 !important; }
     </style>
     <script>
         /* Applica tema salvato prima del primo render per evitare flash */
@@ -1177,8 +1179,12 @@
                             <input type="number" id="mag-new-giacenza" min="0" value="1" required style="margin-bottom:0; text-align:center;">
                         </div>
                         <div>
-                            <label>Prezzo netto €</label>
+                            <label>Pr. Acquisto €</label>
                             <input type="number" id="mag-new-prezzo" step="0.01" min="0" placeholder="0.00" style="margin-bottom:0; text-align:right;">
+                        </div>
+                        <div>
+                            <label>Pr. Pubblico €</label>
+                            <input type="number" id="mag-new-prezzo-pubblico" step="0.01" min="0" placeholder="0.00" style="margin-bottom:0; text-align:right;">
                         </div>
                         <button type="submit" id="mag-btn-add-submit" class="btn btn-accent" style="white-space:nowrap; margin-bottom:0; width:auto;">✚ Aggiungi</button>
                     </div>
@@ -1214,7 +1220,8 @@
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:140px; letter-spacing:0.5px;">MARCA</th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:155px; letter-spacing:0.5px;">CATEGORIA</th>
                             <th onclick="sortMag('giacenza')" style="text-align:center; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:130px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">STOCK <span id="mag-sort-giacenza"></span></th>
-                            <th onclick="sortMag('prezzo')" style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:105px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">PREZZO <span id="mag-sort-prezzo"></span></th>
+                            <th onclick="sortMag('prezzo')" style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:100px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">PR. ACQ. <span id="mag-sort-prezzo"></span></th>
+                            <th style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:100px; letter-spacing:0.5px; white-space:nowrap;">PR. PUBB.</th>
                             <th onclick="sortMag('valore')" style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:110px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">VALORE STOCK <span id="mag-sort-valore"></span></th>
                             <th style="border-bottom:2px solid #334155; width:45px;"></th>
                         </tr>
@@ -5366,7 +5373,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 e.preventDefault();
                 const cod = $('mag-new-codice').value.toUpperCase().trim();
                 if (inventarioMag.some(i => i.codice === cod)) return mostraErrore("SKU già presente!");
-                const art = { codice: cod, nome: $('mag-new-nome').value.toUpperCase().trim(), marca: $('mag-new-marca').value.toUpperCase().trim(), categoria: $('mag-new-categoria').value, giacenza: parseInt($('mag-new-giacenza').value)||0, prezzo: parseFloat($('mag-new-prezzo').value)||0 };
+                const art = { codice: cod, nome: $('mag-new-nome').value.toUpperCase().trim(), marca: $('mag-new-marca').value.toUpperCase().trim(), categoria: $('mag-new-categoria').value, giacenza: parseInt($('mag-new-giacenza').value)||0, prezzo: parseFloat($('mag-new-prezzo').value)||0, prezzo_pubblico: parseFloat($('mag-new-prezzo-pubblico').value)||0 };
                 try {
                     await magSave(cod, art);
                     form.reset(); $('mag-new-giacenza').value = 1;
@@ -5836,6 +5843,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                 onblur="this.style.background='transparent'; this.style.outline='none'; modificaArticoloMag('${cod}','prezzo',this.value)">
                         </td>
                         <td style="padding:8px 12px; text-align:right;">
+                            <input type="number" step="0.01" min="0" value="${(item.prezzo_pubblico||0).toFixed(2)}"
+                                style="width:80px; text-align:right; background:transparent; border:none; color:#1e293b; font-size:0.9rem; font-weight:600; padding:4px 6px; border-radius:6px; transition:all 0.15s;"
+                                onfocus="this.style.background='#f8fafc'; this.style.outline='2px solid var(--info)';"
+                                onblur="this.style.background='transparent'; this.style.outline='none'; modificaArticoloMag('${cod}','prezzo_pubblico',this.value)">
+                        </td>
+                        <td style="padding:8px 12px; text-align:right;">
                             <div style="font-weight:800; color:#1e293b;">€ ${totN.toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
                         </td>
                         <td style="padding:8px 10px; text-align:center;">
@@ -5899,7 +5912,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const idx = inventarioMag.findIndex(i => i.codice === codice);
             if (idx === -1) return;
             let v = valore;
-            if (campo==='prezzo') v = Math.max(0, parseFloat(valore)||0);
+            if (campo==='prezzo' || campo==='prezzo_pubblico') v = Math.max(0, parseFloat(valore)||0);
             else if (campo==='giacenza') v = Math.max(0, parseInt(valore)||0);
             else if (campo==='min_stock') v = Math.max(1, parseInt(valore)||1);
             else if (typeof v==='string') v = v.toUpperCase().trim();
@@ -5929,7 +5942,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
         function esportaExcelMag() {
             if (!inventarioMag.length) return mostraErrore("Magazzino vuoto!");
-            let csv = "\uFEFFCODICE;DESCRIZIONE;MARCA;CATEGORIA;STOCK;PREZZO NETTO;PREZZO IVATO;TOTALE NETTO;TOTALE IVATO\n";
+            let csv = "\uFEFFCODICE;DESCRIZIONE;MARCA;CATEGORIA;STOCK;PR.ACQUISTO;PR.PUBBLICO;PREZZO IVATO ACQ;TOTALE NETTO;TOTALE IVATO\n";
             [...inventarioMag].sort((a,b)=>(a.categoria||'').localeCompare(b.categoria||'')||(a.codice||'').localeCompare(b.codice||'')).forEach(i => {
                 const pI=i.prezzo*(1+MAG_IVA), tN=i.giacenza*i.prezzo, tI=tN*(1+MAG_IVA);
                 csv+=`${i.codice};${i.nome};${i.marca};${i.categoria};${i.giacenza};${i.prezzo.toFixed(2).replace('.',',')};${pI.toFixed(2).replace('.',',')};${tN.toFixed(2).replace('.',',')};${tI.toFixed(2).replace('.',',')}\n`;
