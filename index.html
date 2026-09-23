@@ -5468,6 +5468,25 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function toggleCategoriaMag(cat) {
             if ($('mag-search-input') && $('mag-search-input').value !== '') return;
             const isMob = window.innerWidth <= 768;
+            const isOpening = !categorieAperteMag.has(cat);
+
+            // Se stiamo aprendo, chiudi prima tutte le altre
+            if (isOpening) {
+                [...categorieAperteMag].forEach(openCat => {
+                    if (openCat === cat) return;
+                    const escOther = CSS.escape(openCat);
+                    const otherHeader = isMob
+                        ? $('mag-mobile-container') && [...$('mag-mobile-container').children].find(el => el.getAttribute('data-cat') === openCat && el.querySelector('.mag-ic'))
+                        : document.querySelector(`.mag-cat-hdr[data-cat="${escOther}"]`);
+                    const otherRows = isMob
+                        ? ($('mag-mobile-container') ? [...$('mag-mobile-container').children].filter(el => el.getAttribute('data-cat') === openCat && !el.querySelector('.mag-ic')) : [])
+                        : [...document.querySelectorAll(`.mag-item-row[data-cat="${escOther}"]`)];
+                    otherRows.forEach(r => r.style.display = 'none');
+                    if (otherHeader) { const ic = otherHeader.querySelector('.mag-ic'); if (ic) { if (isMob) ic.textContent = '▶'; else ic.style.transform = 'rotate(-90deg)'; } }
+                    categorieAperteMag.delete(openCat);
+                });
+            }
+
             const esc = CSS.escape(cat);
             const header = isMob
                 ? $('mag-mobile-container') && [...$('mag-mobile-container').children].find(el => el.getAttribute('data-cat') === cat && el.querySelector('.mag-ic'))
@@ -5475,7 +5494,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const rows = isMob
                 ? ($('mag-mobile-container') ? [...$('mag-mobile-container').children].filter(el => el.getAttribute('data-cat') === cat && !el.querySelector('.mag-ic')) : [])
                 : [...document.querySelectorAll(`.mag-item-row[data-cat="${esc}"]`)];
-            if (categorieAperteMag.has(cat)) {
+            if (!isOpening) {
                 categorieAperteMag.delete(cat);
                 rows.forEach(r => r.style.display = 'none');
                 if (header) { const ic = header.querySelector('.mag-ic'); if (ic) { if (isMob) ic.textContent = '▶'; else ic.style.transform = 'rotate(-90deg)'; } }
