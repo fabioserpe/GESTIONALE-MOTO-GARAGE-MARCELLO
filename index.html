@@ -6163,9 +6163,17 @@ A presto!`;
         function chiudiTuttiMenuBoard() {
             document.querySelectorAll('[id^="menu-"], [id^="smenu-"]').forEach(m => {
                 m.style.display = 'none';
-                // Rimuove i menu spostati nel body (portal) per evitare ID duplicati
-                // quando refreshBoard() ricrea le card
-                if (m.parentElement === document.body) m.remove();
+                if (m.parentElement === document.body) {
+                    // Riporta il menu al parent originale (se ancora nel DOM)
+                    // così il secondo click lo trova tramite getElementById.
+                    // Se refreshBoard() ha ricreato le card, isConnected è false
+                    // e il menu viene rimosso (tanto la card ne ha uno nuovo).
+                    if (m._origParent && m._origParent.isConnected) {
+                        m._origParent.appendChild(m);
+                    } else {
+                        m.remove();
+                    }
+                }
             });
             // Menu incidentate: nasconde ma NON rimuove (le card non vengono ricreate ad ogni azione)
             document.querySelectorAll('[id^="imenu-"]').forEach(m => { m.style.display = 'none'; });
@@ -6191,6 +6199,7 @@ A presto!`;
                 // Portal: sposta il menu direttamente in <body> per sfuggire
                 // a overflow:hidden/auto e stacking context delle card
                 if (menu.parentElement !== document.body) {
+                    menu._origParent = menu.parentElement;
                     document.body.appendChild(menu);
                 }
 
