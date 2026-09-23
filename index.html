@@ -1550,7 +1550,10 @@
         <div class="modal-content" style="max-width: 800px;">
             <h2 id="st-titolo" style="color:var(--info)">Storia Interventi</h2>
             <div id="st-corpo" class="mt-20"></div>
-            <button class="btn btn-dark mt-20" onclick="closeModal('modal-storico')">Chiudi Scheda</button>
+            <div class="flex-row mt-20" style="gap:10px;">
+                <button class="btn btn-dark" onclick="closeModal('modal-storico')" style="flex:1;">Chiudi Scheda</button>
+                <button id="st-edit-btn" class="btn btn-purple" style="flex:1; display:none;">✏️ Modifica Conto</button>
+            </div>
         </div>
     </div>
 
@@ -3298,6 +3301,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 </div>
             `;
             $('modal-storico').classList.remove('hidden');
+            const _editBtn = $('st-edit-btn');
+            if (_editBtn) {
+                _editBtn.style.display = '';
+                _editBtn.onclick = () => { closeModal('modal-storico'); editJob(id); };
+            }
         }
 
         function nuovoPreventivoFromIncidentata(jobId) {
