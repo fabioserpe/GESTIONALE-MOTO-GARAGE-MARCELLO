@@ -849,6 +849,14 @@
                 <h2 style="color:var(--purple);" class="mb-15">Generatore Preventivo</h2>
                 <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 15px;">Suggerimento: Inserisci il Cognome del cliente e seleziona il veicolo.</p>
                 <input type="hidden" id="p_id">
+                <label style="color:var(--purple);">🔍 Cerca cliente esistente</label>
+                <div style="position:relative; margin-bottom:10px;">
+                    <input id="p_search_cliente" placeholder="Digita cognome, nome o targa..." autocomplete="off"
+                        style="border-color:var(--purple); margin-bottom:0;"
+                        oninput="cercaClientePreventivo()"
+                        onblur="setTimeout(()=>{const r=document.getElementById('prev-cliente-results');if(r)r.style.display='none';},200)">
+                    <div id="prev-cliente-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--purple);border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,0.5);"></div>
+                </div>
                 <input id="p_targa" placeholder="Targa o Cliente 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('p')" style="border-color: var(--purple);">
                 <div class="flex-row">
                     <input id="p_nome" placeholder="Nome"> 
@@ -2335,6 +2343,60 @@
                 <span>✅ Cliente già presente: <b>${n} lavori</b> precedenti${dataF ? ' · Ultimo: <b>' + dataF + '</b>' : ''}</span>
                 <button onclick="document.getElementById('nuova-cliente-info').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:0 4px;line-height:1;">×</button>
             </div>`;
+        }
+
+        function cercaClientePreventivo() {
+            const searchEl = $('p_search_cliente');
+            const res = $('prev-cliente-results');
+            if (!res) return;
+            const q = (searchEl?.value || '').trim();
+            if (q.length < 2) { res.style.display = 'none'; return; }
+            const clientiMap = {};
+            db.forEach(j => {
+                const key = j.targa ? j.targa : 'NO_TARGA_' + (j.cognome||'').toUpperCase() + '_' + (j.nome||'').toUpperCase();
+                if (!clientiMap[key]) clientiMap[key] = { ...j, nLavori: 0 };
+                clientiMap[key].nLavori++;
+            });
+            const qU = q.toUpperCase();
+            const matches = Object.values(clientiMap)
+                .filter(j => {
+                    const cog = (j.cognome || '').toUpperCase();
+                    const nom = (j.nome || '').toUpperCase();
+                    const tar = (j.targa || '').toUpperCase();
+                    return cog.startsWith(qU) || cog.includes(qU) || nom.includes(qU) || tar.startsWith(qU);
+                })
+                .sort((a, b) => b.nLavori - a.nLavori)
+                .slice(0, 8);
+            if (!matches.length) { res.style.display = 'none'; return; }
+            res.style.display = 'block';
+            res.innerHTML = '<div style="font-size:0.72rem;color:var(--purple);padding:6px 12px;border-bottom:1px solid #334155;font-weight:bold;letter-spacing:0.3px;">⚡ Già in anagrafica — clicca per compilare in automatico</div>' +
+                matches.map(j => {
+                    const nomeCompl = ((j.cognome || '') + ' ' + (j.nome || '')).trim();
+                    const moto = ((j.marca || '') + ' ' + (j.modello || '')).trim();
+                    const d = JSON.stringify({ targa: j.targa||'', nome: j.nome||'', cognome: j.cognome||'', tel: j.tel||'', marca: j.marca||'', modello: j.modello||'', km: j.km||'', clientId: j.clientId||'' }).replace(/"/g, '&quot;');
+                    return '<div onmousedown="selezionaClientePreventivo(' + d + ')"' +
+                        ' style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);border-left:3px solid transparent;"' +
+                        ' onmouseover="this.style.background='rgba(168,85,247,0.12)'"' +
+                        ' onmouseout="this.style.background=''">' +
+                        '<div><span style="font-weight:bold;color:white;">' + nomeCompl + '</span>' +
+                        (j.targa ? '<span style="color:var(--info);font-family:monospace;font-size:0.85rem;margin-left:8px;">' + j.targa + '</span>' : '') +
+                        '</div>' +
+                        '<div style="font-size:0.75rem;color:var(--muted);">' + moto + (j.tel ? ' · 📞' + j.tel : '') + (j.nLavori > 0 ? ' · ' + j.nLavori + ' lavori' : '') + '</div>' +
+                        '</div>';
+                }).join('');
+        }
+
+        function selezionaClientePreventivo(data) {
+            if (typeof data === 'string') data = JSON.parse(data);
+            if ($('p_nome')) $('p_nome').value = data.nome || '';
+            if ($('p_cognome')) $('p_cognome').value = data.cognome || '';
+            if ($('p_tel')) $('p_tel').value = data.tel || '';
+            if ($('p_targa')) $('p_targa').value = data.targa || '';
+            if ($('p_marca')) $('p_marca').value = data.marca || '';
+            if ($('p_modello')) $('p_modello').value = data.modello || '';
+            if ($('p_km')) $('p_km').value = data.km || '';
+            const sc = $('p_search_cliente'); if (sc) sc.value = '';
+            const res = $('prev-cliente-results'); if (res) res.style.display = 'none';
         }
 
         function checkCustomerBikes(prefix) { const cEl = $(prefix + '_cognome'), nEl = $(prefix + '_nome'), tEl = $(prefix + '_targa'); if (!cEl || !nEl || !tEl) return; const c = cEl.value.toUpperCase().trim(), n = nEl.value.toUpperCase().trim(); if (!c || tEl.value) return; const rec = db.filter(j => (j.cognome||'').toUpperCase().trim() === c && (j.nome||'').toUpperCase().trim() === n); const uP = [...new Set(rec.map(j => j.targa).filter(Boolean))]; if (uP.length === 1) { tEl.value = uP[0]; if(prefix === 'app') autoFillAgenda(); else if(prefix === 'm_app') autoFillAgenda('m'); else autoFillForm(prefix); } else if (uP.length > 1) { tEl.placeholder = "⚠️ MULTIPLI VEICOLI: SELEZIONA TARGA"; tEl.style.borderColor = "var(--warning)"; } }
