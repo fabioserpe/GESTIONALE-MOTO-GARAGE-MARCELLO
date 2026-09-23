@@ -1121,6 +1121,7 @@
                                 <input type="number" id="lo-prezzo" step="0.01" min="0" placeholder="0.00" style="margin-bottom:0; text-align:right;">
                             </div>
                             <button type="submit" class="btn btn-info" style="white-space:nowrap; margin-bottom:0; width:auto;">✚ Aggiungi</button>
+                            <button type="button" id="lo-cancel-btn" onclick="cancelEditLo()" style="display:none; white-space:nowrap; margin-bottom:0; width:auto; background:transparent; border:1px solid #64748b; color:#94a3b8; border-radius:8px; padding:8px 16px; cursor:pointer; font-size:0.85rem;">✕ Annulla</button>
                         </div>
                     </form>
                     <div id="lo-list"></div>
@@ -5464,6 +5465,35 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (open) refreshListaOrdini();
         }
 
+        let _editingLoId = null;
+
+        function editListaOrdine(id) {
+            const item = listaOrdiniMag.find(x => x.id === id);
+            if (!item) return;
+            _editingLoId = id;
+            $('lo-codice').value   = item.codice || '';
+            $('lo-nome').value     = item.nome || '';
+            $('lo-marca').value    = item.marca || '';
+            $('lo-categoria').value= item.categoria || '';
+            $('lo-giacenza').value = item.giacenza || 1;
+            $('lo-prezzo').value   = item.prezzo || 0;
+            const btn = document.querySelector('#lo-form button[type="submit"]');
+            if (btn) { btn.textContent = '💾 Salva'; btn.style.background = '#f59e0b'; }
+            const cancelBtn = $('lo-cancel-btn');
+            if (cancelBtn) cancelBtn.style.display = 'inline-block';
+            $('lo-nome').focus();
+        }
+
+        function cancelEditLo() {
+            _editingLoId = null;
+            $('lo-form').reset();
+            $('lo-giacenza').value = 1;
+            const btn = document.querySelector('#lo-form button[type="submit"]');
+            if (btn) { btn.textContent = '✚ Aggiungi'; btn.style.background = ''; }
+            const cancelBtn = $('lo-cancel-btn');
+            if (cancelBtn) cancelBtn.style.display = 'none';
+        }
+
         function initListaOrdiniForm() {
             const form = $('lo-form');
             if (!form || form._loInited) return;
@@ -5472,19 +5502,35 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 e.preventDefault();
                 const nome = $('lo-nome').value.toUpperCase().trim();
                 if (!nome) return mostraErrore('Inserisci la descrizione!');
-                listaOrdiniMag.push({
-                    id: genId(),
-                    codice:   $('lo-codice').value.toUpperCase().trim(),
-                    nome,
-                    marca:    $('lo-marca').value.toUpperCase().trim(),
-                    categoria:$('lo-categoria').value,
-                    giacenza: parseInt($('lo-giacenza').value) || 1,
-                    prezzo:   parseFloat($('lo-prezzo').value) || 0
-                });
+                if (_editingLoId !== null) {
+                    const idx = listaOrdiniMag.findIndex(x => x.id === _editingLoId);
+                    if (idx !== -1) {
+                        listaOrdiniMag[idx] = {
+                            id: _editingLoId,
+                            codice:   $('lo-codice').value.toUpperCase().trim(),
+                            nome,
+                            marca:    $('lo-marca').value.toUpperCase().trim(),
+                            categoria:$('lo-categoria').value,
+                            giacenza: parseInt($('lo-giacenza').value) || 1,
+                            prezzo:   parseFloat($('lo-prezzo').value) || 0
+                        };
+                    }
+                    cancelEditLo();
+                } else {
+                    listaOrdiniMag.push({
+                        id: genId(),
+                        codice:   $('lo-codice').value.toUpperCase().trim(),
+                        nome,
+                        marca:    $('lo-marca').value.toUpperCase().trim(),
+                        categoria:$('lo-categoria').value,
+                        giacenza: parseInt($('lo-giacenza').value) || 1,
+                        prezzo:   parseFloat($('lo-prezzo').value) || 0
+                    });
+                    form.reset();
+                    $('lo-giacenza').value = 1;
+                    $('lo-nome').focus();
+                }
                 saveListaOrdiniMag();
-                form.reset();
-                $('lo-giacenza').value = 1;
-                $('lo-nome').focus();
             };
         }
 
@@ -5521,6 +5567,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         </td>
                         <td style="padding:6px 12px; text-align:right; font-weight:700; color:#1e293b; border-right:1px solid #e2e8f0;">${item.prezzo > 0 ? '€ '+item.prezzo.toFixed(2) : '—'}</td>
                         <td style="padding:6px 8px; text-align:center; white-space:nowrap;">
+                            <button onclick="editListaOrdine(${item.id})" style="background:transparent; border:1px solid #f59e0b; color:#f59e0b; border-radius:6px; padding:5px 8px; font-size:0.75rem; cursor:pointer; margin-right:4px;" title="Modifica">✏️</button>
                             <button onclick="spostaInMagazzino(${item.id})" style="background:#22c55e; color:white; border:none; border-radius:6px; padding:5px 9px; font-size:0.75rem; font-weight:bold; cursor:pointer; margin-right:4px;" title="Ricevuto: carica in magazzino">📥 Mag.</button>
                             <button onclick="deleteListaOrdine(${item.id})" style="background:transparent; border:1px solid rgba(239,68,68,0.4); color:var(--accent); border-radius:6px; padding:5px 8px; font-size:0.75rem; cursor:pointer;" title="Elimina">🗑️</button>
                         </td>
