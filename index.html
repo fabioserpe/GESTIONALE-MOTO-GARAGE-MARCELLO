@@ -1194,6 +1194,11 @@
 
             <!-- Sezione inventario (stats + lista mobile) — visibile su desktop, toggle su mobile -->
             <div id="mag-inv-section">
+                <div style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:6px;">
+                    <button id="mag-stats-toggle-btn" onclick="toggleMagStats()" style="background:transparent; border:1px solid #334155; color:#64748b; border-radius:6px; padding:3px 10px; font-size:0.72rem; cursor:pointer; display:flex; align-items:center; gap:5px;">
+                        <span id="mag-stats-toggle-icon">▲</span> <span id="mag-stats-toggle-label">Statistiche</span>
+                    </button>
+                </div>
                 <div id="mag-summary-container" class="stats-grid mb-20"></div>
                 <!-- Inventario mobile (card) -->
                 <div id="mag-mobile-container" style="display:none;"></div>
@@ -5400,7 +5405,23 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             renderSummaryMag();
         }
 
-        function renderAllMag() { renderTableMag(); renderSummaryMag(); renderDatalistMag(); }
+        function renderAllMag() { renderTableMag(); renderSummaryMag(); renderDatalistMag(); applyMagStatsState(); }
+
+        function toggleMagStats() {
+            const hidden = localStorage.getItem('mag_stats_hidden') === '1';
+            localStorage.setItem('mag_stats_hidden', hidden ? '0' : '1');
+            applyMagStatsState();
+        }
+
+        function applyMagStatsState() {
+            const hidden = localStorage.getItem('mag_stats_hidden') === '1';
+            const container = $('mag-summary-container');
+            const icon = $('mag-stats-toggle-icon');
+            const label = $('mag-stats-toggle-label');
+            if (container) container.style.display = hidden ? 'none' : '';
+            if (icon) icon.textContent = hidden ? '▼' : '▲';
+            if (label) label.textContent = hidden ? 'Mostra statistiche' : 'Statistiche';
+        }
 
         function sortMag(field) {
             if (magSortField === field) {
