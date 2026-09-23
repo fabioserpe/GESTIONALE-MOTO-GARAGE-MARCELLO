@@ -3304,7 +3304,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const _editBtn = $('st-edit-btn');
             if (_editBtn) {
                 _editBtn.style.display = '';
-                _editBtn.onclick = () => { closeModal('modal-storico'); editJob(id); };
+                _editBtn.onclick = () => { closeModal('modal-storico'); openClosingModal(id); };
             }
         }
 
