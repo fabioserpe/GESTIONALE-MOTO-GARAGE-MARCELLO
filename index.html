@@ -304,8 +304,8 @@
         .tema-sfondo.active { border-color:white;color:white; }
         .tema-sfondo:hover:not(.active) { border-color:rgba(255,255,255,0.4); }
         /* Magazzino: griglia stile foglio */
-        #mag-inventory-table .mag-item-row td { border-right:1px solid #e2e8f0; vertical-align:middle; }
-        #mag-inventory-table .mag-item-row td:first-child { border-left:3px solid transparent; }
+        #mag-inventory-table .mag-item-row td { border-right:1px solid #e2e8f0; vertical-align:middle; padding:5px 10px !important; }
+        #mag-inventory-table .mag-item-row td:first-child { border-left:3px solid transparent; background:#f1f5f9; padding:5px 12px !important; }
         #mag-inventory-table .mag-item-row.row-esaurito td:first-child { border-left-color:#ef4444; }
         #mag-inventory-table .mag-item-row.row-scarso td:first-child { border-left-color:#f59e0b; }
     </style>
@@ -1060,6 +1060,9 @@
                 </button>
                 <button onclick="toggleMagForm()" style="display:flex; align-items:center; gap:6px; background:rgba(239,68,68,0.1); border:1px solid var(--accent); color:var(--accent); border-radius:8px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap;">
                     ➕ Aggiungi Articolo
+                </button>
+                <button onclick="setAllMinStockDefault(1)" style="display:flex; align-items:center; gap:6px; background:rgba(99,102,241,0.1); border:1px solid #6366f1; color:#6366f1; border-radius:8px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap;" title="Imposta soglia riordino = 1 per tutti gli articoli senza soglia">
+                    ⚙️ Soglia min=1
                 </button>
             </div>
 
@@ -5312,6 +5315,13 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
         function magDelete(codice) {
             return database.ref('/magazzino/' + codice).remove();
+        }
+        async function setAllMinStockDefault(val) {
+            const toUpdate = inventarioMag.filter(i => !i.min_stock || i.min_stock < val);
+            if (toUpdate.length === 0) { alert("✅ Tutti gli articoli hanno già soglia ≥ " + val); return; }
+            if (!confirm("Imposta soglia riordino = " + val + " per " + toUpdate.length + " articoli?")) return;
+            for (const item of toUpdate) { await magSave(item.codice, { ...item, min_stock: val }); }
+            alert("✅ Soglia impostata a " + val + " per " + toUpdate.length + " articoli");
         }
         function magRefreshData() { renderAllMag(); }
 
