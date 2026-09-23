@@ -1216,7 +1216,7 @@
                 <table style="width:100%; border-collapse:collapse;">
                     <thead style="position:sticky; top:0; z-index:2;">
                         <tr style="background:var(--card);">
-                            <th onclick="sortMag('codice')" style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:130px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">CODICE SKU <span id="mag-sort-codice"></span></th>
+                            <th onclick="sortMag('codice')" style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:170px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">CODICE SKU <span id="mag-sort-codice"></span></th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; letter-spacing:0.5px;">DESCRIZIONE</th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:140px; letter-spacing:0.5px;">MARCA</th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:155px; letter-spacing:0.5px;">CATEGORIA</th>
@@ -5822,7 +5822,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     tr.onmouseout  = function() { this.style.background = rowBg; };
 
                     tr.innerHTML = `
-                        <td style="padding:12px 14px;">
+                        <td style="padding:12px 14px; white-space:nowrap;">
                             <span style="font-family:monospace; font-size:1rem; color:#1e293b; font-weight:800; letter-spacing:0.3px;">${item.codice}</span>
                         </td>
                         <td style="padding:12px 14px;">
