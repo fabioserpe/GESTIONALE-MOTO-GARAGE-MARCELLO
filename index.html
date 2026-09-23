@@ -446,6 +446,7 @@
             <div id="topbar-quicklinks" style="display:flex; gap:5px; flex:1; justify-content:center; overflow:hidden;">
                 <button class="topbar-qbtn tq-active" data-view="board" onclick="switchView('board',null)">📊 Board</button>
                 <button class="topbar-qbtn" data-view="nuova" onclick="switchView('nuova',null)">➕ Nuova</button>
+                <button class="topbar-qbtn" data-view="incidentate" onclick="switchView('incidentate',null)">🚗 Incidentate</button>
                 <button class="topbar-qbtn" data-view="agenda" onclick="switchView('agenda',null)">📅 Agenda</button>
                 <button class="topbar-qbtn" data-view="archivio" onclick="switchView('archivio',null)">📁 Anagrafica</button>
                 <button class="topbar-qbtn" data-view="magazzino" onclick="switchView('magazzino',null)">📦 Magazzino</button>
@@ -692,6 +693,7 @@
                     <div class="flex-row mt-15">
                         <button class="btn btn-dark" onclick="isEditing=false; switchView('board')">❌ Annulla</button>
                         <button class="btn btn-purple" onclick="saveJob('special')">🕰️ Salva in Lavori Lunghi</button>
+                        <button class="btn" style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.35);" onclick="_pendingSpecialCat='incidentate'; saveJob('special')">🚗 Salva come Incidentata</button>
                         <button class="btn btn-success" onclick="saveJob('todo')">💾 Salva in Officina</button>
                     </div>
                 </div>
@@ -789,19 +791,12 @@
                 <h2 style="color:#d8b4fe; margin:0;">🕰️ Lavori Lunghi</h2>
 
                 <div style="display:flex; gap:8px; align-items:center;">
-                    <div id="sp-count-incidentate" style="font-size:0.78rem; font-weight:bold; padding:4px 12px; border-radius:20px; background:rgba(239,68,68,0.12); color:#fca5a5; border:1px solid rgba(239,68,68,0.25);"></div>
                     <div id="sp-count-restauri"    style="font-size:0.78rem; font-weight:bold; padding:4px 12px; border-radius:20px; background:rgba(245,158,11,0.12); color:#fcd34d; border:1px solid rgba(245,158,11,0.25);"></div>
                     <div id="sp-count-specials"    style="font-size:0.78rem; font-weight:bold; padding:4px 12px; border-radius:20px; background:rgba(139,92,246,0.12); color:#d8b4fe; border:1px solid rgba(139,92,246,0.25);"></div>
                     <div id="sp-count-ricambi"     style="font-size:0.78rem; font-weight:bold; padding:4px 12px; border-radius:20px; background:rgba(14,165,233,0.12); color:#7dd3fc; border:1px solid rgba(14,165,233,0.25);"></div>
                 </div>
             </div>
-            <div class="specials-board" style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; flex-grow:1; overflow:hidden; min-height:400px;">
-                <div style="background:rgba(239,68,68,0.05); border-radius:16px; border:1px solid rgba(239,68,68,0.15); display:flex; flex-direction:column; overflow:hidden;">
-                    <div style="padding:12px 15px 10px; border-bottom:1px solid rgba(239,68,68,0.15); flex-shrink:0;">
-                        <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#fca5a5;">🚗 Incidentate</div>
-                    </div>
-                    <div id="sp-col-incidentate" style="flex-grow:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:8px;" ondragover="allowDropSp(event)" ondragleave="leaveDropSp(event)" ondrop="dropSp(event,'incidentate')"></div>
-                </div>
+            <div class="specials-board" style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; flex-grow:1; overflow:hidden; min-height:400px;">
                 <div style="background:rgba(245,158,11,0.05); border-radius:16px; border:1px solid rgba(245,158,11,0.15); display:flex; flex-direction:column; overflow:hidden;">
                     <div style="padding:12px 15px 10px; border-bottom:1px solid rgba(245,158,11,0.15); flex-shrink:0;">
                         <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#fcd34d;">🔨 Restauri</div>
@@ -821,6 +816,20 @@
                     <div id="sp-col-ricambi" style="flex-grow:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:8px;" ondragover="allowDropSp(event)" ondragleave="leaveDropSp(event)" ondrop="dropSp(event,'ricambi')"></div>
                 </div>
             </div>
+        </div>
+
+        <div id="view-incidentate" class="view hidden" style="display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-shrink:0; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <h2 style="color:#f87171; margin:0 0 4px;">🚗 Moto Incidentate</h2>
+                    <div style="font-size:0.78rem; color:var(--muted);">Gestione schede, preventivi e riparazioni per moto incidentate</div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-purple w-auto" onclick="switchView('crea-prev')">📝 Nuovo Preventivo</button>
+                    <button class="btn btn-dark w-auto" onclick="_pendingSpecialCat='incidentate'; switchView('nuova')">🚗 Nuova Scheda</button>
+                </div>
+            </div>
+            <div id="incidentate-results" style="overflow-y:auto; flex-grow:1;"></div>
         </div>
 
         <div id="view-preventivi" class="view hidden" style="display:flex; flex-direction:column;">
@@ -2151,7 +2160,7 @@
             });
         }
 
-        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Stats', preventivi:'📝 Preventivi', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto' };
+        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Stats', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto' };
         function switchView(viewId, el) {
             closeSidebar();
             const ts = $('topbar-section'); if (ts) ts.textContent = _viewLabels[viewId] || '';
@@ -2162,7 +2171,7 @@
                 initMagazzino();
                 refreshListaOrdini();
             }
-            ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
+            ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-incidentate', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.topbar-qbtn').forEach(b => b.classList.toggle('tq-active', b.dataset.view === viewId));
             const _sidebarBtn = document.querySelector(`[data-nav-id="${viewId}"]`);
@@ -2173,7 +2182,7 @@
             if(viewId === 'nuova' && !isEditing) clearForm();
             if(viewId === 'nuovo-cliente') _resetNuovoClienteForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
-            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); }
+            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'incidentate') refreshIncidentate(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); }
         }
 
         function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; const _sc=$('f_search_cliente'); if(_sc) _sc.value=''; refreshMiniAgenda(); }
@@ -2941,6 +2950,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (currentView === 'board') refreshBoard();
             if (currentView === 'specials') refreshSpecials();
         }
+        let _pendingSpecialCat = null;
         function saveJob(stato) { 
             const idField = $('f_id').value; 
             const nowId = idField ? parseInt(idField) : genId();
@@ -2988,6 +2998,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             
             if(!data.cognome) return mostraErrore("Il Cognome è obbligatorio!"); 
             
+            if (finalStato === 'special' && _pendingSpecialCat) { data.special_cat = _pendingSpecialCat; _pendingSpecialCat = null; }
             exIdx > -1 ? db[exIdx] = { ...db[exIdx], ...data } : db.push(data);
             
             const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(nowId)); 
@@ -3078,6 +3089,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (currentView === 'board') refreshBoard();
                 if (currentView === 'preventivi') refreshPreventivi();
                 if (currentView === 'archivio') refreshArchive();
+                if (currentView === 'incidentate') refreshIncidentate();
+                if (currentView === 'specials') refreshSpecials();
                 
                 saveDBAgenda(); 
             } 
@@ -3197,34 +3210,116 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             $('modal-storico').classList.remove('hidden');
         }
 
+        function nuovoPreventivoFromIncidentata(jobId) {
+            const j = db.find(x => String(x.id) === String(jobId));
+            if (!j) return;
+            isEditing = false;
+            _editingStorico = false;
+            switchView('crea-prev');
+            $('p_id').value = '';
+            $('p_nome').value = j.nome || '';
+            $('p_cognome').value = j.cognome || '';
+            $('p_tel').value = j.tel || '';
+            $('p_targa').value = j.targa || '';
+            $('p_marca').value = j.marca || '';
+            $('p_modello').value = j.modello || '';
+            $('p_km').value = j.km || '';
+            $('p-conto-rows').innerHTML = '';
+            addVoce('p-conto-rows', 'p-desc', 'p-price', calcPrevTotal);
+            calcPrevTotal();
+        }
+
+        function refreshIncidentate() {
+            const c = $('incidentate-results');
+            if (!c) return;
+            const incidentate = db.filter(j => j.stato === 'special' && j.special_cat === 'incidentate')
+                                  .sort((a,b) => new Date(b.data||0) - new Date(a.data||0));
+
+            if (incidentate.length === 0) {
+                c.innerHTML = '<div style="text-align:center; padding:50px 20px; color:var(--muted);"><div style="font-size:2rem; margin-bottom:12px;">🚗</div><div style="font-size:1rem; margin-bottom:16px;">Nessuna moto incidentata in gestione.</div><button class="btn btn-dark w-auto" onclick="_pendingSpecialCat=\'incidentate\'; switchView(\'nuova\')">🚗 Aggiungi scheda</button></div>';
+                return;
+            }
+
+            const grid = document.createElement('div');
+            grid.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px;';
+
+            incidentate.forEach(j => {
+                const prevAperti = db.filter(p => p.stato === 'preventivo' && p.targa === j.targa);
+                const hasPrev = prevAperti.length > 0;
+                const accTot = (j.acconti||[]).reduce((a,b) => a + (parseFloat(b.val)||0), 0);
+                const lordo = parseFloat(j.totale_lordo) || 0;
+                const noteText = (j.lavori_richiesti||'—').split('\n').join(' · ').split('\r').join('');
+                const menuId = 'imenu-' + j.id;
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.cssText = 'border-top:3px solid #f87171;';
+                card.innerHTML = `
+                    <div onclick="previewJob(${j.id})" style="cursor:pointer;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; flex-wrap:wrap; gap:5px;">
+                            <span class="targa-badge" style="font-size:0.82rem;">${j.targa||'N/D'}</span>
+                            <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
+                                ${lordo > 0 ? `<span style="background:rgba(34,197,94,0.15); color:#86efac; padding:1px 7px; border-radius:4px; font-size:0.72rem; font-weight:bold;">€ ${lordo.toFixed(2)}</span>` : ''}
+                                ${hasPrev ? `<span onclick="event.stopPropagation(); setPrevTab('aperti'); switchView('preventivi');" style="background:rgba(167,139,250,0.2); color:var(--purple); padding:1px 7px; border-radius:4px; font-size:0.72rem; font-weight:bold; cursor:pointer;" title="Vai ai preventivi">📝 ${prevAperti.length} prev.</span>` : ''}
+                                <span style="font-size:0.68rem; color:var(--muted);">${formattaData(j.data)}</span>
+                            </div>
+                        </div>
+                        <div style="font-weight:bold; font-size:0.95rem; color:white; margin-bottom:3px;">${j.marca||''} ${j.modello||''}</div>
+                        <div style="font-size:0.82rem; color:var(--muted); margin-bottom:4px;">${(j.cognome||'').toUpperCase()} ${j.nome||''}${j.tel ? ' · 📞 '+j.tel : ''}</div>
+                        ${accTot > 0 ? `<div style="font-size:0.72rem; color:var(--info); font-weight:bold; margin-bottom:4px;">Acconti: €${accTot.toFixed(2)}</div>` : ''}
+                        <div style="font-size:0.75rem; color:#64748b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${noteText}</div>
+                    </div>
+                    <div style="display:flex; gap:6px; margin-top:12px; align-items:center;">
+                        <button class="btn btn-purple w-auto" style="flex:1; padding:6px; font-size:0.78rem;"
+                            onclick="event.stopPropagation(); nuovoPreventivoFromIncidentata(${j.id})">📝 Preventivo</button>
+                        <button class="btn btn-warning w-auto" style="flex:1; padding:6px; font-size:0.78rem; color:black;"
+                            onclick="event.stopPropagation(); moveStatus(${j.id},'doing'); refreshBoard(); switchView('board');">⚙️ Ponte</button>
+                        <button class="btn btn-info w-auto" style="flex:1; padding:6px; font-size:0.78rem;"
+                            onclick="event.stopPropagation(); openClosingModal(${j.id})">💰 Conto</button>
+                        <div style="position:relative; flex-shrink:0;">
+                            <button onclick="event.stopPropagation(); toggleMenuBoard('${menuId}', event)"
+                                style="background:#334155; border:none; color:var(--muted); border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; line-height:1;">⋯</button>
+                            <div id="${menuId}" style="display:none; position:absolute; bottom:calc(100% + 4px); right:0; background:var(--card); border:1px solid #334155; border-radius:10px; min-width:190px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:50; overflow:hidden;">
+                                <button onclick="editJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">✏️ Modifica scheda</button>
+                                <button onclick="printJobSheet(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">🖨️ Stampa scheda</button>
+                                <div style="border-top:1px solid #334155; margin:4px 0;"></div>
+                                <button onclick="deleteJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--accent); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">🗑️ Elimina</button>
+                            </div>
+                        </div>
+                    </div>`;
+                grid.appendChild(card);
+            });
+            c.innerHTML = '';
+            c.appendChild(grid);
+        }
+
         function refreshSpecials() {
             const cols = {
-                incidentate: $('sp-col-incidentate'),
-                restauri:    $('sp-col-restauri'),
-                specials:    $('sp-col-specials'),
-                ricambi:     $('sp-col-ricambi')
+                restauri: $('sp-col-restauri'),
+                specials: $('sp-col-specials'),
+                ricambi:  $('sp-col-ricambi')
             };
-            if (!cols.incidentate) return;
+            if (!cols.restauri) return;
             Object.values(cols).forEach(c => { c.innerHTML = ''; });
-            const counts = { incidentate: 0, restauri: 0, specials: 0, ricambi: 0 };
+            const counts = { restauri: 0, specials: 0, ricambi: 0 };
 
-            const specials = db.filter(j => j.stato === 'special')
+            const specials = db.filter(j => j.stato === 'special' && j.special_cat !== 'incidentate')
                                .sort((a,b) => new Date(b.data||0) - new Date(a.data||0));
 
-            const borderCol = { incidentate: '#f87171', restauri: '#fbbf24', specials: '#a78bfa', ricambi: '#38bdf8' };
+            const borderCol = { restauri: '#fbbf24', specials: '#a78bfa', ricambi: '#38bdf8' };
 
             if (specials.length === 0) {
                 Object.values(cols).forEach(c => {
                     c.innerHTML = '<div style="color:#475569; text-align:center; padding:20px; font-size:0.82rem;">Nessuna scheda</div>';
                 });
-                ['incidentate','restauri','specials'].forEach(k => {
+                ['restauri','specials'].forEach(k => {
                     const el = $('sp-count-' + k); if (el) el.style.display = 'none';
                 });
                 return;
             }
 
             specials.forEach(j => {
-                const cat    = (['incidentate','restauri','specials','ricambi'].includes(j.special_cat||'')) ? (j.special_cat||'specials') : 'specials';
+                const cat    = (['restauri','specials','ricambi'].includes(j.special_cat||'')) ? (j.special_cat||'specials') : 'specials';
                 const col    = cols[cat];
                 const border = borderCol[cat];
                 counts[cat]++;
@@ -3286,7 +3381,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             });
 
             // Badge contatori
-            const labels = { incidentate: '🚗 Incidentate', restauri: '🔨 Restauri', specials: '⚡ Specials', ricambi: '📦 Ricambi' };
+            const labels = { restauri: '🔨 Restauri', specials: '⚡ Specials', ricambi: '📦 Ricambi' };
             Object.entries(counts).forEach(([k, n]) => {
                 const el = $('sp-count-' + k);
                 if (el) { el.innerText = labels[k] + ': ' + n; el.style.display = n > 0 ? 'block' : 'none'; }
