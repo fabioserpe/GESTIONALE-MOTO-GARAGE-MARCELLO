@@ -1108,9 +1108,13 @@
                 </div>
             </div>
 
-            <!-- Form aggiunta articolo (chiuso per default) -->
-            <div id="mag-form-wrapper" class="card mb-14" style="border-top:3px solid var(--accent); display:none;">
-                <h3 style="color:var(--accent); margin:0 0 14px; font-size:0.95rem; font-weight:800;">➕ Aggiungi Nuovo Articolo</h3>
+            <!-- Form aggiunta articolo — modal overlay -->
+            <div id="mag-form-wrapper" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:20px;">
+                <div style="background:var(--card); border-radius:16px; border:1px solid var(--purple); border-top:4px solid var(--accent); padding:28px 32px; width:100%; max-width:900px; max-height:90vh; overflow-y:auto; position:relative;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+                    <h3 style="color:var(--accent); margin:0; font-size:1rem; font-weight:800;">➕ Aggiungi Nuovo Articolo</h3>
+                    <button onclick="toggleMagForm()" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.5rem; line-height:1; padding:0 4px;" title="Chiudi">×</button>
+                </div>
                 <div id="mag-form-body">
                 <form id="mag-new-item-form">
                     <div class="mob-form-grid" style="display:grid; grid-template-columns: 110px 2fr 1fr 1fr 70px 110px auto; gap:10px; align-items:end;">
@@ -1156,6 +1160,7 @@
                     </div>
                 </form>
                 </div><!-- fine mag-form-body -->
+                </div><!-- fine modal inner -->
             </div>
 
             <!-- Pulsante toggle inventario (mobile only) -->
@@ -5276,6 +5281,13 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // Magazzino su Realtime Database (nodo /magazzino)
 
         const MAG_SOGLIA = 3;
+
+        function isMagEsaurito(item) { return (item.giacenza||0) <= 0; }
+        function isMagScarso(item) {
+            if (isMagEsaurito(item)) return false;
+            const soglia = parseInt(item.min_stock)||0;
+            return soglia > 0 && (item.giacenza||0) <= soglia;
+        }
         const MAG_IVA = 0.22;
         let inventarioMag = [];
         let listaOrdiniMag = [];
@@ -5513,9 +5525,15 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function toggleMagForm() {
             const wrapper = $('mag-form-wrapper');
             if (!wrapper) return;
-            const open = wrapper.style.display === 'none' || wrapper.style.display === '';
-            wrapper.style.display = open ? 'block' : 'none';
-            if (open) setTimeout(() => { const f = $('mag-new-nome'); if (f) f.focus(); }, 50);
+            const isHidden = wrapper.style.display === 'none' || wrapper.style.display === '' || wrapper.style.display === 'none';
+            if (isHidden) {
+                wrapper.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+                setTimeout(() => { const f = $('mag-new-nome'); if (f) f.focus(); }, 50);
+            } else {
+                wrapper.style.display = 'none';
+                document.body.style.overflow = '';
+            }
         }
 
         function toggleMagInventario() {
@@ -5655,12 +5673,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     else { va = 0; vb = 0; }
                     return magSortDir === 'asc' ? va - vb : vb - va;
                 }).forEach(item => {
-                    const pIva = item.prezzo * (1 + MAG_IVA);
                     const totN = item.giacenza * item.prezzo;
-                    let stockColor, stockLabel, rowBg;
-                    if (item.giacenza <= 0) { stockColor = 'var(--accent)'; stockLabel = '⛔ ESAURITO'; rowBg = 'rgba(239,68,68,0.04)'; }
-                    else if (item.giacenza <= MAG_SOGLIA) { stockColor = 'var(--warning)'; stockLabel = '⚠️ SCARSO'; rowBg = 'rgba(245,158,11,0.03)'; }
-                    else { stockColor = 'var(--success)'; stockLabel = '✅ OK'; rowBg = ''; }
+                    let stockColor, rowBg;
+                    if (isMagEsaurito(item)) { stockColor = 'var(--accent)'; rowBg = 'rgba(239,68,68,0.04)'; }
+                    else if (isMagScarso(item)) { stockColor = 'var(--warning)'; rowBg = 'rgba(245,158,11,0.03)'; }
+                    else { stockColor = 'var(--success)'; rowBg = ''; }
 
                     const safe = s => (s||'').replace(/"/g,'&quot;').replace(/'/g,"\'");
                     const cod = safe(item.codice);
@@ -5697,30 +5714,35 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                 ${catOpts(item.categoria)}
                             </select>
                         </td>
-                        <td style="padding:12px 14px; text-align:center;">
-                            <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                        <td style="padding:8px 12px; text-align:center;">
+                            <div style="display:flex; align-items:center; justify-content:center; gap:6px;">
                                 <button onclick="event.stopPropagation(); const inp=this.nextElementSibling; inp.value=Math.max(0,parseInt(inp.value||0)-1); modificaArticoloMag('${cod}','giacenza',inp.value); renderTableMag(); renderSummaryMag();"
-                                    style="width:26px; height:26px; border-radius:50%; border:1px solid #334155; background:rgba(255,255,255,0.05); color:white; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">−</button>
+                                    style="width:22px; height:22px; border-radius:50%; border:1px solid #334155; background:rgba(255,255,255,0.05); color:white; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">−</button>
                                 <input type="number" min="0" value="${item.giacenza}"
-                                    style="width:50px; text-align:center; font-weight:900; font-size:1rem; color:${stockColor}; background:transparent; border:none; padding:0;"
+                                    style="width:44px; text-align:center; font-weight:900; font-size:0.95rem; color:${stockColor}; background:transparent; border:none; padding:0;"
                                     onchange="modificaArticoloMag('${cod}','giacenza',this.value)">
                                 <button onclick="event.stopPropagation(); const inp=this.previousElementSibling; inp.value=parseInt(inp.value||0)+1; modificaArticoloMag('${cod}','giacenza',inp.value); renderTableMag(); renderSummaryMag();"
-                                    style="width:26px; height:26px; border-radius:50%; border:1px solid #334155; background:rgba(255,255,255,0.05); color:white; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">+</button>
+                                    style="width:22px; height:22px; border-radius:50%; border:1px solid #334155; background:rgba(255,255,255,0.05); color:white; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">+</button>
                             </div>
-                            <div style="font-size:0.7rem; font-weight:700; color:${stockColor}; margin-top:3px;">${stockLabel}</div>
+                            <div style="font-size:0.62rem; color:var(--muted); margin-top:3px; display:flex; align-items:center; justify-content:center; gap:3px;">
+                                <span>min</span>
+                                <input type="number" min="0" value="${item.min_stock||0}"
+                                    style="width:30px; text-align:center; background:transparent; border:1px solid #334155; border-radius:3px; color:var(--muted); font-size:0.62rem; padding:1px 2px;"
+                                    title="Soglia riordino: articolo marcato SCARSO quando giacenza ≤ questo valore"
+                                    onclick="event.stopPropagation()"
+                                    onchange="event.stopPropagation(); modificaArticoloMag('${cod}','min_stock',this.value); renderTableMag(); renderSummaryMag();">
+                            </div>
                         </td>
-                        <td style="padding:12px 14px; text-align:right;">
+                        <td style="padding:8px 12px; text-align:right;">
                             <input type="number" step="0.01" min="0" value="${item.prezzo.toFixed(2)}"
                                 style="width:80px; text-align:right; background:transparent; border:none; color:white; font-size:0.9rem; font-weight:600; padding:4px 6px; border-radius:6px; transition:all 0.15s;"
                                 onfocus="this.style.background='var(--bg)'; this.style.outline='2px solid var(--info)';"
                                 onblur="this.style.background='transparent'; this.style.outline='none'; modificaArticoloMag('${cod}','prezzo',this.value)">
-                            <div style="font-size:0.7rem; color:var(--muted); margin-top:2px;">+IVA ${pIva.toFixed(2)} €</div>
                         </td>
-                        <td style="padding:12px 14px; text-align:right;">
+                        <td style="padding:8px 12px; text-align:right;">
                             <div style="font-weight:800; color:white;">€ ${totN.toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
-                            <div style="font-size:0.7rem; color:var(--muted); margin-top:2px;">+IVA ${(totN*(1+MAG_IVA)).toLocaleString('it-IT',{minimumFractionDigits:2})} €</div>
                         </td>
-                        <td style="padding:12px 10px; text-align:center;">
+                        <td style="padding:8px 10px; text-align:center;">
                             <button onclick="eliminaArticoloMag('${cod}')"
                                 style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; padding:4px 6px; border-radius:6px; transition:all 0.15s;"
                                 title="Elimina articolo"
@@ -5783,6 +5805,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             let v = valore;
             if (campo==='prezzo') v = Math.max(0, parseFloat(valore)||0);
             else if (campo==='giacenza') v = Math.max(0, parseInt(valore)||0);
+            else if (campo==='min_stock') v = Math.max(0, parseInt(valore)||0);
             else if (typeof v==='string') v = v.toUpperCase().trim();
             const aggiornato = { ...inventarioMag[idx], [campo]: v };
             inventarioMag[idx] = aggiornato;
