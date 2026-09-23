@@ -2172,6 +2172,7 @@
                 initMagazzino();
                 refreshListaOrdini();
             }
+            chiudiTuttiMenuBoard();
             ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-incidentate', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.topbar-qbtn').forEach(b => b.classList.toggle('tq-active', b.dataset.view === viewId));
@@ -3251,7 +3252,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const accTot = (j.acconti||[]).reduce((a,b) => a + (parseFloat(b.val)||0), 0);
                 const lordo = parseFloat(j.totale_lordo) || 0;
                 const noteText = (j.lavori_richiesti||'—').split('\n').join(' · ').split('\r').join('');
-                const menuId = 'smenu-' + j.id;
+                const menuId = 'imenu-' + j.id;
 
                 const card = document.createElement('div');
                 card.className = 'card';
@@ -6088,6 +6089,8 @@ A presto!`;
                 // quando refreshBoard() ricrea le card
                 if (m.parentElement === document.body) m.remove();
             });
+            // Menu incidentate: nasconde ma NON rimuove (le card non vengono ricreate ad ogni azione)
+            document.querySelectorAll('[id^="imenu-"]').forEach(m => { m.style.display = 'none'; });
             const bd = document.getElementById('board-menu-backdrop'); if (bd) bd.style.display = 'none';
         }
 
