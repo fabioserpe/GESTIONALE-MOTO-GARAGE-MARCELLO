@@ -303,6 +303,11 @@
         .tema-sfondo { width:34px;height:22px;border-radius:5px;border:2px solid transparent;cursor:pointer;font-size:0.52rem;font-weight:900;color:rgba(255,255,255,0.55);transition:0.15s;padding:0;letter-spacing:0.3px; }
         .tema-sfondo.active { border-color:white;color:white; }
         .tema-sfondo:hover:not(.active) { border-color:rgba(255,255,255,0.4); }
+        /* Magazzino: griglia stile foglio */
+        #mag-inventory-table .mag-item-row td { border-right:1px solid #e2e8f0; vertical-align:middle; }
+        #mag-inventory-table .mag-item-row td:first-child { border-left:3px solid transparent; }
+        #mag-inventory-table .mag-item-row.row-esaurito td:first-child { border-left-color:#ef4444; }
+        #mag-inventory-table .mag-item-row.row-scarso td:first-child { border-left-color:#f59e0b; }
     </style>
     <script>
         /* Applica tema salvato prima del primo render per evitare flash */
@@ -5664,7 +5669,6 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     <td style="${catBg} padding:11px 14px;"></td>`;
                 tbody.appendChild(trH);
 
-                let _rowIdx = 0;
                 items.sort((a, b) => {
                     let va, vb;
                     if (magSortField === 'codice')    { va = a.codice || ''; vb = b.codice || ''; return magSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
@@ -5674,12 +5678,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     else { va = 0; vb = 0; }
                     return magSortDir === 'asc' ? va - vb : vb - va;
                 }).forEach(item => {
-                    const _zi = _rowIdx++;
                     const totN = item.giacenza * item.prezzo;
                     let stockColor, rowBg;
                     if (isMagEsaurito(item)) { stockColor = 'var(--accent)'; rowBg = '#fef2f2'; }
                     else if (isMagScarso(item)) { stockColor = 'var(--warning)'; rowBg = '#fffbeb'; }
-                    else { stockColor = 'var(--success)'; rowBg = _zi % 2 === 0 ? 'white' : '#f5f7fa'; }
+                    else { stockColor = 'var(--success)'; rowBg = 'white'; }
 
                     const safe = s => (s||'').replace(/"/g,'&quot;').replace(/'/g,"\'");
                     const cod = safe(item.codice);
@@ -5688,21 +5691,23 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     tr.className = 'mag-item-row';
                     tr.setAttribute('data-cat', cat);
                     tr.style.cssText = `border-bottom:1px solid #e2e8f0; transition:background 0.15s; background:${rowBg};${isOpen ? '' : 'display:none;'}`;
-                    tr.onmouseover = function() { this.style.background = '#e8edf2'; };
+                    if (isMagEsaurito(item)) tr.classList.add('row-esaurito');
+                    else if (isMagScarso(item)) tr.classList.add('row-scarso');
+                    tr.onmouseover = function() { this.style.background = '#f1f5f9'; };
                     tr.onmouseout  = function() { this.style.background = rowBg; };
 
                     tr.innerHTML = `
-                        <td style="padding:7px 12px;">
-                            <span style="font-family:monospace; font-size:0.82rem; color:#334155; background:#eef2f7; border:none; border-right:3px solid #cbd5e1; padding:3px 8px; border-radius:3px; letter-spacing:0.5px; font-weight:700;">${item.codice}</span>
+                        <td style="padding:12px 14px;">
+                            <span style="font-family:monospace; font-size:0.85rem; color:#334155; font-weight:700; letter-spacing:0.5px;">${item.codice}</span>
                         </td>
-                        <td style="padding:7px 10px;">
+                        <td style="padding:12px 14px;">
                             <input type="text" value="${safe(item.nome)}"
                                 style="width:100%; background:transparent; border:none; color:#1e293b; font-size:0.9rem; padding:4px 6px; border-radius:6px; transition:all 0.15s;"
                                 title="Clicca per modificare"
                                 onfocus="this.style.background='#f8fafc'; this.style.outline='2px solid var(--info)';"
                                 onblur="this.style.background='transparent'; this.style.outline='none'; modificaArticoloMag('${cod}','nome',this.value)">
                         </td>
-                        <td style="padding:7px 10px;">
+                        <td style="padding:12px 14px;">
                             <input type="text" value="${safe(item.marca)}"
                                 style="width:100%; background:transparent; border:none; color:#64748b; font-size:0.85rem; padding:4px 6px; border-radius:6px; transition:all 0.15s;"
                                 onfocus="this.style.background='#f8fafc'; this.style.outline='2px solid var(--info)'; this.style.color='#1e293b';"
