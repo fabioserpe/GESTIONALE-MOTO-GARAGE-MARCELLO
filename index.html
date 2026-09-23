@@ -5741,7 +5741,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                 <button onclick="event.stopPropagation(); const inp=this.nextElementSibling; inp.value=Math.max(0,parseInt(inp.value||0)-1); modificaArticoloMag('${cod}','giacenza',inp.value); renderTableMag(); renderSummaryMag();"
                                     style="width:22px; height:22px; border-radius:50%; border:1px solid #64748b; background:rgba(255,255,255,0.08); color:#e2e8f0; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">−</button>
                                 <input type="number" min="0" value="${item.giacenza}"
-                                    style="width:44px; text-align:center; font-weight:900; font-size:0.95rem; color:#f1f5f9; background:transparent; border:none; padding:0;"
+                                    style="width:44px; text-align:center; font-weight:900; font-size:0.95rem; color:${stockColor}; background:transparent; border:none; padding:0;"
                                     onchange="modificaArticoloMag('${cod}','giacenza',this.value)">
                                 <button onclick="event.stopPropagation(); const inp=this.previousElementSibling; inp.value=parseInt(inp.value||0)+1; modificaArticoloMag('${cod}','giacenza',inp.value); renderTableMag(); renderSummaryMag();"
                                     style="width:22px; height:22px; border-radius:50%; border:1px solid #64748b; background:rgba(255,255,255,0.08); color:#e2e8f0; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">+</button>
