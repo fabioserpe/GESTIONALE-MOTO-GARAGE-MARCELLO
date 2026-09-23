@@ -1061,9 +1061,6 @@
                 <button onclick="toggleMagForm()" style="display:flex; align-items:center; gap:6px; background:rgba(239,68,68,0.1); border:1px solid var(--accent); color:var(--accent); border-radius:8px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap;">
                     ➕ Aggiungi Articolo
                 </button>
-                <button onclick="setAllMinStockDefault(1)" style="display:flex; align-items:center; gap:6px; background:rgba(99,102,241,0.1); border:1px solid #6366f1; color:#6366f1; border-radius:8px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap;" title="Imposta soglia riordino = 1 per tutti gli articoli senza soglia">
-                    ⚙️ Soglia min=1
-                </button>
             </div>
 
             <!-- Lista Ricambi da Ordinare (chiusa per default) -->
@@ -5293,7 +5290,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function isMagEsaurito(item) { return (item.giacenza||0) <= 0; }
         function isMagScarso(item) {
             if (isMagEsaurito(item)) return false;
-            const soglia = parseInt(item.min_stock)||0;
+            const soglia = (item.min_stock != null && item.min_stock !== '') ? parseInt(item.min_stock) : 1;
             return soglia > 0 && (item.giacenza||0) <= soglia;
         }
         const MAG_IVA = 0.22;
@@ -5743,7 +5740,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                             </div>
                             <div style="font-size:0.62rem; color:var(--muted); margin-top:3px; display:flex; align-items:center; justify-content:center; gap:3px;">
                                 <span>min</span>
-                                <input type="number" min="0" value="${item.min_stock||0}"
+                                <input type="number" min="0" value="${(item.min_stock != null && item.min_stock !== '') ? item.min_stock : 1}"
                                     style="width:30px; text-align:center; background:transparent; border:1px solid #334155; border-radius:3px; color:var(--muted); font-size:0.62rem; padding:1px 2px;"
                                     title="Soglia riordino: articolo marcato SCARSO quando giacenza ≤ questo valore"
                                     onclick="event.stopPropagation()"
@@ -5822,7 +5819,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             let v = valore;
             if (campo==='prezzo') v = Math.max(0, parseFloat(valore)||0);
             else if (campo==='giacenza') v = Math.max(0, parseInt(valore)||0);
-            else if (campo==='min_stock') v = Math.max(0, parseInt(valore)||0);
+            else if (campo==='min_stock') v = Math.max(1, parseInt(valore)||1);
             else if (typeof v==='string') v = v.toUpperCase().trim();
             const aggiornato = { ...inventarioMag[idx], [campo]: v };
             inventarioMag[idx] = aggiornato;
