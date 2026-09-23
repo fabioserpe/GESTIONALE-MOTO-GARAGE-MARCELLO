@@ -3231,6 +3231,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         function refreshIncidentate() {
+            chiudiTuttiMenuBoard();
             const c = $('incidentate-results');
             if (!c) return;
             const incidentate = db.filter(j => j.stato === 'special' && j.special_cat === 'incidentate')
@@ -3250,7 +3251,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const accTot = (j.acconti||[]).reduce((a,b) => a + (parseFloat(b.val)||0), 0);
                 const lordo = parseFloat(j.totale_lordo) || 0;
                 const noteText = (j.lavori_richiesti||'—').split('\n').join(' · ').split('\r').join('');
-                const menuId = 'imenu-' + j.id;
+                const menuId = 'smenu-' + j.id;
 
                 const card = document.createElement('div');
                 card.className = 'card';
