@@ -2376,8 +2376,8 @@
                     const d = JSON.stringify({ targa: j.targa||'', nome: j.nome||'', cognome: j.cognome||'', tel: j.tel||'', marca: j.marca||'', modello: j.modello||'', km: j.km||'', clientId: j.clientId||'' }).replace(/"/g, '&quot;');
                     return '<div onmousedown="selezionaClientePreventivo(' + d + ')"' +
                         ' style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);border-left:3px solid transparent;"' +
-                        ' onmouseover="this.style.background='rgba(168,85,247,0.12)'"' +
-                        ' onmouseout="this.style.background=''">' +
+                        ' onmouseover="this.style.background=\'rgba(168,85,247,0.12)\'"' +
+                        ' onmouseout="this.style.background=\'\'">' +
                         '<div><span style="font-weight:bold;color:white;">' + nomeCompl + '</span>' +
                         (j.targa ? '<span style="color:var(--info);font-family:monospace;font-size:0.85rem;margin-left:8px;">' + j.targa + '</span>' : '') +
                         '</div>' +
