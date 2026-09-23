@@ -5498,25 +5498,29 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 list.innerHTML = '<p style="color:var(--muted); font-size:0.85rem; text-align:center; padding:8px 0;">Lista vuota — aggiungi i ricambi da ordinare sopra.</p>';
                 return;
             }
-            list.innerHTML = `<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">
-                <thead><tr style="color:var(--muted); font-size:0.72rem; text-transform:uppercase; border-bottom:1px solid #334155;">
-                    <th style="padding:6px 8px; text-align:left; font-weight:600;">Descrizione</th>
-                    <th style="padding:6px 8px; text-align:left; font-weight:600;">SKU</th>
-                    <th style="padding:6px 8px; text-align:left; font-weight:600;">Marca</th>
-                    <th style="padding:6px 8px; text-align:left; font-weight:600;">Categoria</th>
-                    <th style="padding:6px 8px; text-align:center; font-weight:600;">Qtà</th>
-                    <th style="padding:6px 8px; text-align:right; font-weight:600;">Prezzo</th>
-                    <th style="padding:6px 4px;"></th>
+            list.innerHTML = `<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px; background:white; border-radius:8px; overflow:hidden;">
+                <thead><tr style="background:#1e293b;">
+                    <th style="padding:8px 12px; text-align:left; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155; width:120px;">CODICE SKU</th>
+                    <th style="padding:8px 12px; text-align:left; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">DESCRIZIONE</th>
+                    <th style="padding:8px 12px; text-align:left; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155; width:130px;">MARCA</th>
+                    <th style="padding:8px 12px; text-align:left; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155; width:140px;">CATEGORIA</th>
+                    <th style="padding:8px 12px; text-align:center; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155; width:80px;">QTÀ</th>
+                    <th style="padding:8px 12px; text-align:right; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155; width:100px;">PREZZO</th>
+                    <th style="border-bottom:2px solid #334155; width:100px;"></th>
                 </tr></thead>
                 <tbody>${listaOrdiniMag.map(item => `
-                    <tr style="border-bottom:1px solid rgba(51,65,85,0.5);">
-                        <td style="padding:7px 8px; color:white; font-weight:600;">${item.nome}</td>
-                        <td style="padding:7px 8px; color:var(--muted); font-family:monospace; font-size:0.78rem;">${item.codice || '—'}</td>
-                        <td style="padding:7px 8px; color:var(--muted);">${item.marca || '—'}</td>
-                        <td style="padding:7px 8px; color:var(--muted); font-size:0.8rem;">${item.categoria || '—'}</td>
-                        <td style="padding:7px 8px; text-align:center; color:var(--info); font-weight:bold;">${item.giacenza}</td>
-                        <td style="padding:7px 8px; text-align:right; color:var(--success);">${item.prezzo > 0 ? '€'+item.prezzo.toFixed(2) : '—'}</td>
-                        <td style="padding:7px 4px; white-space:nowrap; text-align:right;">
+                    <tr style="border-bottom:1px solid #e2e8f0; background:white;">
+                        <td style="padding:6px 12px; background:#f1f5f9; border-right:1px solid #e2e8f0; border-left:3px solid #60a5fa;">
+                            <span style="font-family:monospace; font-size:1rem; color:#1e293b; font-weight:800;">${item.codice || '—'}</span>
+                        </td>
+                        <td style="padding:6px 12px; background:#f8fafc; font-weight:700; color:#1e293b; border-right:1px solid #e2e8f0;">${item.nome}</td>
+                        <td style="padding:6px 12px; color:#64748b; border-right:1px solid #e2e8f0;">${item.marca || '—'}</td>
+                        <td style="padding:6px 12px; background:#cbd5e1; font-weight:700; color:#1e293b; border-right:1px solid #e2e8f0; font-size:0.82rem;">${item.categoria || '—'}</td>
+                        <td style="padding:6px 12px; text-align:center; background:#334155; border-right:1px solid #475569;">
+                            <span style="font-size:1.3rem; font-weight:900; color:#60a5fa;">${item.giacenza}</span>
+                        </td>
+                        <td style="padding:6px 12px; text-align:right; font-weight:700; color:#1e293b; border-right:1px solid #e2e8f0;">${item.prezzo > 0 ? '€ '+item.prezzo.toFixed(2) : '—'}</td>
+                        <td style="padding:6px 8px; text-align:center; white-space:nowrap;">
                             <button onclick="spostaInMagazzino(${item.id})" style="background:#22c55e; color:white; border:none; border-radius:6px; padding:5px 9px; font-size:0.75rem; font-weight:bold; cursor:pointer; margin-right:4px;" title="Ricevuto: carica in magazzino">📥 Mag.</button>
                             <button onclick="deleteListaOrdine(${item.id})" style="background:transparent; border:1px solid rgba(239,68,68,0.4); color:var(--accent); border-radius:6px; padding:5px 8px; font-size:0.75rem; cursor:pointer;" title="Elimina">🗑️</button>
                         </td>
