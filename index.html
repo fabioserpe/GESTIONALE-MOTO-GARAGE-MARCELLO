@@ -845,7 +845,7 @@
         </div>
 
         <div id="view-crea-prev" class="view hidden" style="padding:0 10px;">
-            <div style="max-width:1050px; background:var(--card); padding:30px 35px; border-radius:20px; margin:auto; border:1px solid var(--purple); border-top:4px solid var(--purple);">
+            <div style="max-width:1300px; background:var(--card); padding:30px 40px; border-radius:20px; margin:auto; border:1px solid var(--purple); border-top:4px solid var(--purple);">
                 <h2 style="color:var(--purple); margin:0 0 3px;">📝 Generatore Preventivo</h2>
                 <p style="font-size:0.78rem; color:var(--muted); margin:0 0 18px;">Prezzi IVA inclusa &middot; l'imponibile viene calcolato in automatico per aliquota.</p>
                 <input type="hidden" id="p_id">
@@ -862,14 +862,14 @@
 
                 <!-- Dati cliente -->
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
-                    <input id="p_targa" placeholder="Targa 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('p')" style="border-color:var(--purple); margin:0;">
                     <input id="p_nome" placeholder="Nome" style="margin:0;">
                     <input id="p_cognome" placeholder="Cognome (Obbligatorio)" onblur="checkCustomerBikes('p')" style="margin:0;">
+                    <input id="p_tel" placeholder="Telefono" style="margin:0;">
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:22px;">
-                    <input id="p_tel" placeholder="Telefono" style="margin:0;">
                     <input id="p_marca" placeholder="Marca" style="margin:0;">
                     <input id="p_modello" placeholder="Modello" style="margin:0;">
+                    <input id="p_targa" placeholder="Targa 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('p')" style="border-color:var(--purple); margin:0;">
                     <input id="p_km" type="number" placeholder="KM" style="margin:0;">
                 </div>
 
