@@ -4228,6 +4228,21 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             mostraToast('Preventivo archiviato nello storico 📁');
         }
         let _prevTab = 'aperti';
+        function convertiStoricoInCommessa(id) {
+            if (!confirm('Convertire questo preventivo archiviato in commessa attiva?')) return;
+            const i = db.findIndex(j => String(j.id) === String(id));
+            if (i < 0) return;
+            const p = db[i];
+            db[i].stato = 'todo';
+            db[i].data_accettazione = getOggiLocale();
+            db[i].data = getOggiLocale();
+            db[i].lavori_richiesti = p.lavori_richiesti || 'Vedi voci preventivo';
+            agendaDB.push({ id: genId(), tipo: 'officina', jobId: p.id, data: db[i].data, ora: '09:00', cliente: ((p.cognome||'') + ' ' + (p.nome||'')).trim(), moto: ((p.marca||'') + ' ' + (p.modello||'') + ' - ' + (p.targa||'')).trim(), tel: p.tel||'', note: db[i].lavori_richiesti, raw_nome: p.nome||'', raw_cognome: p.cognome||'', raw_marca: p.marca||'', raw_modello: p.modello||'', raw_targa: p.targa||'' });
+            saveDBAgenda();
+            mostraToast('Preventivo convertito in commessa ✅');
+            switchView('board');
+        }
+
         let _editingStorico = false;
         function setPrevTab(t) { _prevTab = t; refreshPreventivi(); }
         function _prevToggleVoci(id) {
@@ -4394,6 +4409,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                             <div class="dropdown">
                                 <button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.83rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button>
                                 <div class="dropdown-content" style="right:0; top:100%; min-width:190px; z-index:100;">
+                                    <button onclick="convertiStoricoInCommessa(${p.id})" style="color:var(--success); width:100%; text-align:left;">✅ Converti in Commessa</button>
                                     <button onclick="printPreventivo(${p.id})" style="color:var(--text); width:100%; text-align:left;">🖨️ Stampa Preventivo</button>
                                     <button onclick="sendWhatsAppPreventivo(${p.id})" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button>
                                     <button onclick="openPreventivoForm(${p.id}, true)" style="color:var(--info); width:100%; text-align:left;">✏️ Modifica Voci</button>
