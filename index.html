@@ -5739,20 +5739,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         <td style="padding:8px 12px; text-align:center;">
                             <div style="display:flex; align-items:center; justify-content:center; gap:6px;">
                                 <button onclick="event.stopPropagation(); const inp=this.nextElementSibling; inp.value=Math.max(0,parseInt(inp.value||0)-1); modificaArticoloMag('${cod}','giacenza',inp.value); renderTableMag(); renderSummaryMag();"
-                                    style="width:22px; height:22px; border-radius:50%; border:1px solid #64748b; background:rgba(255,255,255,0.08); color:#e2e8f0; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">−</button>
+                                    style="width:26px; height:26px; border-radius:50%; border:1px solid #64748b; background:rgba(255,255,255,0.1); color:#e2e8f0; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">−</button>
                                 <input type="number" min="0" value="${item.giacenza}"
-                                    style="width:44px; text-align:center; font-weight:900; font-size:0.95rem; color:${stockColor}; background:transparent; border:none; padding:0;"
+                                    style="width:52px; text-align:center; font-weight:900; font-size:1.3rem; color:${stockColor}; background:transparent; border:none; padding:0;"
                                     onchange="modificaArticoloMag('${cod}','giacenza',this.value)">
                                 <button onclick="event.stopPropagation(); const inp=this.previousElementSibling; inp.value=parseInt(inp.value||0)+1; modificaArticoloMag('${cod}','giacenza',inp.value); renderTableMag(); renderSummaryMag();"
-                                    style="width:22px; height:22px; border-radius:50%; border:1px solid #64748b; background:rgba(255,255,255,0.08); color:#e2e8f0; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">+</button>
-                            </div>
-                            <div style="font-size:0.62rem; color:#94a3b8; margin-top:3px; display:flex; align-items:center; justify-content:center; gap:3px;">
-                                <span>min</span>
-                                <input type="number" min="0" value="${(item.min_stock != null && item.min_stock !== '') ? item.min_stock : 1}"
-                                    style="width:30px; text-align:center; background:rgba(255,255,255,0.08); border:1px solid #64748b; border-radius:3px; color:#94a3b8; font-size:0.62rem; padding:1px 2px;"
-                                    title="Soglia riordino: articolo marcato SCARSO quando giacenza ≤ questo valore"
-                                    onclick="event.stopPropagation()"
-                                    onchange="event.stopPropagation(); modificaArticoloMag('${cod}','min_stock',this.value); renderTableMag(); renderSummaryMag();">
+                                    style="width:26px; height:26px; border-radius:50%; border:1px solid #64748b; background:rgba(255,255,255,0.1); color:#e2e8f0; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">+</button>
                             </div>
                         </td>
                         <td style="padding:8px 12px; text-align:right;">
