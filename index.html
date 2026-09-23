@@ -5639,7 +5639,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 existing.giacenza += item.giacenza;
                 await magSave(codice, existing);
             } else {
-                await magSave(codice, { codice, nome: item.nome, marca: item.marca, categoria: item.categoria || 'RICAMBI', giacenza: item.giacenza, prezzo: item.prezzo });
+                await magSave(codice, { codice, nome: item.nome, marca: item.marca, categoria: item.categoria || 'RICAMBI', giacenza: item.giacenza, prezzo: item.prezzo || 0, prezzo_pubblico: item.prezzo_pubblico || 0 });
             }
             listaOrdiniMag.splice(idx, 1);
             saveListaOrdiniMag();
@@ -5858,7 +5858,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                             </div>
                         </td>
                         <td style="padding:8px 12px; text-align:right;">
-                            <input type="number" step="0.01" min="0" value="${item.prezzo.toFixed(2)}"
+                            <input type="number" step="0.01" min="0" value="${(item.prezzo||0).toFixed(2)}"
                                 style="width:80px; text-align:right; background:transparent; border:none; color:#1e293b; font-size:0.9rem; font-weight:600; padding:4px 6px; border-radius:6px; transition:all 0.15s;"
                                 onfocus="this.style.background='#f8fafc'; this.style.outline='2px solid var(--info)'; if(parseFloat(this.value)===0)this.value=''; this.select();"
                                 onblur="this.style.background='transparent'; this.style.outline='none'; if(this.value===''||isNaN(parseFloat(this.value)))this.value='0.00'; modificaArticoloMag('${cod}','prezzo',this.value)">
@@ -5965,8 +5965,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (!inventarioMag.length) return mostraErrore("Magazzino vuoto!");
             let csv = "\uFEFFCODICE;DESCRIZIONE;MARCA;CATEGORIA;STOCK;PR.ACQUISTO;PR.PUBBLICO;PREZZO IVATO ACQ;TOTALE NETTO;TOTALE IVATO\n";
             [...inventarioMag].sort((a,b)=>(a.categoria||'').localeCompare(b.categoria||'')||(a.codice||'').localeCompare(b.codice||'')).forEach(i => {
-                const pI=i.prezzo*(1+MAG_IVA), tN=i.giacenza*i.prezzo, tI=tN*(1+MAG_IVA);
-                csv+=`${i.codice};${i.nome};${i.marca};${i.categoria};${i.giacenza};${i.prezzo.toFixed(2).replace('.',',')};${pI.toFixed(2).replace('.',',')};${tN.toFixed(2).replace('.',',')};${tI.toFixed(2).replace('.',',')}\n`;
+                const pI=i.prezzo*(1+MAG_IVA), tN=i.giacenza*i.prezzo, tI=tN*(1+MAG_IVA), pp=(i.prezzo_pubblico||0);
+                csv+=`${i.codice};${i.nome};${i.marca};${i.categoria};${i.giacenza};${i.prezzo.toFixed(2).replace('.',',')};${pp.toFixed(2).replace('.',',')};${pI.toFixed(2).replace('.',',')};${tN.toFixed(2).replace('.',',')};${tI.toFixed(2).replace('.',',')}\n`;
             });
             const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'})); a.download=`magazzino_${getOggiLocale()}.csv`; a.click();
         }
