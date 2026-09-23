@@ -4182,13 +4182,14 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const stock = i.giacenza <= 0 ? '⛔' : i.giacenza <= 3 ? '⚠️' : '✅';
                 const codeSafe = (i.codice||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
                 const nomeSafe = (i.nome||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-                const prezzo = parseFloat(i.prezzo) || 0;
+                const prezzo = parseFloat(i.prezzo_pubblico) || parseFloat(i.prezzo) || 0;
+                const prezzoPubb = parseFloat(i.prezzo_pubblico) || 0;
                 return `<div onmousedown="selezionaMagPerConto(this.closest('.mag-conto-results').closest('tr'),'${codeSafe}','${nomeSafe}',${prezzo})"
                     style="padding:8px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem;transition:background 0.1s;"
                     onmouseover="this.style.background='rgba(20,184,166,0.15)'" onmouseout="this.style.background=''">
                     <span style="color:#14b8a6;font-weight:bold;font-family:monospace;">${i.codice}</span>
                     <span style="color:white;margin-left:8px;">${i.nome}</span>
-                    <span style="float:right;color:var(--muted);">${stock} ${i.giacenza} pz${prezzo > 0 ? ` · €${prezzo.toFixed(2)}` : ''}</span>
+                    <span style="float:right;color:var(--muted);">${stock} ${i.giacenza} pz${prezzoPubb > 0 ? ` · <span style="color:#22c55e;font-weight:bold;">€${prezzoPubb.toFixed(2)}</span>` : ''}</span>
                 </div>`;
             }).join('');
         }
