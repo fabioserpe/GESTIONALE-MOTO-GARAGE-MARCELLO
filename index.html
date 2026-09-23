@@ -844,39 +844,64 @@
             <div id="preventivi-results" style="overflow-y:auto; flex-grow:1; padding-top:14px;"></div>
         </div>
 
-        <div id="view-crea-prev" class="view hidden">
-            <div style="max-width:800px; background:var(--card); padding:35px; border-radius:20px; margin:auto; border:1px solid var(--purple);">
-                <h2 style="color:var(--purple);" class="mb-15">Generatore Preventivo</h2>
-                <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 15px;">Suggerimento: Inserisci il Cognome del cliente e seleziona il veicolo.</p>
+        <div id="view-crea-prev" class="view hidden" style="padding:0 10px;">
+            <div style="max-width:1050px; background:var(--card); padding:30px 35px; border-radius:20px; margin:auto; border:1px solid var(--purple); border-top:4px solid var(--purple);">
+                <h2 style="color:var(--purple); margin:0 0 3px;">📝 Generatore Preventivo</h2>
+                <p style="font-size:0.78rem; color:var(--muted); margin:0 0 18px;">Prezzi IVA inclusa &middot; l'imponibile viene calcolato in automatico per aliquota.</p>
                 <input type="hidden" id="p_id">
+
+                <!-- Ricerca cliente -->
                 <label style="color:var(--purple);">🔍 Cerca cliente esistente</label>
-                <div style="position:relative; margin-bottom:10px;">
+                <div style="position:relative; margin-bottom:12px;">
                     <input id="p_search_cliente" placeholder="Digita cognome, nome o targa..." autocomplete="off"
                         style="border-color:var(--purple); margin-bottom:0;"
                         oninput="cercaClientePreventivo()"
                         onblur="setTimeout(()=>{const r=document.getElementById('prev-cliente-results');if(r)r.style.display='none';},200)">
                     <div id="prev-cliente-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--purple);border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,0.5);"></div>
                 </div>
-                <input id="p_targa" placeholder="Targa o Cliente 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('p')" style="border-color: var(--purple);">
-                <div class="flex-row">
-                    <input id="p_nome" placeholder="Nome"> 
-                    <input id="p_cognome" placeholder="Cognome (Obbligatorio)" onblur="checkCustomerBikes('p')">
+
+                <!-- Dati cliente -->
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <input id="p_targa" placeholder="Targa 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('p')" style="border-color:var(--purple); margin:0;">
+                    <input id="p_nome" placeholder="Nome" style="margin:0;">
+                    <input id="p_cognome" placeholder="Cognome (Obbligatorio)" onblur="checkCustomerBikes('p')" style="margin:0;">
                 </div>
-                <input id="p_tel" placeholder="Telefono">
-                <div class="flex-row"><input id="p_marca" placeholder="Marca"> <input id="p_modello" placeholder="Modello"> <input id="p_km" type="number" placeholder="KM"></div>
-                
-                <h3 style="color:var(--muted);" class="mt-15 mb-15">Voci Preventivo</h3>
-                <table style="width:100%; color: white;"><tbody id="p-conto-rows"></tbody></table>
-                <button class="btn btn-dark w-auto mt-15" onclick="addVoce('p-conto-rows', 'p-desc', 'p-price', calcPrevTotal, '', '', true)">+ Aggiungi Voce</button>
-                
-                <div class="text-right mt-15 border-info pt-15">
-                    <h2 id="p-totale" style="color:var(--purple);">TOTALE: 0.00 €</h2>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:22px;">
+                    <input id="p_tel" placeholder="Telefono" style="margin:0;">
+                    <input id="p_marca" placeholder="Marca" style="margin:0;">
+                    <input id="p_modello" placeholder="Modello" style="margin:0;">
+                    <input id="p_km" type="number" placeholder="KM" style="margin:0;">
                 </div>
-                <div class="flex-row mt-15">
-                    <button class="btn btn-dark" onclick="switchView('preventivi')" style="flex:1">Annulla</button>
-                    <button class="btn btn-purple" onclick="savePreventivo(false, false)" style="flex:1">💾 Salva</button>
-                    <button class="btn btn-wa" onclick="savePreventivo(true, false)" style="flex:1">📲 WA</button>
-                    <button class="btn btn-success" onclick="savePreventivo(false, true)" style="flex:1.5">✅ Salva in Officina</button>
+
+                <!-- Intestazione colonne voci -->
+                <div style="display:grid; grid-template-columns:1fr 110px 60px 64px 115px 28px; gap:6px; padding:0 2px 5px; border-bottom:1px solid #334155; margin-bottom:4px;">
+                    <span style="font-size:0.7rem; color:var(--muted); font-weight:700; letter-spacing:.05em;">DESCRIZIONE</span>
+                    <span style="font-size:0.7rem; color:var(--muted); font-weight:700; text-align:right;">PREZZO UNIT.</span>
+                    <span style="font-size:0.7rem; color:var(--muted); font-weight:700; text-align:center;">QT&Agrave;</span>
+                    <span style="font-size:0.7rem; color:var(--muted); font-weight:700; text-align:center;">IVA%</span>
+                    <span style="font-size:0.7rem; color:var(--muted); font-weight:700; text-align:right;">TOTALE RIGA</span>
+                    <span></span>
+                </div>
+                <table style="width:100%; color:white; border-collapse:collapse;"><tbody id="p-conto-rows"></tbody></table>
+                <button class="btn btn-dark w-auto mt-10" onclick="addVocePrev('','',22,true)">+ Aggiungi Voce</button>
+
+                <!-- Riepilogo IVA + Totale + Azioni -->
+                <div style="display:flex; flex-wrap:wrap; gap:20px; margin-top:20px; padding-top:16px; border-top:1px solid #334155; align-items:flex-end;">
+                    <!-- IVA breakdown -->
+                    <div style="flex:1; min-width:240px; background:rgba(245,158,11,0.07); border:1px solid rgba(245,158,11,0.2); border-radius:10px; padding:12px 16px; font-size:0.88rem; line-height:2.1;">
+                        <div style="font-size:0.7rem; color:var(--muted); font-weight:700; letter-spacing:.05em; margin-bottom:6px;">RIEPILOGO IVA</div>
+                        <div id="p-iva-breakdown" style="color:var(--muted);">—</div>
+                    </div>
+                    <!-- Totale + pulsanti -->
+                    <div style="text-align:right;">
+                        <div id="p-totale" style="font-size:1.6rem; font-weight:900; color:var(--purple); margin-bottom:14px;">TOTALE: 0.00 €</div>
+                        <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+                            <button class="btn btn-dark" onclick="switchView('preventivi')" style="min-width:90px;">Annulla</button>
+                            <button class="btn btn-purple" onclick="savePreventivo(false, false)" style="min-width:90px;">💾 Salva</button>
+                            <button class="btn btn-wa" onclick="savePreventivo(true, false)" style="min-width:90px;">📲 WA</button>
+                            <button class="btn btn-success" onclick="savePreventivo(false, true)" style="min-width:130px;">✅ Salva in Officina</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3289,8 +3314,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             $('p_modello').value = j.modello || '';
             $('p_km').value = j.km || '';
             $('p-conto-rows').innerHTML = '';
-            addVoce('p-conto-rows', 'p-desc', 'p-price', calcPrevTotal);
-            calcPrevTotal();
+            addVocePrev('','',22,true);
+            calcPrevTotale();
         }
 
         function refreshIncidentate() {
@@ -4047,6 +4072,40 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             calcContoTotal();
         }
 
+        function addVocePrev(dStr='', pNum='', ivaVal=22, aF=false, qtyVal=1) {
+            const tr = document.createElement('tr');
+            tr.className = 'voce-row';
+            tr.dataset.iva = ivaVal;
+            const ivaOpts = [0,4,10,22].map(v => `<option value="${v}" ${v==ivaVal?'selected':''}>${v}%</option>`).join('');
+            tr.innerHTML = `
+                <td style="padding:2px 4px 2px 0;">
+                    <input type="text" class="p-desc" placeholder="Voce preventivo..." value="${dStr}" style="margin-bottom:0;"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();this.closest('tr').querySelector('.p-price').focus();}">
+                </td>
+                <td style="width:110px; padding:2px 4px;">
+                    <input type="number" class="p-price" value="${pNum}" step="0.01" placeholder="0.00" style="margin-bottom:0; text-align:right;"
+                        oninput="calcPrevTotale()" onchange="calcPrevTotale()"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();this.closest('tr').querySelector('.p-qty').focus();}">
+                </td>
+                <td style="width:60px; padding:2px 4px;">
+                    <input type="number" class="p-qty" min="1" value="${qtyVal}" step="1" style="margin-bottom:0; text-align:center; width:100%; font-size:1rem; font-weight:700;"
+                        oninput="calcPrevTotale()" onchange="calcPrevTotale()"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();const nx=this.closest('tr').nextElementSibling;if(nx)nx.querySelector('.p-desc').focus();else addVocePrev('','',22,true);}">
+                </td>
+                <td style="width:64px; padding:2px 4px;">
+                    <select class="p-iva" style="margin-bottom:0; padding:6px 4px; font-size:0.82rem; width:100%;"
+                        onchange="this.closest('tr').dataset.iva=this.value; calcPrevTotale();">${ivaOpts}</select>
+                </td>
+                <td style="width:115px; padding:2px 0 2px 4px; text-align:right; font-size:0.85rem; color:#f59e0b; font-weight:bold; white-space:nowrap;" class="p-imp-display">—</td>
+                <td style="width:28px; text-align:right; padding:2px 0;">
+                    <button tabindex="-1" onclick="this.parentElement.parentElement.remove(); calcPrevTotale();" style="color:var(--accent); background:none; border:none; cursor:pointer; font-weight:bold; font-size:1.1rem;">×</button>
+                </td>`;
+            const c = $('p-conto-rows');
+            if (c) c.appendChild(tr);
+            if (aF) setTimeout(() => tr.querySelector('.p-desc').focus(), 10);
+            calcPrevTotale();
+        }
+
         function cercaMagPerConto(input) {
             const tr = input.closest('tr');
             const resDiv = tr.querySelector('.mag-conto-results');
@@ -4212,10 +4271,44 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // =====================================================================
         // 10. PREVENTIVI
         // =====================================================================
-        function openPreventivoForm(id = null, fromStorico = false) { isEditing = !!id; _editingStorico = fromStorico; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal,c.desc,c.price)):addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); } calcPrevTotal(); }
-        function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVoce('p-conto-rows','p-desc','p-price',calcPrevTotal); calcPrevTotal(); setTimeout(() => checkCustomerBikes('p'), 100); }
-        function calcPrevTotal() { $('p-totale').innerText = `TOTALE: ${extractList('#p-conto-rows tr', '.p-desc', '.p-price', false).reduce((a,b)=>a+b.price,0).toFixed(2)} €`; }
-        function savePreventivo(inviaWA = false, comeCommessa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = extractList('#p-conto-rows tr', '.p-desc', '.p-price', false); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const _orig = exI > -1 ? db[exI] : null; const _storico = _editingStorico && _orig && _orig.stato !== 'preventivo'; const data = { id: nowId, data: _storico ? (_orig.data||getOggiLocale()) : getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: _storico ? (_orig.acconti||[]) : [], lavori_richiesti: _storico ? (_orig.lavori_richiesti||'Vedi voci preventivo') : 'Vedi voci preventivo', stato: _storico ? _orig.stato : (comeCommessa ? 'todo' : 'preventivo'), era_preventivo: true, data_accettazione: _storico ? (_orig.data_accettazione||null) : (comeCommessa ? getOggiLocale() : null), conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa && !_storico) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; _editingStorico = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(comeCommessa && !_storico) switchView('board'); else switchView('preventivi'); }
+        function openPreventivoForm(id = null, fromStorico = false) { isEditing = !!id; _editingStorico = fromStorico; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVocePrev(c.desc,c.price,c.iva!==undefined?c.iva:22,false,c.qty||1)):addVocePrev('','',22,false); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVocePrev('','',22,false); } calcPrevTotale(); }
+        function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVocePrev('','',22,false); calcPrevTotale(); setTimeout(() => checkCustomerBikes('p'), 100); }
+        function calcPrevTotale() {
+            const rows = document.querySelectorAll('#p-conto-rows tr.voce-row');
+            let totLordo = 0;
+            const ivaGroups = {};
+            rows.forEach(tr => {
+                const unitPrice  = parseFloat(tr.querySelector('.p-price')?.value) || 0;
+                const qty        = parseFloat(tr.querySelector('.p-qty')?.value)   || 1;
+                const price      = unitPrice * qty;
+                const ivaRate    = parseFloat(tr.dataset.iva ?? 22) || 0;
+                const imponibile = ivaRate > 0 ? price / (1 + ivaRate / 100) : price;
+                const ivaAmt     = price - imponibile;
+                totLordo += price;
+                const impDisplay = tr.querySelector('.p-imp-display');
+                if (impDisplay) impDisplay.innerHTML = price > 0
+                    ? `${price.toFixed(2)} \u20ac<span style="display:block;font-size:0.7rem;color:var(--muted);font-weight:normal;">imp. ${imponibile.toFixed(2)}</span>`
+                    : '—';
+                if (price > 0) {
+                    if (!ivaGroups[ivaRate]) ivaGroups[ivaRate] = { imp: 0, iva: 0 };
+                    ivaGroups[ivaRate].imp += imponibile;
+                    ivaGroups[ivaRate].iva += ivaAmt;
+                }
+            });
+            const totImp = Object.values(ivaGroups).reduce((s, g) => s + g.imp, 0);
+            let bHtml = `<div style="display:flex;justify-content:space-between;gap:20px;"><span>Imponibile:</span><b style="color:white;">${totImp.toFixed(2)} \u20ac</b></div>`;
+            Object.keys(ivaGroups).sort((a,b)=>a-b).forEach(rate => {
+                const g = ivaGroups[rate];
+                if (g.iva > 0.001) bHtml += `<div style="display:flex;justify-content:space-between;gap:20px;"><span>IVA ${rate}%:</span><span style="color:#f59e0b;">${g.iva.toFixed(2)} \u20ac</span></div>`;
+            });
+            bHtml += `<div style="display:flex;justify-content:space-between;gap:20px;border-top:1px solid rgba(245,158,11,0.25);margin-top:4px;padding-top:4px;font-weight:bold;"><span style="color:white;">Totale lordo:</span><b style="color:white;">${totLordo.toFixed(2)} \u20ac</b></div>`;
+            const bEl = $('p-iva-breakdown');
+            if (bEl) bEl.innerHTML = rows.length ? bHtml : '—';
+            const tEl = $('p-totale');
+            if (tEl) tEl.textContent = `TOTALE: ${totLordo.toFixed(2)} \u20ac`;
+        }
+        function calcPrevTotal() { calcPrevTotale(); }
+        function savePreventivo(inviaWA = false, comeCommessa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = Array.from(document.querySelectorAll('#p-conto-rows tr.voce-row')).map(tr => ({ desc: tr.querySelector('.p-desc')?.value||'', price: (parseFloat(tr.querySelector('.p-price')?.value)||0)*(parseFloat(tr.querySelector('.p-qty')?.value)||1), iva: parseFloat(tr.dataset.iva??22)||0, qty: parseFloat(tr.querySelector('.p-qty')?.value)||1 })).filter(i => i.price > 0 || (i.desc||'').trim() !== ''); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const _orig = exI > -1 ? db[exI] : null; const _storico = _editingStorico && _orig && _orig.stato !== 'preventivo'; const data = { id: nowId, data: _storico ? (_orig.data||getOggiLocale()) : getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: _storico ? (_orig.acconti||[]) : [], lavori_richiesti: _storico ? (_orig.lavori_richiesti||'Vedi voci preventivo') : 'Vedi voci preventivo', stato: _storico ? _orig.stato : (comeCommessa ? 'todo' : 'preventivo'), era_preventivo: true, data_accettazione: _storico ? (_orig.data_accettazione||null) : (comeCommessa ? getOggiLocale() : null), conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa && !_storico) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; _editingStorico = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(comeCommessa && !_storico) switchView('board'); else switchView('preventivi'); }
         function archiviaPreventivo(id) {
             if (!confirm('Archiviare questo preventivo nello storico senza convertirlo in commessa?')) return;
             const i = db.findIndex(j => String(j.id) === String(id));
