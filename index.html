@@ -1109,6 +1109,8 @@
                                     <option value="GOMME">🔘 Gomme</option>
                                     <option value="LUBRIFICANTI">🛢️ Lubrificanti</option>
                                     <option value="ACCESSORI">🎒 Accessori</option>
+                                    <option value="CASCHI">🪖 Caschi</option>
+                                    <option value="ABBIGLIAMENTO">👕 Abbigliamento</option>
                                     <option value="RICAMBI">🔩 Ricambi Vari</option>
                                 </select>
                             </div>
@@ -1166,6 +1168,8 @@
                                 <option value="GOMME">🔘 Gomme</option>
                                 <option value="LUBRIFICANTI">🛢️ Lubrificanti</option>
                                 <option value="ACCESSORI">🎒 Accessori</option>
+                                <option value="CASCHI">🪖 Caschi</option>
+                                <option value="ABBIGLIAMENTO">👕 Abbigliamento</option>
                             </select>
                         </div>
                         <div>
@@ -5661,8 +5665,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 groups[c].push(i);
             });
 
-            const catEmoji = { 'ARIA E CARBURANTE':'🌬️','MOTORE':'⚙️','FRENI':'💿','TRASMISSIONE':'⛓️','ELETTRONICA':'⚡','SOSPENSIONI':'🔧','GOMME':'🔘','LUBRIFICANTI':'🛢️','ACCESSORI':'🎒' };
-            const catOpts = val => ['ARIA E CARBURANTE','MOTORE','FRENI','TRASMISSIONE','ELETTRONICA','SOSPENSIONI','GOMME','LUBRIFICANTI','ACCESSORI']
+            const catEmoji = { 'ARIA E CARBURANTE':'🌬️','MOTORE':'⚙️','FRENI':'💿','TRASMISSIONE':'⛓️','ELETTRONICA':'⚡','SOSPENSIONI':'🔧','GOMME':'🔘','LUBRIFICANTI':'🛢️','ACCESSORI':'🎒','CASCHI':'🪖','ABBIGLIAMENTO':'👕' };
+            const catOpts = val => ['ARIA E CARBURANTE','MOTORE','FRENI','TRASMISSIONE','ELETTRONICA','SOSPENSIONI','GOMME','LUBRIFICANTI','ACCESSORI','CASCHI','ABBIGLIAMENTO']
                 .map(o => `<option value="${o}"${o===val?' selected':''}>${catEmoji[o]||''} ${o}</option>`).join('');
 
             Object.keys(groups).sort().forEach(cat => {
