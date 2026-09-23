@@ -1176,18 +1176,18 @@
             </div>
 
             <!-- Tabella inventario (desktop) -->
-            <div id="mag-table-wrap" style="flex-grow:1; overflow-y:auto; background:white; border-radius:10px; border:1px solid #e2e8f0;">
+            <div id="mag-table-wrap" style="flex-grow:1; overflow-y:auto;">
                 <table style="width:100%; border-collapse:collapse;">
                     <thead style="position:sticky; top:0; z-index:2;">
-                        <tr style="background:#e8ecf1;">
-                            <th onclick="sortMag('codice')" style="text-align:left; padding:11px 14px; font-size:0.72rem; color:#475569; font-weight:800; border-bottom:2px solid #cbd5e1; width:130px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">CODICE SKU <span id="mag-sort-codice"></span></th>
-                            <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:#475569; font-weight:800; border-bottom:2px solid #cbd5e1; letter-spacing:0.5px;">DESCRIZIONE</th>
-                            <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:#475569; font-weight:800; border-bottom:2px solid #cbd5e1; width:140px; letter-spacing:0.5px;">MARCA</th>
-                            <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:#475569; font-weight:800; border-bottom:2px solid #cbd5e1; width:155px; letter-spacing:0.5px;">CATEGORIA</th>
-                            <th onclick="sortMag('giacenza')" style="text-align:center; padding:11px 14px; font-size:0.72rem; color:#475569; font-weight:800; border-bottom:2px solid #cbd5e1; width:130px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">STOCK <span id="mag-sort-giacenza"></span></th>
-                            <th onclick="sortMag('prezzo')" style="text-align:right; padding:11px 14px; font-size:0.72rem; color:#475569; font-weight:800; border-bottom:2px solid #cbd5e1; width:105px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">PREZZO <span id="mag-sort-prezzo"></span></th>
-                            <th onclick="sortMag('valore')" style="text-align:right; padding:11px 14px; font-size:0.72rem; color:#475569; font-weight:800; border-bottom:2px solid #cbd5e1; width:110px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">VALORE STOCK <span id="mag-sort-valore"></span></th>
-                            <th style="border-bottom:2px solid #cbd5e1; width:45px;"></th>
+                        <tr style="background:var(--card);">
+                            <th onclick="sortMag('codice')" style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:130px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">CODICE SKU <span id="mag-sort-codice"></span></th>
+                            <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; letter-spacing:0.5px;">DESCRIZIONE</th>
+                            <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:140px; letter-spacing:0.5px;">MARCA</th>
+                            <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:155px; letter-spacing:0.5px;">CATEGORIA</th>
+                            <th onclick="sortMag('giacenza')" style="text-align:center; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:130px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">STOCK <span id="mag-sort-giacenza"></span></th>
+                            <th onclick="sortMag('prezzo')" style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:105px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">PREZZO <span id="mag-sort-prezzo"></span></th>
+                            <th onclick="sortMag('valore')" style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:110px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">VALORE STOCK <span id="mag-sort-valore"></span></th>
+                            <th style="border-bottom:2px solid #334155; width:45px;"></th>
                         </tr>
                     </thead>
                     <tbody id="mag-inventory-table"></tbody>
