@@ -2379,7 +2379,10 @@
                     const cog = (j.cognome || '').toUpperCase();
                     const nom = (j.nome || '').toUpperCase();
                     const tar = (j.targa || '').toUpperCase();
-                    return cog.startsWith(qU) || cog.includes(qU) || nom.includes(qU) || tar.startsWith(qU);
+                    const tel = (j.tel || '').replace(/\s/g, '');
+                    const marc = (j.marca || '').toUpperCase();
+                    const mod = (j.modello || '').toUpperCase();
+                    return cog.startsWith(qU) || cog.includes(qU) || nom.includes(qU) || tar.startsWith(qU) || tel.includes(q.replace(/\s/g,'')) || marc.includes(qU) || mod.includes(qU);
                 })
                 .sort((a, b) => b.nLavori - a.nLavori)
                 .slice(0, 8);
@@ -2459,7 +2462,10 @@
                     const cog = (j.cognome || '').toUpperCase();
                     const nom = (j.nome || '').toUpperCase();
                     const tar = (j.targa || '').toUpperCase();
-                    return cog.startsWith(qU) || cog.includes(qU) || nom.includes(qU) || tar.startsWith(qU);
+                    const tel = (j.tel || '').replace(/\s/g, '');
+                    const marc = (j.marca || '').toUpperCase();
+                    const mod = (j.modello || '').toUpperCase();
+                    return cog.startsWith(qU) || cog.includes(qU) || nom.includes(qU) || tar.startsWith(qU) || tel.includes(q.replace(/\s/g,'')) || marc.includes(qU) || mod.includes(qU);
                 })
                 .sort((a, b) => b.nLavori - a.nLavori)
                 .slice(0, 8);
