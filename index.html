@@ -1496,8 +1496,9 @@
 
             <div id="mc-mobile-list" style="display:none;"></div>
 
-            <div class="flex-row mt-15" style="flex-shrink: 0;">
+            <div class="flex-row mt-15" style="flex-shrink: 0; gap:8px;">
                 <button class="btn" style="flex:1; background:none; border:1px solid var(--accent); color:var(--accent);" onclick="azzeraCassa()">🗑️ Svuota Scheda</button>
+                <button class="btn" id="btn-archivia-scheda" style="flex:1.2; background:none; border:1px solid var(--success); color:var(--success);" onclick="archiviaSoloScheda()">📥 Archivia Scheda</button>
                 <button class="btn btn-dark" onclick="closeModal('modal-collab')" style="flex:1; font-size: 1rem; padding: 15px;">Chiudi</button>
                 <button class="btn btn-purple" id="btn-print-collab" style="flex:2; font-size: 1rem; padding: 15px;">🖨️ Stampa Scheda Collaboratore</button>
             </div>
@@ -3069,6 +3070,23 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 closeModal('modal-collab');
                 refreshLedger();
             }
+        }
+
+        function archiviaSoloScheda() {
+            const name = safeDecode(currentCollabView);
+            const voci = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase());
+            if (!voci.length) { mostraToast('⚠️ Nessuna voce da archiviare.'); return; }
+            const avere = voci.filter(x=>x.tipo==='in').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
+            const dare  = voci.filter(x=>x.tipo==='out').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
+            const snapshot = { data: getOggiLocale(), collab: name.toUpperCase(), avere, dare, saldo: avere - dare, voci };
+            const collabKey = name.toUpperCase().replace(/[.#$[\]/]/g,'_');
+            const btn = $('btn-archivia-scheda');
+            database.ref('/storico_casse/' + collabKey).push(snapshot)
+                .then(() => {
+                    mostraToast('✅ Scheda archiviata con successo!');
+                    if (btn) { btn.textContent = '✅ Archiviata!'; btn.style.borderColor='#22c55e'; setTimeout(()=>{ btn.textContent='📥 Archivia Scheda'; }, 2500); }
+                })
+                .catch(e => { mostraErrore('Errore archivio: ' + e.message); });
         }
 
         function showCollabTab(tab) {
