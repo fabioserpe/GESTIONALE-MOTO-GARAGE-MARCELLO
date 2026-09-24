@@ -327,6 +327,8 @@
         #mag-inventory-table .mag-item-row:hover td { box-shadow: inset 0 0 0 999px rgba(99,116,139,0.13) !important; }
 #mc-rows tr:hover td { box-shadow: inset 0 0 0 999px rgba(99,116,139,0.13) !important; }
 #conto-rows tr:hover td { box-shadow: inset 0 0 0 999px rgba(99,116,139,0.13) !important; }
+#p-conto-rows tr:hover td { box-shadow: inset 0 0 0 999px rgba(99,116,139,0.13) !important; }
+.p-qty::-webkit-inner-spin-button, .p-qty::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
 .r-qty::-webkit-inner-spin-button, .r-qty::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
         #mag-inventory-table .mag-item-row { border-bottom: 2px solid #94a3b8 !important; }
     </style>
@@ -899,16 +901,20 @@
                     <input id="p_km" type="number" placeholder="KM" style="margin:0;">
                 </div>
 
-                <!-- Intestazione colonne voci -->
-                <div style="display:grid; grid-template-columns:1fr 110px 60px 64px 115px 28px; gap:6px; padding:0 2px 5px; border-bottom:1px solid #334155; margin-bottom:4px;">
-                    <span style="font-size:0.7rem; color:var(--muted); font-weight:700; letter-spacing:.05em;">DESCRIZIONE</span>
-                    <span style="font-size:0.7rem; color:var(--muted); font-weight:700; text-align:right;">PREZZO UNIT.</span>
-                    <span style="font-size:0.7rem; color:var(--muted); font-weight:700; text-align:center;">QT&Agrave;</span>
-                    <span style="font-size:0.7rem; color:var(--muted); font-weight:700; text-align:center;">IVA%</span>
-                    <span style="font-size:0.7rem; color:var(--muted); font-weight:700; text-align:right;">TOTALE RIGA</span>
-                    <span></span>
-                </div>
-                <table style="width:100%; color:white; border-collapse:collapse;"><tbody id="p-conto-rows"></tbody></table>
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#1e293b;">
+                            <th style="text-align:left; padding:10px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">DESCRIZIONE</th>
+                            <th style="text-align:right; padding:10px 14px; width:120px; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">PREZZO UNIT.</th>
+                            <th style="text-align:center; padding:10px 14px; width:140px; font-size:0.72rem; color:#94a3b8; font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">QTÀ</th>
+                            <th style="text-align:center; padding:10px 14px; width:80px; font-size:0.72rem; color:#a5b4fc; font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">IVA%</th>
+                            <th style="text-align:right; padding:10px 14px; width:120px; font-size:0.72rem; color:#f59e0b; font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">TOTALE</th>
+                            <th style="text-align:right; padding:10px 14px; width:110px; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">IMPONIBILE</th>
+                            <th style="width:32px; border-bottom:2px solid #334155;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="p-conto-rows"></tbody>
+                </table>
                 <button class="btn btn-dark w-auto mt-10" onclick="addVocePrev('','',22,true)">+ Aggiungi Voce</button>
 
                 <!-- Riepilogo IVA + Totale + Azioni -->
@@ -4252,28 +4258,34 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             tr.className = 'voce-row';
             tr.dataset.iva = ivaVal;
             const ivaOpts = [0,4,10,22].map(v => `<option value="${v}" ${v==ivaVal?'selected':''}>${v}%</option>`).join('');
+            tr.style.cssText = 'border-bottom:2px solid #94a3b8; background:white;';
             tr.innerHTML = `
-                <td style="padding:2px 4px 2px 0;">
-                    <input type="text" class="p-desc" placeholder="Voce preventivo..." value="${dStr}" style="margin-bottom:0;"
+                <td style="padding:7px 12px; background:#f8fafc; border-right:1px solid #cbd5e1; color:#1e293b;">
+                    <input type="text" class="p-desc" placeholder="Voce preventivo..." value="${dStr}" style="margin-bottom:0;background:transparent;border:none;color:#1e293b;font-weight:600;padding:0;width:100%;outline:none;"
                         onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();this.closest('tr').querySelector('.p-price').focus();}">
                 </td>
-                <td style="width:110px; padding:2px 4px;">
-                    <input type="number" class="p-price" value="${pNum}" step="0.01" placeholder="0.00" style="margin-bottom:0; text-align:right;"
+                <td style="width:120px; padding:7px 10px; background:white; border-right:1px solid #cbd5e1;">
+                    <input type="number" class="p-price" value="${pNum}" step="0.01" placeholder="0.00" style="margin-bottom:0;text-align:right;background:transparent;border:none;color:#1e293b;font-weight:700;width:100%;padding:0 !important;outline:none;"
                         oninput="calcPrevTotale()" onchange="calcPrevTotale()"
                         onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();this.closest('tr').querySelector('.p-qty').focus();}">
                 </td>
-                <td style="width:60px; padding:2px 4px;">
-                    <input type="number" class="p-qty" min="1" value="${qtyVal}" step="1" style="margin-bottom:0; text-align:center; width:100%; font-size:1rem; font-weight:700;"
-                        oninput="calcPrevTotale()" onchange="calcPrevTotale()"
-                        onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();const nx=this.closest('tr').nextElementSibling;if(nx)nx.querySelector('.p-desc').focus();else addVocePrev('','',22,true);}">
+                <td style="width:140px; padding:5px 8px; background:#334155; border-right:1px solid #475569; text-align:center;">
+                    <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
+                        <button tabindex="-1" onclick="const i=this.parentElement.querySelector('.p-qty');i.value=Math.max(1,(parseFloat(i.value)||1)-1);calcPrevTotale();" style="background:#475569;border:none;color:white;border-radius:5px;width:26px;height:26px;cursor:pointer;font-size:1.1rem;font-weight:bold;line-height:1;flex-shrink:0;">−</button>
+                        <input type="number" class="p-qty" min="1" value="${qtyVal}" step="1" style="width:44px !important;min-width:44px;flex-shrink:0;padding:0 !important;margin:0 !important;text-align:center;background:transparent;border:none !important;color:white;font-weight:800;font-size:1rem;outline:none;box-shadow:none !important;"
+                            oninput="calcPrevTotale()" onchange="calcPrevTotale()"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();const nx=this.closest('tr').nextElementSibling;if(nx)nx.querySelector('.p-desc').focus();else addVocePrev('','',22,true);}">
+                        <button tabindex="-1" onclick="const i=this.parentElement.querySelector('.p-qty');i.value=(parseFloat(i.value)||1)+1;calcPrevTotale();" style="background:#475569;border:none;color:white;border-radius:5px;width:26px;height:26px;cursor:pointer;font-size:1.1rem;font-weight:bold;line-height:1;flex-shrink:0;">+</button>
+                    </div>
                 </td>
-                <td style="width:64px; padding:2px 4px;">
-                    <select class="p-iva" style="margin-bottom:0; padding:6px 4px; font-size:0.82rem; width:100%;"
+                <td style="width:80px; padding:5px 8px; background:#cbd5e1; border-right:1px solid #b0bec5; text-align:center;">
+                    <select class="p-iva" style="margin:0;padding:4px 2px !important;font-size:0.82rem;width:100%;background:transparent;border:none;font-weight:700;color:#1e293b;cursor:pointer;outline:none;"
                         onchange="this.closest('tr').dataset.iva=this.value; calcPrevTotale();">${ivaOpts}</select>
                 </td>
-                <td style="width:115px; padding:2px 0 2px 4px; text-align:right; font-size:0.85rem; color:#f59e0b; font-weight:bold; white-space:nowrap;" class="p-imp-display">—</td>
-                <td style="width:28px; text-align:right; padding:2px 0;">
-                    <button tabindex="-1" onclick="this.parentElement.parentElement.remove(); calcPrevTotale();" style="color:var(--accent); background:none; border:none; cursor:pointer; font-weight:bold; font-size:1.1rem;">×</button>
+                <td style="width:120px; padding:7px 10px; text-align:right; font-size:0.95rem; color:#d97706; font-weight:800; white-space:nowrap; background:white; border-right:1px solid #cbd5e1;" class="p-tot-display">—</td>
+                <td style="width:110px; padding:7px 10px; text-align:right; font-size:0.9rem; color:#64748b; font-weight:700; white-space:nowrap; background:#f8fafc; border-right:1px solid #cbd5e1;" class="p-imp-display">—</td>
+                <td style="width:32px; text-align:center; padding:7px 6px; background:white;">
+                    <button tabindex="-1" onclick="this.parentElement.parentElement.remove(); calcPrevTotale();" style="color:#ef4444;background:transparent;border:1px solid #ef4444;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;padding:3px 8px;line-height:1;">×</button>
                 </td>`;
             const c = $('p-conto-rows');
             if (c) c.appendChild(tr);
@@ -4463,10 +4475,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const imponibile = ivaRate > 0 ? price / (1 + ivaRate / 100) : price;
                 const ivaAmt     = price - imponibile;
                 totLordo += price;
+                const totDisplayP = tr.querySelector('.p-tot-display');
                 const impDisplay = tr.querySelector('.p-imp-display');
-                if (impDisplay) impDisplay.innerHTML = price > 0
-                    ? `${price.toFixed(2)} \u20ac<span style="display:block;font-size:0.7rem;color:var(--muted);font-weight:normal;">imp. ${imponibile.toFixed(2)}</span>`
-                    : '—';
+                if (totDisplayP) totDisplayP.textContent = price > 0 ? `${price.toFixed(2)} €` : '—';
+                if (impDisplay) impDisplay.textContent = price > 0 ? `${imponibile.toFixed(2)} €` : '—';
                 if (price > 0) {
                     if (!ivaGroups[ivaRate]) ivaGroups[ivaRate] = { imp: 0, iva: 0 };
                     ivaGroups[ivaRate].imp += imponibile;
