@@ -1465,6 +1465,13 @@
                 </div>
             </div>
 
+            <!-- Tab corrente / archivio -->
+            <div id="mc-tab-bar" style="display:flex; gap:8px; margin-bottom:8px; flex-shrink:0;">
+                <button id="mc-tab-corrente" onclick="showCollabTab('corrente')" style="padding:6px 18px; border-radius:6px; border:none; background:var(--purple); color:white; font-weight:700; cursor:pointer; font-size:0.85rem;">📋 Scheda Corrente</button>
+                <button id="mc-tab-archivio" onclick="showCollabTab('archivio')" style="padding:6px 18px; border-radius:6px; border:1px solid #334155; background:transparent; color:var(--muted); cursor:pointer; font-size:0.85rem;">🗄️ Archivio Schede</button>
+                <span id="mc-archivio-badge" style="display:none; background:#8b5cf6; color:white; border-radius:20px; padding:2px 8px; font-size:0.72rem; align-self:center;"></span>
+            </div>
+
             <div id="mc-table-section" style="flex-grow: 1; overflow-y: auto; background:rgba(0,0,0,0.2); border-radius:10px; border:1px solid #334155;">
                 <table style="width:100%; color:white; border-collapse:collapse; font-size:1rem;">
                     <thead style="position: sticky; top: 0; background: var(--card); z-index: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">
@@ -1480,6 +1487,12 @@
                     <tbody id="mc-rows"></tbody>
                 </table>
             </div>
+
+            <!-- Pannello archivio schede (nascosto di default) -->
+            <div id="mc-archivio-panel" style="display:none; flex-grow:1; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:10px; border:1px solid #334155; padding:12px;">
+                <div id="mc-archivio-list"><p style="color:var(--muted); text-align:center; padding:20px;">Caricamento archivio...</p></div>
+            </div>
+
             <div id="mc-mobile-list" style="display:none;"></div>
 
             <div class="flex-row mt-15" style="flex-shrink: 0;">
@@ -3018,14 +3031,29 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             $('mc-in').innerText = "€ " + ti.toFixed(2); $('mc-out').innerText = "€ " + to.toFixed(2);
             const bal = to - ti; $('mc-bal').innerText = (bal <= 0 ? '+ ' : '− ') + "€ " + Math.abs(bal).toFixed(2); $('mc-bal').style.color = bal <= 0 ? 'var(--success)' : 'var(--accent)';
             $('btn-print-collab').onclick = () => printCollabLedger(encName);
+            showCollabTab('corrente');
+            const badge = $('mc-archivio-badge'); if(badge) badge.style.display='none';
             $('modal-collab').classList.remove('hidden');
         }
 
         function azzeraCassa() {
             const name = safeDecode(currentCollabView);
-            if(confirm(`Sei sicuro di voler svuotare la scheda di ${name}? Lo storico attuale verrà eliminato ma il collaboratore resterà in elenco con saldo a zero.`)) {
+            if(confirm(`Sei sicuro di voler svuotare la scheda di ${name}? Le voci attuali verranno archiviate e la scheda ripartirà da zero.`)) {
+                const voci = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase());
+                const avere = voci.filter(x=>x.tipo==='in').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
+                const dare  = voci.filter(x=>x.tipo==='out').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
+                const snapshot = {
+                    data: getOggiLocale(),
+                    collab: name.toUpperCase(),
+                    avere: avere,
+                    dare: dare,
+                    saldo: avere - dare,
+                    voci: voci
+                };
+                const collabKey = name.toUpperCase().replace(/[.#$[\]/]/g,'_');
+                database.ref('/storico_casse/' + collabKey).push(snapshot).catch(e => console.error('Errore salvataggio archivio:', e));
+
                 ledgerDB = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() !== name.toUpperCase());
-                
                 ledgerDB.push({
                     id: genId(),
                     data: getOggiLocale(),
@@ -3036,11 +3064,70 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     importo: 0,
                     qta: 1
                 });
-                
                 saveLedger();
                 closeModal('modal-collab');
                 refreshLedger();
             }
+        }
+
+        function showCollabTab(tab) {
+            const tableSection = $('mc-table-section');
+            const archivioPanel = $('mc-archivio-panel');
+            const btnCorrente = $('mc-tab-corrente');
+            const btnArchivio = $('mc-tab-archivio');
+            if (tab === 'corrente') {
+                tableSection.style.display = '';
+                archivioPanel.style.display = 'none';
+                btnCorrente.style.background = 'var(--purple)'; btnCorrente.style.color = 'white'; btnCorrente.style.border = 'none';
+                btnArchivio.style.background = 'transparent'; btnArchivio.style.color = 'var(--muted)'; btnArchivio.style.border = '1px solid #334155';
+            } else {
+                tableSection.style.display = 'none';
+                archivioPanel.style.display = '';
+                btnArchivio.style.background = 'var(--purple)'; btnArchivio.style.color = 'white'; btnArchivio.style.border = 'none';
+                btnCorrente.style.background = 'transparent'; btnCorrente.style.color = 'var(--muted)'; btnCorrente.style.border = '1px solid #334155';
+                loadArchivioCollab();
+            }
+        }
+
+        function loadArchivioCollab() {
+            const name = safeDecode(currentCollabView);
+            const collabKey = name.toUpperCase().replace(/[.#$[\]/]/g,'_');
+            const listEl = $('mc-archivio-list');
+            if (!listEl) return;
+            listEl.innerHTML = '<p style="color:var(--muted); text-align:center; padding:20px;">⏳ Caricamento...</p>';
+            database.ref('/storico_casse/' + collabKey).once('value').then(snap => {
+                const data = snap.val();
+                if (!data) { listEl.innerHTML = '<p style="color:var(--muted); text-align:center; padding:20px;">Nessuna scheda archiviata per questo collaboratore.</p>'; return; }
+                const snapshots = Object.entries(data).sort((a,b) => b[1].data.localeCompare(a[1].data));
+                const badge = $('mc-archivio-badge');
+                if (badge) { badge.textContent = snapshots.length + ' schede'; badge.style.display = 'inline'; }
+                listEl.innerHTML = snapshots.map(([key, s], i) => `
+                    <div style="border:1px solid #334155; border-radius:8px; margin-bottom:10px; overflow:hidden;">
+                        <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'; this.querySelector('.arch-arrow').style.transform=this.nextElementSibling.style.display===''?'rotate(0deg)':'rotate(-90deg)';"
+                            style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:rgba(139,92,246,0.15); cursor:pointer;">
+                            <div>
+                                <span style="font-weight:700; color:white;">📅 Scheda del ${s.data}</span>
+                                <span style="margin-left:12px; font-size:0.8rem; color:var(--muted);">${(s.voci||[]).length} voci</span>
+                            </div>
+                            <div style="display:flex; gap:16px; align-items:center;">
+                                <span style="color:var(--success); font-weight:700;">↑ €${(s.avere||0).toFixed(2)}</span>
+                                <span style="color:var(--accent); font-weight:700;">↓ €${(s.dare||0).toFixed(2)}</span>
+                                <span style="color:${(s.saldo||0)>=0?'var(--success)':'var(--accent)'}; font-weight:800;">= €${(s.saldo||0).toFixed(2)}</span>
+                                <span class="arch-arrow" style="color:var(--muted); transition:transform 0.2s; transform:rotate(-90deg);">▶</span>
+                            </div>
+                        </div>
+                        <div style="display:none; padding:10px;">
+                            <table style="width:100%; border-collapse:collapse; font-size:0.82rem; color:white;">
+                                ${(s.voci||[]).map(v => `<tr style="border-bottom:1px solid #334155;">
+                                    <td style="padding:6px 8px; color:var(--muted); width:100px;">${v.data||''}</td>
+                                    <td style="padding:6px 8px;"><span style="background:rgba(255,255,255,0.07); border-radius:4px; padding:2px 7px; font-size:0.75rem;">${v.cat||''}</span></td>
+                                    <td style="padding:6px 8px;">${v.desc||''}</td>
+                                    <td style="padding:6px 8px; text-align:right; color:${v.tipo==='in'?'var(--success)':'var(--accent)'}; font-weight:700;">${v.tipo==='in'?'+':'-'} €${((parseFloat(v.importo)||0)*(parseFloat(v.qta)||1)).toFixed(2)}</td>
+                                </tr>`).join('')}
+                            </table>
+                        </div>
+                    </div>`).join('');
+            }).catch(e => { listEl.innerHTML = '<p style="color:var(--accent); text-align:center; padding:20px;">Errore caricamento archivio.</p>'; });
         }
 
         // =====================================================================
