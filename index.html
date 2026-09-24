@@ -1522,6 +1522,7 @@
                             <th style="text-align:right; padding:10px 14px; width:120px; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">€ UNIT.</th>
                             <th style="text-align:center; padding:10px 14px; width:100px; font-size:0.72rem; color:#94a3b8; font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">QTÀ</th>
                             <th style="text-align:right; padding:10px 14px; width:120px; font-size:0.72rem; color:#f59e0b; font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">TOTALE</th>
+                            <th style="text-align:right; padding:10px 14px; width:110px; font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #334155;">IMPONIBILE</th>
                             <th style="width:32px; border-bottom:2px solid #334155;"></th>
                         </tr>
                     </thead>
@@ -4226,11 +4227,16 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     <input type="number" class="r-price" value="${pNum}" step="0.01" placeholder="0.00" style="margin-bottom:0; text-align:right; background:transparent; border:none; color:#1e293b; font-weight:700; width:100%; outline:none;" oninput="calcContoTotal()" onchange="calcContoTotal()"
                         onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const q=this.closest('tr').querySelector('.r-qty'); setTimeout(()=>q.focus(),0);}">
                 </td>
-                <td style="width:100px; padding:7px 10px; background:#334155; border-right:1px solid #475569; text-align:center;">
-                    <input type="number" class="r-qty" min="1" value="${qtyVal}" step="1" style="margin-bottom:0; text-align:center; width:100%; font-size:1rem; font-weight:700; background:transparent; border:none; color:white; outline:none;" oninput="calcContoTotal()" onchange="calcContoTotal()"
-                        onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const next=this.closest('tr').nextElementSibling; if(next) next.querySelector('.r-desc').focus(); else addVoceConto('','',22,true);}">
+                <td style="width:130px; padding:5px 8px; background:#334155; border-right:1px solid #475569; text-align:center;">
+                    <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
+                        <button tabindex="-1" onclick="const i=this.parentElement.querySelector('.r-qty');i.value=Math.max(1,(parseFloat(i.value)||1)-1);calcContoTotal();" style="background:#475569;border:none;color:white;border-radius:5px;width:26px;height:26px;cursor:pointer;font-size:1.1rem;font-weight:bold;line-height:1;flex-shrink:0;">−</button>
+                        <input type="number" class="r-qty" min="1" value="${qtyVal}" step="1" style="width:38px;text-align:center;background:transparent;border:none;color:white;font-weight:800;font-size:1rem;outline:none;-moz-appearance:textfield;" oninput="calcContoTotal()" onchange="calcContoTotal()"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault(); event.stopPropagation(); const next=this.closest('tr').nextElementSibling; if(next) next.querySelector('.r-desc').focus(); else addVoceConto('','',22,true);}">
+                        <button tabindex="-1" onclick="const i=this.parentElement.querySelector('.r-qty');i.value=(parseFloat(i.value)||1)+1;calcContoTotal();" style="background:#475569;border:none;color:white;border-radius:5px;width:26px;height:26px;cursor:pointer;font-size:1.1rem;font-weight:bold;line-height:1;flex-shrink:0;">+</button>
+                    </div>
                 </td>
-                <td style="width:120px; padding:7px 10px; text-align:right; font-size:0.95rem; color:#d97706; font-weight:800; white-space:nowrap; background:white; border-right:1px solid #cbd5e1;" class="r-imp-display">—</td>
+                <td style="width:120px; padding:7px 10px; text-align:right; font-size:0.95rem; color:#d97706; font-weight:800; white-space:nowrap; background:white; border-right:1px solid #cbd5e1;" class="r-tot-display">—</td>
+                <td style="width:110px; padding:7px 10px; text-align:right; font-size:0.9rem; color:#64748b; font-weight:700; white-space:nowrap; background:#f8fafc; border-right:1px solid #cbd5e1;" class="r-imp-display">—</td>
                 <td style="width:32px; text-align:center; padding:7px 6px; background:white;">
                     <button tabindex="-1" onclick="this.parentElement.parentElement.remove(); calcContoTotal();" style="color:#ef4444; background:transparent; border:1px solid #ef4444; border-radius:6px; cursor:pointer; font-weight:bold; font-size:0.85rem; padding:3px 8px; line-height:1;">×</button>
                 </td>`;
@@ -4366,9 +4372,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const ivaAmt = price - imponibile;
                 totLordo += price;
 
-                // Update per-row totale display
+                // Update per-row totale e imponibile
+                const totDisplay = tr.querySelector('.r-tot-display');
                 const impDisplay = tr.querySelector('.r-imp-display');
-                if (impDisplay) impDisplay.innerHTML = price > 0 ? `${price.toFixed(2)} €<span style="display:block;font-size:0.7rem;color:var(--muted);font-weight:normal;">imp. ${imponibile.toFixed(2)}</span>` : '—';
+                if (totDisplay) totDisplay.textContent = price > 0 ? `${price.toFixed(2)} €` : '—';
+                if (impDisplay) impDisplay.textContent = price > 0 ? `${imponibile.toFixed(2)} €` : '—';
 
                 if (price > 0) {
                     if (!ivaGroups[ivaRate]) ivaGroups[ivaRate] = { imp: 0, iva: 0 };
