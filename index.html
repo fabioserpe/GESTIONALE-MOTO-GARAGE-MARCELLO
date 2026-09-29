@@ -211,16 +211,25 @@
             #mag-summary-container { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
 
             /* ---- MODAL COLLAB ---- */
-            #modal-collab .modal-content { height: auto !important; max-height: 92dvh !important; overflow-y: hidden; display: flex; flex-direction: column; }
+            #modal-collab .modal-content { height: 92dvh !important; max-height: 92dvh !important; overflow-y: hidden; display: flex; flex-direction: column; }
             .mc-form-row { flex-wrap: wrap !important; gap: 8px !important; }
             .mc-form-row input, .mc-form-row select { flex: 1 1 calc(50% - 4px) !important; width: auto !important; min-width: 0 !important; }
             .mc-form-row #ld_desc { flex: 1 1 100% !important; }
+            .mc-form-row #ld_tipo, .mc-form-row #ld_cat { flex: 1 1 calc(50% - 4px) !important; }
+            .mc-form-row #ld_importo { flex: 1 1 calc(50% - 4px) !important; }
+            .mc-form-row #ld_qta { flex: 0 0 70px !important; }
+            .mc-form-row #btn-save-ledger, .mc-form-row #btn-cancel-ledger { flex: 1 1 auto !important; padding: 9px !important; }
             #mc-table-section { display: none !important; }
-            #mc-mobile-list { display: block !important; flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 10px; border: 1px solid #334155; }
+            #mc-mobile-list { display: block !important; flex-grow: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; background: rgba(0,0,0,0.2); border-radius: 10px; border: 1px solid #334155; }
             #btn-print-collab { display: none !important; }
 
             /* ---- STATS ---- */
             .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+            #modal-collab .stats-grid { grid-template-columns: 1fr 1fr 1fr !important; gap: 6px !important; margin-bottom: 8px !important; }
+            #modal-collab .stat-card { padding: 8px 10px !important; }
+            #modal-collab .stat-val { font-size: 1.1rem !important; }
+            #modal-collab .section-dark { padding: 10px !important; margin-bottom: 8px !important; }
+            #mc-tab-bar { margin-bottom: 6px !important; }
             #view-stats > div { flex-wrap: wrap; }
 
             /* ---- HEADER CON BADGE (tagliandi, ordini) ---- */
@@ -1482,7 +1491,7 @@
                 <span id="mc-archivio-badge" style="display:none; background:#8b5cf6; color:white; border-radius:20px; padding:2px 8px; font-size:0.72rem; align-self:center;"></span>
             </div>
 
-            <div id="mc-table-section" style="flex-grow: 1; overflow-y: auto; background:white; border-radius:10px; border:1px solid #cbd5e1; overflow:hidden;">
+            <div id="mc-table-section" style="flex-grow: 1; overflow-y: auto; overflow-x: hidden; background:white; border-radius:10px; border:1px solid #cbd5e1;">
                 <table style="width:100%; color:white; border-collapse:collapse; font-size:1rem;">
                     <thead style="position: sticky; top: 0; z-index: 2;">
                         <tr style="background:#1e293b;">
