@@ -2131,6 +2131,7 @@
 
             database.ref('/moto_usate').on('value', (snap) => {
                 motoUsateDB = snap.val() ? Object.values(snap.val()) : [];
+                motoUsateDB.forEach(m => { if (m.foto && !Array.isArray(m.foto)) m.foto = Object.values(m.foto); });
                 if (currentView === 'usate') refreshUsate();
             });
 
@@ -6969,7 +6970,7 @@ if ('serviceWorker' in navigator) {
             $('usata-prezzo').value   = m.prezzo||'';
             $('usata-note').value     = m.note||'';
             $('usata-search-cliente').value = '';
-            _usataFoto = [...(m.foto||[])];
+            _usataFoto = m.foto ? (Array.isArray(m.foto) ? [...m.foto] : Object.values(m.foto)) : [];
             renderFotoPreview();
         }
 
@@ -7050,7 +7051,8 @@ if ('serviceWorker' in navigator) {
         }
 
         function openFotoUsataModal(motoId, idx) {
-            _fotoModalList = motoId ? (motoUsateDB.find(x=>x.id===motoId)?.foto || []) : _usataFoto;
+            const _rawFoto = motoId ? (motoUsateDB.find(x=>x.id===motoId)?.foto) : null;
+            _fotoModalList = _rawFoto ? (Array.isArray(_rawFoto) ? _rawFoto : Object.values(_rawFoto)) : (motoId ? [] : _usataFoto);
             if (!_fotoModalList.length) return;
             _fotoModalIdx = idx;
             const modal = $('modal-foto-usata');
@@ -7136,7 +7138,7 @@ if ('serviceWorker' in navigator) {
                     </div>
                     ${prezzoStr?`<div style="font-size:1.25rem; font-weight:900; color:#f59e0b;">${prezzoStr}</div>${pvStr}`:pvStr}
                     ${m.note?`<div style="font-size:0.82rem; color:var(--muted); border-left:2px solid #334155; padding-left:8px; line-height:1.4;">${htmlEsc(m.note)}</div>`:''}
-                    ${(m.foto&&m.foto.length)?`<div style="display:flex; gap:6px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling:touch;">${m.foto.map((b64,i)=>`<img src="${b64}" onclick="openFotoUsataModal('${m.id}',${i})" style="width:80px; height:60px; object-fit:cover; border-radius:7px; border:1px solid #334155; cursor:pointer; flex-shrink:0;" title="Ingrandisci foto ${i+1}">`).join('')}</div>`:''}
+                    ${(()=>{const fa=m.foto?(Array.isArray(m.foto)?m.foto:Object.values(m.foto)):[];return fa.length?`<div style="display:flex; gap:6px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling:touch;">${fa.map((b64,i)=>`<img src="${b64}" onclick="openFotoUsataModal('${m.id}',${i})" style="width:80px; height:60px; object-fit:cover; border-radius:7px; border:1px solid #334155; cursor:pointer; flex-shrink:0;" title="Ingrandisci foto ${i+1}">`).join('')}</div>`:''})()}
                     <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:2px; padding-top:8px; border-top:1px solid #1e293b;">
                         <button onclick="editUsata('${m.id}')" style="background:transparent; border:1px solid #f59e0b; color:#f59e0b; padding:5px 9px; border-radius:6px; font-size:0.78rem; cursor:pointer;">✏️ Modifica</button>
                         ${waBtn}
