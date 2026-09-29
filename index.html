@@ -284,6 +284,9 @@
             /* ---- GRID PREVENTIVI (min 280px su mobile) ---- */
             #preventivi-results { grid-template-columns: 1fr !important; }
 
+            /* ---- MOTO USATE ---- */
+            #usate-list { grid-template-columns: 1fr !important; }
+
             /* ---- STATISTICHE p-grid ---- */
             .p-grid { grid-template-columns: 1fr !important; }
         }
@@ -448,6 +451,7 @@
         <button class="nav-link" data-nav-id="scadenze" style="color:#f43f5e;" onclick="switchView('scadenze', this)">📅 Scadenzario <span id="scadenze-badge" style="display:none;background:#f43f5e;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="magazzino" style="color:#14b8a6;" onclick="switchView('magazzino', this)">📦 Magazzino</button>
         <button class="nav-link" data-nav-id="lista-attesa" style="color:#a78bfa;" onclick="switchView('lista-attesa', this)">🏍️ Lista Attesa Moto <span id="attesa-badge" style="display:none;background:#a78bfa;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
+        <button class="nav-link" data-nav-id="usate" style="color:#f59e0b;" onclick="switchView('usate', this)">🏷️ Moto Usate</button>
         <button class="nav-link" data-nav-id="stats" onclick="switchView('stats', this)">📈 Statistiche</button>
         <button class="nav-link" data-nav-id="appunti" style="color:var(--warning);" onclick="document.getElementById('notes-panel').classList.toggle('show')">📝 Appunti Rapidi</button>
         <button class="nav-link" data-nav-id="rubrica" style="color:#60a5fa;" onclick="switchView('rubrica', this)">📞 Rubrica</button>
@@ -1382,6 +1386,68 @@
             <div id="attesa-list" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
         </div>
 
+        <div id="view-usate" class="view hidden">
+            <!-- Header -->
+            <div class="flex-between mb-20" style="flex-shrink:0; flex-wrap:wrap; gap:10px;">
+                <h2 style="color:#f59e0b; margin:0;">🏷️ Moto Usate</h2>
+                <button class="btn w-auto" style="background:#f59e0b; color:#0f172a; font-weight:700;" onclick="toggleUsateForm()">➕ Aggiungi Moto Usata</button>
+            </div>
+
+            <!-- Form inserimento / modifica -->
+            <div id="usate-form-wrapper" class="card mb-14" style="border-top:3px solid #f59e0b; display:none;">
+                <h3 style="color:#f59e0b; margin:0 0 14px 0; font-size:0.95rem;">SCHEDA MOTO USATA</h3>
+                <input type="hidden" id="usata-edit-id">
+
+                <!-- Ricerca cliente esistente -->
+                <div style="position:relative; margin-bottom:12px;">
+                    <label style="display:block; font-size:0.72rem; color:var(--muted); font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">🔍 Cerca Cliente Esistente — autofill dati</label>
+                    <input id="usata-search-cliente" type="text" placeholder="Cerca per cognome, nome, telefono, targa, marca..." oninput="cercaClienteUsate(this.value)" style="width:100%; margin:0;" autocomplete="off">
+                    <div id="usata-cliente-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--card); border:1px solid #f59e0b; border-radius:0 0 10px 10px; max-height:200px; overflow-y:auto; z-index:9999; box-shadow:0 6px 24px rgba(0,0,0,0.5);"></div>
+                </div>
+
+                <!-- Cliente/Proprietario -->
+                <div style="font-size:0.7rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Proprietario che vende</div>
+                <div class="flex-row" style="flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                    <input id="usata-cognome" placeholder="Cognome *" style="flex:1; min-width:150px; margin:0;">
+                    <input id="usata-nome" placeholder="Nome" style="flex:1; min-width:120px; margin:0;">
+                    <input id="usata-tel" placeholder="Telefono" style="flex:1; min-width:140px; margin:0;">
+                </div>
+
+                <!-- Dati moto -->
+                <div style="font-size:0.7rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Dati moto</div>
+                <div class="flex-row" style="flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                    <input id="usata-marca" placeholder="Marca *" style="flex:1; min-width:120px; margin:0;">
+                    <input id="usata-modello" placeholder="Modello *" style="flex:1; min-width:140px; margin:0;">
+                    <input id="usata-anno" type="number" placeholder="Anno" style="width:90px; margin:0;">
+                    <input id="usata-km" type="number" placeholder="Km" style="width:110px; margin:0;">
+                </div>
+                <div class="flex-row" style="flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                    <input id="usata-targa" placeholder="Targa" style="width:130px; margin:0; text-transform:uppercase;">
+                    <input id="usata-colore" placeholder="Colore" style="width:120px; margin:0;">
+                    <input id="usata-prezzo" type="number" placeholder="Prezzo richiesto €" step="50" style="flex:1; min-width:160px; margin:0;">
+                </div>
+                <textarea id="usata-note" placeholder="Condizioni, accessori inclusi, revisioni fatte, motivo vendita..." style="width:100%; min-height:60px; margin-bottom:8px; resize:vertical;"></textarea>
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <button class="btn btn-dark w-auto" onclick="toggleUsateForm()">Annulla</button>
+                    <button class="btn w-auto" style="background:#f59e0b; color:#0f172a; font-weight:700;" onclick="salvaUsata()">💾 Salva</button>
+                </div>
+            </div>
+
+            <!-- Filtri + contatore -->
+            <div class="flex-between" style="flex-wrap:wrap; gap:8px; margin-bottom:14px; flex-shrink:0;">
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button id="uf-tutte"       class="btn w-auto" style="background:#f59e0b; color:#0f172a;" onclick="setUsateFilter('tutte')">Tutte</button>
+                    <button id="uf-disponibile" class="btn btn-dark w-auto" onclick="setUsateFilter('disponibile')">🟢 Disponibili</button>
+                    <button id="uf-riservata"   class="btn btn-dark w-auto" onclick="setUsateFilter('riservata')">🟡 Riservate</button>
+                    <button id="uf-venduta"     class="btn btn-dark w-auto" onclick="setUsateFilter('venduta')">✅ Vendute</button>
+                </div>
+                <span id="usate-count" style="color:var(--muted); font-size:0.85rem; align-self:center;"></span>
+            </div>
+
+            <!-- Griglia cards -->
+            <div id="usate-list" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:14px; overflow-y:auto; flex-grow:1; padding-bottom:20px; align-content:start;"></div>
+        </div>
+
     </main>
 
     <div class="notes-panel no-print" id="notes-panel">
@@ -1922,7 +1988,7 @@
 
         const MGM_INFO = { nome: "MOTO GARAGE MARCELLO", tel: "0932 644902", piva: "01622620886", via: "Ragusa (RG)" };
         let db = [], agendaDB = [], ledgerDB = [], ordiniDB = [], rubricaDB = [];
-        let noteDB = "", billingDB = {}, taggliandiDB = {}, scadenzeDB = [];
+        let noteDB = "", billingDB = {}, taggliandiDB = {}, scadenzeDB = [], motoUsateDB = [];
         let currentJobId = null, currentEditStoricoId = null, currentEditStoricoPlate = null, isEditing = false, currentView = 'board', currentArchiveFilter = 'all';
         let currentCollabView = null;
         let dataInizioSettimana = new Date(); dataInizioSettimana.setHours(0,0,0,0); const gDay = dataInizioSettimana.getDay(); dataInizioSettimana = new Date(dataInizioSettimana.setDate(dataInizioSettimana.getDate() - gDay + (gDay === 0 ? -6 : 1)));
@@ -2036,6 +2102,11 @@
                 listaAttesaDB = snap.val() ? Object.values(snap.val()) : [];
                 aggiornaAttesaBadge();
                 if (currentView === 'lista-attesa') refreshAttesa();
+            });
+
+            database.ref('/moto_usate').on('value', (snap) => {
+                motoUsateDB = snap.val() ? Object.values(snap.val()) : [];
+                if (currentView === 'usate') refreshUsate();
             });
 
         } // fine initFirebaseListeners
@@ -2286,7 +2357,7 @@
                 refreshListaOrdini();
             }
             chiudiTuttiMenuBoard();
-            ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-incidentate', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
+            ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-incidentate', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa', 'view-usate'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.topbar-qbtn').forEach(b => b.classList.toggle('tq-active', b.dataset.view === viewId));
             const _sidebarBtn = document.querySelector(`[data-nav-id="${viewId}"]`);
@@ -2297,7 +2368,7 @@
             if(viewId === 'nuova' && !isEditing) clearForm();
             if(viewId === 'nuovo-cliente') _resetNuovoClienteForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
-            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'incidentate') refreshIncidentate(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); }
+            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'incidentate') refreshIncidentate(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); } if(viewId === 'usate') { refreshUsate(); }
         }
 
         function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; const _sc=$('f_search_cliente'); if(_sc) _sc.value=''; refreshMiniAgenda(); }
@@ -6757,6 +6828,209 @@ if ('serviceWorker' in navigator) {
         let scadFiltro = 'tutte';
         const SCAD_CAT_EMOJI = { F24:'💰', IMU:'🏠', TARI:'🗑️', RIBA:'🏦', INPS:'👤', CAMERA:'🏛️', BOLLETTA:'⚡', ALTRO:'📄' };
         const SCAD_RICORRENZA_MESI = { mensile:1, trimestrale:3, semestrale:6, annuale:12 };
+
+        // ═══════════════ MOTO USATE ═══════════════
+        let _usateFilter = 'tutte';
+
+        function toggleUsateForm(edit) {
+            const w = $('usate-form-wrapper');
+            const open = w.style.display !== 'none';
+            if (open && !edit) { w.style.display = 'none'; _clearUsataForm(); }
+            else { w.style.display = ''; if (!edit) _clearUsataForm(); w.scrollIntoView({ behavior:'smooth', block:'start' }); }
+        }
+
+        function _clearUsataForm() {
+            ['usata-edit-id','usata-search-cliente','usata-cognome','usata-nome','usata-tel',
+             'usata-marca','usata-modello','usata-targa','usata-colore','usata-note','usata-anno','usata-km','usata-prezzo']
+            .forEach(id => { const el=$(id); if(el) el.value=''; });
+            const r=$('usata-cliente-results'); if(r) r.style.display='none';
+        }
+
+        function cercaClienteUsate(q) {
+            const box = $('usata-cliente-results');
+            if (!q || q.length < 2) { box.style.display='none'; return; }
+            const qU = q.toUpperCase();
+            const visti = new Set(); const risultati = [];
+            db.forEach(j => {
+                const key = ((j.cognome||'') + '|' + (j.tel||'')).toUpperCase();
+                if (visti.has(key)) return;
+                const cog=(j.cognome||'').toUpperCase(), nom=(j.nome||'').toUpperCase();
+                const tel=(j.tel||'').replace(/\s/g,''), tar=(j.targa||'').toUpperCase();
+                const marc=(j.marca||'').toUpperCase(), mod=(j.modello||'').toUpperCase();
+                if(cog.includes(qU)||nom.includes(qU)||tel.includes(q.replace(/\s/g,''))||tar.startsWith(qU)||marc.includes(qU)||mod.includes(qU)) {
+                    visti.add(key); risultati.push(j);
+                }
+            });
+            if (!risultati.length) { box.style.display='none'; return; }
+            box.innerHTML = risultati.slice(0,8).map(j => `
+                <div onclick="selezionaClienteUsate('${safeEncode(j.cognome||'')}','${safeEncode(j.nome||'')}','${safeEncode(j.tel||'')}','${safeEncode(j.marca||'')}','${safeEncode(j.modello||'')}','${j.km||''}','${safeEncode(j.targa||'')}')"
+                     style="padding:10px 14px; cursor:pointer; border-bottom:1px solid #334155; font-size:0.88rem;"
+                     onmouseover="this.style.background='rgba(245,158,11,0.1)'" onmouseout="this.style.background='transparent'">
+                    <div style="font-weight:700; color:white;">${(j.cognome||'').toUpperCase()} ${j.nome||''}</div>
+                    <div style="font-size:0.78rem; color:var(--muted);">${j.targa||'—'} · ${j.marca||''} ${j.modello||''} · 📞 ${j.tel||'—'}</div>
+                </div>`).join('');
+            box.style.display = 'block';
+        }
+
+        function selezionaClienteUsate(cog, nom, tel, marc, mod, km, tar) {
+            $('usata-cognome').value = safeDecode(cog);
+            $('usata-nome').value    = safeDecode(nom);
+            $('usata-tel').value     = safeDecode(tel);
+            $('usata-marca').value   = safeDecode(marc);
+            $('usata-modello').value = safeDecode(mod);
+            if (km) $('usata-km').value   = km;
+            if (tar) $('usata-targa').value = safeDecode(tar);
+            $('usata-search-cliente').value = (safeDecode(cog)+' '+safeDecode(nom)).trim();
+            $('usata-cliente-results').style.display = 'none';
+        }
+
+        function salvaUsata() {
+            const marca   = ($('usata-marca').value||'').trim();
+            const cognome = ($('usata-cognome').value||'').trim();
+            if (!marca)   { mostraErrore('Inserisci almeno la marca della moto!'); return; }
+            if (!cognome) { mostraErrore('Inserisci il cognome del proprietario!'); return; }
+            const editId = $('usata-edit-id').value;
+            const existing = editId ? motoUsateDB.find(x=>x.id===editId) : null;
+            const obj = {
+                id:        editId || genId(),
+                data_ins:  existing ? (existing.data_ins || getOggiLocale()) : getOggiLocale(),
+                marca:     marca.toUpperCase(),
+                modello:   ($('usata-modello').value||'').trim().toUpperCase(),
+                anno:      parseInt($('usata-anno').value)  || null,
+                km:        parseInt($('usata-km').value)    || null,
+                targa:     ($('usata-targa').value||'').trim().toUpperCase(),
+                colore:    ($('usata-colore').value||'').trim(),
+                prezzo:    parseFloat($('usata-prezzo').value) || null,
+                stato:     existing ? existing.stato : 'disponibile',
+                cognome:   cognome.toUpperCase(),
+                nome:      ($('usata-nome').value||'').trim(),
+                tel:       ($('usata-tel').value||'').trim(),
+                note:      ($('usata-note').value||'').trim()
+            };
+            if (editId) {
+                const i = motoUsateDB.findIndex(x=>x.id===editId);
+                if (i>-1) motoUsateDB[i]=obj; else motoUsateDB.push(obj);
+            } else { motoUsateDB.push(obj); }
+            saveUsateDB();
+            toggleUsateForm();
+            mostraToast(editId ? '✅ Moto aggiornata!' : '✅ Moto usata aggiunta!');
+        }
+
+        function saveUsateDB() {
+            const obj = {};
+            motoUsateDB.forEach(e => { obj[e.id] = e; });
+            database.ref('/moto_usate').set(obj).then(showCloudCheck).catch(_onSaveError);
+        }
+
+        function editUsata(id) {
+            const m = motoUsateDB.find(x=>x.id===id); if(!m) return;
+            toggleUsateForm(true);
+            $('usata-edit-id').value  = m.id;
+            $('usata-cognome').value  = m.cognome||'';
+            $('usata-nome').value     = m.nome||'';
+            $('usata-tel').value      = m.tel||'';
+            $('usata-marca').value    = m.marca||'';
+            $('usata-modello').value  = m.modello||'';
+            $('usata-anno').value     = m.anno||'';
+            $('usata-km').value       = m.km||'';
+            $('usata-targa').value    = m.targa||'';
+            $('usata-colore').value   = m.colore||'';
+            $('usata-prezzo').value   = m.prezzo||'';
+            $('usata-note').value     = m.note||'';
+            $('usata-search-cliente').value = '';
+        }
+
+        function eliminaUsata(id) {
+            const m = motoUsateDB.find(x=>x.id===id); if(!m) return;
+            if(!confirm(`Eliminare ${m.marca} ${m.modello} di ${m.cognome}?`)) return;
+            motoUsateDB = motoUsateDB.filter(x=>x.id!==id);
+            saveUsateDB(); refreshUsate();
+        }
+
+        function cambiaStatoUsata(id, stato) {
+            const m = motoUsateDB.find(x=>x.id===id); if(!m) return;
+            m.stato = stato;
+            if (stato === 'venduta') {
+                const pv = prompt('Prezzo di vendita finale (€):', m.prezzo||'');
+                if (pv !== null) m.prezzo_vendita = parseFloat(pv) || m.prezzo;
+                m.data_vendita = getOggiLocale();
+            }
+            saveUsateDB(); refreshUsate();
+            const msg = stato==='venduta' ? '✅ Moto segnata come venduta!' : stato==='riservata' ? '🟡 Moto riservata!' : '🟢 Moto di nuovo disponibile!';
+            mostraToast(msg);
+        }
+
+        function setUsateFilter(f) {
+            _usateFilter = f;
+            ['tutte','disponibile','riservata','venduta'].forEach(k => {
+                const btn=$('uf-'+k); if(!btn) return;
+                if(k===f){ btn.style.background='#f59e0b'; btn.style.color='#0f172a'; btn.style.border='none'; }
+                else     { btn.style.background='transparent'; btn.style.color='var(--muted)'; btn.style.border='1px solid #334155'; }
+            });
+            refreshUsate();
+        }
+
+        function refreshUsate() {
+            const list = $('usate-list'); if(!list) return;
+            const statoCfg = {
+                disponibile: { color:'#22c55e', bg:'rgba(34,197,94,0.15)',   border:'rgba(34,197,94,0.4)',   label:'🟢 DISPONIBILE', bl:'#22c55e' },
+                riservata:   { color:'#f59e0b', bg:'rgba(245,158,11,0.15)',  border:'rgba(245,158,11,0.4)',  label:'🟡 RISERVATA',   bl:'#f59e0b' },
+                venduta:     { color:'#64748b', bg:'rgba(100,116,139,0.15)', border:'rgba(100,116,139,0.4)', label:'✅ VENDUTA',      bl:'#334155' }
+            };
+            let items = [...motoUsateDB].sort((a,b)=>{
+                const ord={disponibile:0,riservata:1,venduta:2};
+                if(ord[a.stato]!==ord[b.stato]) return ord[a.stato]-ord[b.stato];
+                return new Date(b.data_ins||0)-new Date(a.data_ins||0);
+            });
+            if(_usateFilter!=='tutte') items=items.filter(m=>m.stato===_usateFilter);
+            const cnt=$('usate-count'); if(cnt) cnt.textContent=`${items.length} moto`;
+            if(!items.length){ list.innerHTML=`<div style="grid-column:1/-1; text-align:center; padding:50px; color:var(--muted);"><div style="font-size:2.5rem; margin-bottom:12px;">🏍️</div><div>${_usateFilter==='tutte'?'Nessuna moto usata inserita. Usa ➕ per aggiungerne una.':'Nessuna moto in questa categoria.'}</div></div>`; return; }
+            list.innerHTML = items.map(m => {
+                const cfg = statoCfg[m.stato]||statoCfg.disponibile;
+                const kmStr    = m.km    ? m.km.toLocaleString('it-IT')+' km' : '';
+                const prezzoStr= m.prezzo? `€ ${m.prezzo.toLocaleString('it-IT',{minimumFractionDigits:0})}` : '';
+                const pvStr    = (m.stato==='venduta' && m.prezzo_vendita)
+                    ? `<div style="font-size:0.75rem; color:#22c55e; margin-top:2px;">Venduta a: € ${parseFloat(m.prezzo_vendita).toLocaleString('it-IT')}${m.data_vendita?' · '+formattaData(m.data_vendita):''}</div>` : '';
+                const btnStato = m.stato==='disponibile'
+                    ? `<button onclick="cambiaStatoUsata('${m.id}','riservata')" style="background:transparent; border:1px solid #f59e0b; color:#f59e0b; padding:5px 9px; border-radius:6px; font-size:0.78rem; cursor:pointer;" title="Segna come Riservata">🔒 Prenota</button>`
+                    : m.stato==='riservata'
+                    ? `<button onclick="cambiaStatoUsata('${m.id}','disponibile')" style="background:transparent; border:1px solid #22c55e; color:#22c55e; padding:5px 9px; border-radius:6px; font-size:0.78rem; cursor:pointer;">⬅️ Libera</button>`
+                    : `<button onclick="cambiaStatoUsata('${m.id}','disponibile')" style="background:transparent; border:1px solid #94a3b8; color:#94a3b8; padding:5px 9px; border-radius:6px; font-size:0.78rem; cursor:pointer;">♻️ Rimetti</button>`;
+                const btnVenduta = m.stato!=='venduta'
+                    ? `<button onclick="cambiaStatoUsata('${m.id}','venduta')" style="background:transparent; border:1px solid #22c55e; color:#22c55e; padding:5px 9px; border-radius:6px; font-size:0.78rem; cursor:pointer;">✅ Venduta</button>`
+                    : '';
+                const waBtn = m.tel
+                    ? `<a href="https://wa.me/39${m.tel.replace(/\D/g,'')}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex; align-items:center; gap:3px; background:transparent; border:1px solid #25d366; color:#25d366; padding:5px 9px; border-radius:6px; font-size:0.78rem; cursor:pointer; text-decoration:none;" title="WhatsApp">📲 WA</a>`
+                    : '';
+                return `<div style="background:var(--card); border-radius:14px; padding:16px; border:1px solid #334155; border-left:4px solid ${cfg.bl}; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
+                        ${m.targa?`<span style="background:#1e293b; border:1px solid #475569; color:#94a3b8; font-family:monospace; font-weight:900; font-size:0.9rem; padding:3px 9px; border-radius:6px; letter-spacing:1px;">${m.targa}</span>`:'<span></span>'}
+                        <span style="background:${cfg.bg}; color:${cfg.color}; border:1px solid ${cfg.border}; padding:3px 10px; border-radius:20px; font-size:0.72rem; font-weight:700; white-space:nowrap;">${cfg.label}</span>
+                    </div>
+                    <div>
+                        <div style="font-size:1.05rem; font-weight:800; color:white; margin-bottom:4px;">${m.marca} ${m.modello}${m.anno?` <span style="font-weight:400; color:var(--muted); font-size:0.85rem;">(${m.anno})</span>`:''}</div>
+                        <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                            ${kmStr?`<span style="background:rgba(148,163,184,0.12); color:#94a3b8; font-size:0.78rem; padding:2px 7px; border-radius:4px;">${kmStr}</span>`:''}
+                            ${m.colore?`<span style="background:rgba(148,163,184,0.1); color:#94a3b8; font-size:0.78rem; padding:2px 7px; border-radius:4px;">${m.colore}</span>`:''}
+                            <span style="font-size:0.72rem; color:var(--muted); align-self:center;">ins. ${formattaData(m.data_ins)}</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; border-top:1px solid #1e293b; padding-top:6px;">
+                        <span style="color:#cbd5e1; font-size:0.88rem; font-weight:700;">👤 ${m.cognome}${m.nome?' '+m.nome:''}</span>
+                        ${m.tel?`<a href="tel:${m.tel}" onclick="event.stopPropagation()" style="display:inline-flex; align-items:center; gap:4px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); color:#93c5fd; font-size:0.8rem; padding:2px 9px; border-radius:20px; text-decoration:none;">📞 ${m.tel}</a>`:''}
+                    </div>
+                    ${prezzoStr?`<div style="font-size:1.25rem; font-weight:900; color:#f59e0b;">${prezzoStr}</div>${pvStr}`:pvStr}
+                    ${m.note?`<div style="font-size:0.82rem; color:var(--muted); border-left:2px solid #334155; padding-left:8px; line-height:1.4;">${htmlEsc(m.note)}</div>`:''}
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:2px; padding-top:8px; border-top:1px solid #1e293b;">
+                        <button onclick="editUsata('${m.id}')" style="background:transparent; border:1px solid #f59e0b; color:#f59e0b; padding:5px 9px; border-radius:6px; font-size:0.78rem; cursor:pointer;">✏️ Modifica</button>
+                        ${waBtn}
+                        ${btnStato}
+                        ${btnVenduta}
+                        <button onclick="eliminaUsata('${m.id}')" style="background:transparent; border:1px solid #ef4444; color:#ef4444; padding:5px 9px; border-radius:6px; font-size:0.78rem; cursor:pointer; margin-left:auto;">🗑️</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
 
         // ═══════════════ LISTA ATTESA MOTO ═══════════════
         function saveAttesaDB() { const obj = {}; listaAttesaDB.forEach(e => { obj[e.id] = e; }); database.ref('/lista_attesa').set(obj).then(showCloudCheck).catch(_onSaveError); }
