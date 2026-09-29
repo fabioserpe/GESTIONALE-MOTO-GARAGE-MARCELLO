@@ -6921,7 +6921,7 @@ if ('serviceWorker' in navigator) {
             if (!marca)   { mostraErrore('Inserisci almeno la marca della moto!'); return; }
             if (!cognome) { mostraErrore('Inserisci il cognome del proprietario!'); return; }
             const editId = $('usata-edit-id').value;
-            const existing = editId ? motoUsateDB.find(x=>x.id===editId) : null;
+            const existing = editId ? motoUsateDB.find(x=>String(x.id)===String(editId)) : null;
             const obj = {
                 id:        editId || genId(),
                 data_ins:  existing ? (existing.data_ins || getOggiLocale()) : getOggiLocale(),
@@ -6940,7 +6940,7 @@ if ('serviceWorker' in navigator) {
                 foto:      [..._usataFoto]
             };
             if (editId) {
-                const i = motoUsateDB.findIndex(x=>x.id===editId);
+                const i = motoUsateDB.findIndex(x=>String(x.id)===String(editId));
                 if (i>-1) motoUsateDB[i]=obj; else motoUsateDB.push(obj);
             } else { motoUsateDB.push(obj); }
             saveUsateDB();
@@ -6955,7 +6955,7 @@ if ('serviceWorker' in navigator) {
         }
 
         function editUsata(id) {
-            const m = motoUsateDB.find(x=>x.id===id); if(!m) return;
+            const m = motoUsateDB.find(x=>String(x.id)===String(id)); if(!m) return;
             toggleUsateForm(true);
             $('usata-edit-id').value  = m.id;
             $('usata-cognome').value  = m.cognome||'';
@@ -6975,14 +6975,14 @@ if ('serviceWorker' in navigator) {
         }
 
         function eliminaUsata(id) {
-            const m = motoUsateDB.find(x=>x.id===id); if(!m) return;
+            const m = motoUsateDB.find(x=>String(x.id)===String(id)); if(!m) return;
             if(!confirm(`Eliminare ${m.marca} ${m.modello} di ${m.cognome}?`)) return;
-            motoUsateDB = motoUsateDB.filter(x=>x.id!==id);
+            motoUsateDB = motoUsateDB.filter(x=>String(x.id)!==String(id));
             saveUsateDB(); refreshUsate();
         }
 
         function cambiaStatoUsata(id, stato) {
-            const m = motoUsateDB.find(x=>x.id===id); if(!m) return;
+            const m = motoUsateDB.find(x=>String(x.id)===String(id)); if(!m) return;
             m.stato = stato;
             if (stato === 'venduta') {
                 const pv = prompt('Prezzo di vendita finale (€):', m.prezzo||'');
@@ -7051,7 +7051,7 @@ if ('serviceWorker' in navigator) {
         }
 
         function openFotoUsataModal(motoId, idx) {
-            const _rawFoto = motoId ? (motoUsateDB.find(x=>x.id===motoId)?.foto) : null;
+            const _rawFoto = motoId ? (motoUsateDB.find(x=>String(x.id)===String(motoId))?.foto) : null;
             _fotoModalList = _rawFoto ? (Array.isArray(_rawFoto) ? _rawFoto : Object.values(_rawFoto)) : (motoId ? [] : _usataFoto);
             if (!_fotoModalList.length) return;
             _fotoModalIdx = idx;
