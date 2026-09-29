@@ -1427,6 +1427,18 @@
                     <input id="usata-prezzo" type="number" placeholder="Prezzo richiesto €" step="50" style="flex:1; min-width:160px; margin:0;">
                 </div>
                 <textarea id="usata-note" placeholder="Condizioni, accessori inclusi, revisioni fatte, motivo vendita..." style="width:100%; min-height:60px; margin-bottom:8px; resize:vertical;"></textarea>
+
+                <!-- Foto -->
+                <div style="margin-bottom:12px;">
+                    <div style="font-size:0.7rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">📷 Foto moto</div>
+                    <div id="usata-foto-preview" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; min-height:0;"></div>
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <label for="usata-foto-input" id="usata-foto-btn" style="display:inline-flex; align-items:center; gap:6px; background:transparent; border:1px solid #f59e0b; color:#f59e0b; padding:7px 14px; border-radius:8px; cursor:pointer; font-size:0.82rem; font-weight:700;">📷 Aggiungi Foto</label>
+                        <input id="usata-foto-input" type="file" accept="image/*" multiple style="display:none;" onchange="handleFotoUsate(this)">
+                        <span style="font-size:0.72rem; color:var(--muted);">Max 8 foto · compresse automaticamente</span>
+                    </div>
+                </div>
+
                 <div style="display:flex; gap:8px; justify-content:flex-end;">
                     <button class="btn btn-dark w-auto" onclick="toggleUsateForm()">Annulla</button>
                     <button class="btn w-auto" style="background:#f59e0b; color:#0f172a; font-weight:700;" onclick="salvaUsata()">💾 Salva</button>
@@ -1812,6 +1824,19 @@
                 <button class="btn btn-dark" onclick="closeModal('modal-accetta-prev')" style="flex:1;">Annulla</button>
                 <button class="btn btn-success" onclick="confermaAccettaPreventivo()" style="flex:2; font-weight:bold;">✅ Converti in Commessa</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal lightbox foto moto usate -->
+    <div id="modal-foto-usata" class="modal hidden no-print" onclick="closeModal('modal-foto-usata')" style="background:rgba(0,0,0,0.93); z-index:9999;">
+        <div style="position:relative; display:flex; flex-direction:column; align-items:center; max-width:98vw;" onclick="event.stopPropagation()">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px; width:100%; justify-content:space-between;">
+                <button onclick="navFotoUsata(-1)" style="background:rgba(255,255,255,0.1); border:1px solid #475569; color:white; border-radius:50%; width:40px; height:40px; font-size:1.4rem; cursor:pointer; flex-shrink:0;">‹</button>
+                <img id="foto-usata-fullsize" src="" style="max-width:90vw; max-height:78vh; border-radius:12px; object-fit:contain; display:block; flex-shrink:1;">
+                <button onclick="navFotoUsata(1)" style="background:rgba(255,255,255,0.1); border:1px solid #475569; color:white; border-radius:50%; width:40px; height:40px; font-size:1.4rem; cursor:pointer; flex-shrink:0;">›</button>
+            </div>
+            <div id="foto-usata-thumbs" style="display:flex; gap:8px; overflow-x:auto; padding:6px 2px; -webkit-overflow-scrolling:touch; max-width:92vw;"></div>
+            <button onclick="closeModal('modal-foto-usata')" style="position:absolute; top:-14px; right:0; background:none; border:none; color:rgba(255,255,255,0.7); font-size:2.2rem; cursor:pointer; line-height:1;">&times;</button>
         </div>
     </div>
 
@@ -6831,6 +6856,9 @@ if ('serviceWorker' in navigator) {
 
         // ═══════════════ MOTO USATE ═══════════════
         let _usateFilter = 'tutte';
+        let _usataFoto = [];       // foto temp durante editing form
+        let _fotoModalList = [];   // foto visualizzate nel lightbox
+        let _fotoModalIdx  = 0;
 
         function toggleUsateForm(edit) {
             const w = $('usate-form-wrapper');
@@ -6844,6 +6872,8 @@ if ('serviceWorker' in navigator) {
              'usata-marca','usata-modello','usata-targa','usata-colore','usata-note','usata-anno','usata-km','usata-prezzo']
             .forEach(id => { const el=$(id); if(el) el.value=''; });
             const r=$('usata-cliente-results'); if(r) r.style.display='none';
+            _usataFoto = [];
+            renderFotoPreview();
         }
 
         function cercaClienteUsate(q) {
@@ -6905,7 +6935,8 @@ if ('serviceWorker' in navigator) {
                 cognome:   cognome.toUpperCase(),
                 nome:      ($('usata-nome').value||'').trim(),
                 tel:       ($('usata-tel').value||'').trim(),
-                note:      ($('usata-note').value||'').trim()
+                note:      ($('usata-note').value||'').trim(),
+                foto:      [..._usataFoto]
             };
             if (editId) {
                 const i = motoUsateDB.findIndex(x=>x.id===editId);
@@ -6938,6 +6969,8 @@ if ('serviceWorker' in navigator) {
             $('usata-prezzo').value   = m.prezzo||'';
             $('usata-note').value     = m.note||'';
             $('usata-search-cliente').value = '';
+            _usataFoto = [...(m.foto||[])];
+            renderFotoPreview();
         }
 
         function eliminaUsata(id) {
@@ -6958,6 +6991,88 @@ if ('serviceWorker' in navigator) {
             saveUsateDB(); refreshUsate();
             const msg = stato==='venduta' ? '✅ Moto segnata come venduta!' : stato==='riservata' ? '🟡 Moto riservata!' : '🟢 Moto di nuovo disponibile!';
             mostraToast(msg);
+        }
+
+        // --- foto helpers ---
+        function compressImgUsata(file, maxW, maxH, q) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = reject;
+                reader.onload = ev => {
+                    const img = new Image();
+                    img.onerror = reject;
+                    img.onload = () => {
+                        let w = img.width, h = img.height;
+                        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+                        if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', q));
+                    };
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function handleFotoUsate(input) {
+            if (!input.files || !input.files.length) return;
+            const MAX = 8;
+            const lbl = $('usata-foto-btn');
+            if (lbl) lbl.textContent = '⏳ Comprimo...';
+            for (const file of Array.from(input.files)) {
+                if (_usataFoto.length >= MAX) { mostraToast('⚠️ Massimo 8 foto per moto'); break; }
+                try {
+                    const b64 = await compressImgUsata(file, 1200, 900, 0.72);
+                    _usataFoto.push(b64);
+                } catch(e) { console.warn('foto skip', e); }
+            }
+            input.value = '';
+            renderFotoPreview();
+            if (lbl) lbl.textContent = '📷 Aggiungi Foto';
+        }
+
+        function renderFotoPreview() {
+            const box = $('usata-foto-preview');
+            if (!box) return;
+            if (!_usataFoto.length) { box.innerHTML = ''; return; }
+            box.innerHTML = _usataFoto.map((b64, i) => `
+                <div style="position:relative; flex-shrink:0;">
+                    <img src="${b64}" onclick="openFotoUsataModal(null,${i})" style="width:90px; height:68px; object-fit:cover; border-radius:8px; border:1px solid #475569; cursor:pointer; display:block;" title="Vedi a schermo intero">
+                    <button onclick="rimuoviFotoUsataPreview(${i})" style="position:absolute; top:-7px; right:-7px; background:#ef4444; border:none; color:white; border-radius:50%; width:20px; height:20px; font-size:0.72rem; cursor:pointer; line-height:1; padding:0; display:flex; align-items:center; justify-content:center;" title="Rimuovi">×</button>
+                </div>`).join('');
+        }
+
+        function rimuoviFotoUsataPreview(i) {
+            _usataFoto.splice(i, 1);
+            renderFotoPreview();
+        }
+
+        function openFotoUsataModal(motoId, idx) {
+            _fotoModalList = motoId ? (motoUsateDB.find(x=>x.id===motoId)?.foto || []) : _usataFoto;
+            if (!_fotoModalList.length) return;
+            _fotoModalIdx = idx;
+            const modal = $('modal-foto-usata');
+            const img   = $('foto-usata-fullsize');
+            if (!modal || !img) return;
+            img.src = _fotoModalList[idx];
+            _renderFotoModalThumbs();
+            modal.classList.remove('hidden');
+        }
+
+        function navFotoUsata(dir) {
+            _fotoModalIdx = (_fotoModalIdx + dir + _fotoModalList.length) % _fotoModalList.length;
+            const img = $('foto-usata-fullsize');
+            if (img) img.src = _fotoModalList[_fotoModalIdx];
+            _renderFotoModalThumbs();
+        }
+
+        function _renderFotoModalThumbs() {
+            const box = $('foto-usata-thumbs');
+            if (!box) return;
+            box.innerHTML = _fotoModalList.map((b64, i) => `
+                <img src="${b64}" onclick="navFotoUsata(${i - _fotoModalIdx})" style="width:62px; height:48px; object-fit:cover; border-radius:6px; cursor:pointer; flex-shrink:0; border:2px solid ${i===_fotoModalIdx?'#f59e0b':'transparent'}; opacity:${i===_fotoModalIdx?1:0.55}; transition:0.15s;">`).join('');
         }
 
         function setUsateFilter(f) {
@@ -7021,6 +7136,7 @@ if ('serviceWorker' in navigator) {
                     </div>
                     ${prezzoStr?`<div style="font-size:1.25rem; font-weight:900; color:#f59e0b;">${prezzoStr}</div>${pvStr}`:pvStr}
                     ${m.note?`<div style="font-size:0.82rem; color:var(--muted); border-left:2px solid #334155; padding-left:8px; line-height:1.4;">${htmlEsc(m.note)}</div>`:''}
+                    ${(m.foto&&m.foto.length)?`<div style="display:flex; gap:6px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling:touch;">${m.foto.map((b64,i)=>`<img src="${b64}" onclick="openFotoUsataModal('${m.id}',${i})" style="width:80px; height:60px; object-fit:cover; border-radius:7px; border:1px solid #334155; cursor:pointer; flex-shrink:0;" title="Ingrandisci foto ${i+1}">`).join('')}</div>`:''}
                     <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:2px; padding-top:8px; border-top:1px solid #1e293b;">
                         <button onclick="editUsata('${m.id}')" style="background:transparent; border:1px solid #f59e0b; color:#f59e0b; padding:5px 9px; border-radius:6px; font-size:0.78rem; cursor:pointer;">✏️ Modifica</button>
                         ${waBtn}
