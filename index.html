@@ -2064,7 +2064,8 @@
                 }
                 updateDatalist();
                 const v = currentView;
-                if (v === 'board') _dRefreshBoard();
+                if (v === 'nuova' || v === 'crea-prev') { /* form aperto, nessun refresh */ }
+                else if (v === 'board') _dRefreshBoard();
                 else if (v === 'archivio') _dRefreshArchive();
                 else if (v === 'stats') refreshStats();
                 else if (v === 'preventivi') refreshPreventivi();
@@ -2079,10 +2080,10 @@
             });
 
             database.ref('/ledger').on('value', (snap) => {
-                ledgerDB = snap.val() || [];
+                ledgerDB = snap.val() ? (Array.isArray(snap.val()) ? snap.val() : Object.values(snap.val())) : [];
                 if (currentView === 'ledger') {
                     refreshLedger();
-                    if (currentCollabView) openCollabDetail(currentCollabView);
+                    if (currentCollabView && !$('modal-collab').classList.contains('hidden')) openCollabDetail(currentCollabView);
                 }
             });
 
@@ -2249,7 +2250,7 @@
         function saveDB()       { database.ref('/').update({ db }).then(showCloudCheck).catch(_onSaveError); updateDatalist(); }
         function saveAgenda()   { database.ref('/').update({ agenda: agendaDB }).then(showCloudCheck).catch(_onSaveError); }
         function saveDBAgenda() { database.ref('/').update({ db, agenda: agendaDB }).then(showCloudCheck).catch(_onSaveError); updateDatalist(); }
-        function saveLedger()   { database.ref('/').update({ ledger: ledgerDB }).then(showCloudCheck).catch(_onSaveError); }
+        function saveLedger()   { database.ref('/ledger').set(ledgerDB).then(showCloudCheck).catch(_onSaveError); }
         function saveOrdini()   { database.ref('/').update({ ordini: ordiniDB }).then(showCloudCheck).catch(_onSaveError); }
         function saveRubrica()  { database.ref('/').update({ rubrica: rubricaDB }).then(showCloudCheck).catch(_onSaveError); }
         function saveNote()     { database.ref('/').update({ note: noteDB }).then(showCloudCheck).catch(_onSaveError); }
@@ -2390,7 +2391,7 @@
             if (_sidebarBtn) _sidebarBtn.classList.add('active');
             const t = $('view-' + viewId); if(t) t.classList.remove('hidden'); if(el) el.classList.add('active');
             updateNavGroupHighlight();
-            if(viewId !== 'nuova' && viewId !== 'crea-prev') currentView = viewId;
+            currentView = viewId;
             if(viewId === 'nuova' && !isEditing) clearForm();
             if(viewId === 'nuovo-cliente') _resetNuovoClienteForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
@@ -2435,7 +2436,7 @@
             }
             container.innerHTML = html;
         }
-        function extractList(rS, v1C, v2C, iN = false) { return Array.from($$(rS)).map(r => { const v1 = r.querySelector(v1C).value; const v2 = r.querySelector(v2C).value; return iN ? { val: parseFloat(v1)||0, date: v2 } : { desc: v1, price: parseFloat(v2)||0 }; }).filter(i => i.val > 0 || (i.desc && i.desc.trim() !== '') || i.price > 0); }
+        function extractList(rS, v1C, v2C, iN = false) { return Array.from($$(rS)).map(r => { const v1 = r.querySelector(v1C)?.value || ''; const v2 = r.querySelector(v2C)?.value || ''; return iN ? { val: parseFloat(v1)||0, date: v2 } : { desc: v1, price: parseFloat(v2)||0 }; }).filter(i => i.val > 0 || (i.desc && i.desc.trim() !== '') || i.price > 0); }
         function getJobsByClient(chiave) { return db.filter(j => `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim() === chiave); }
         function getJobsByClientId(clientId) { return db.filter(j => j.clientId === clientId); }
         function genClientId() { return (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'c_' + Date.now() + '_' + Math.random().toString(36).substr(2,9); }
@@ -3174,14 +3175,6 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const voci = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase());
                 const avere = voci.filter(x=>x.tipo==='in').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
                 const dare  = voci.filter(x=>x.tipo==='out').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
-                const snapshot = {
-                    data: getOggiLocale(),
-                    collab: name.toUpperCase(),
-                    avere: avere,
-                    dare: dare,
-                    saldo: avere - dare,
-                    voci: voci
-                };
                 ledgerDB = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() !== name.toUpperCase());
                 ledgerDB.push({
                     id: genId(),
@@ -4606,7 +4599,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // =====================================================================
         // 10. PREVENTIVI
         // =====================================================================
-        function openPreventivoForm(id = null, fromStorico = false) { isEditing = !!id; _editingStorico = fromStorico; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVocePrev(c.desc,c.price,c.iva!==undefined?c.iva:22,false,c.qty||1)):addVocePrev('','',22,false); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVocePrev('','',22,false); } calcPrevTotale(); }
+        function openPreventivoForm(id = null, fromStorico = false) { isEditing = !!id; _editingStorico = fromStorico; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); if(!p){mostraErrore('Preventivo non trovato');return;} $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVocePrev(c.desc,c.price,c.iva!==undefined?c.iva:22,false,c.qty||1)):addVocePrev('','',22,false); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVocePrev('','',22,false); } calcPrevTotale(); }
         function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVocePrev('','',22,false); calcPrevTotale(); setTimeout(() => checkCustomerBikes('p'), 100); }
         function calcPrevTotale() {
             const rows = document.querySelectorAll('#p-conto-rows tr.voce-row');
@@ -4643,7 +4636,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (tEl) tEl.textContent = `TOTALE: ${totLordo.toFixed(2)} \u20ac`;
         }
         function calcPrevTotal() { calcPrevTotale(); }
-        function savePreventivo(inviaWA = false, comeCommessa = false, doStampa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = Array.from(document.querySelectorAll('#p-conto-rows tr.voce-row')).map(tr => ({ desc: tr.querySelector('.p-desc')?.value||'', price: (parseFloat(tr.querySelector('.p-price')?.value)||0)*(parseFloat(tr.querySelector('.p-qty')?.value)||1), iva: parseFloat(tr.dataset.iva??22)||0, qty: parseFloat(tr.querySelector('.p-qty')?.value)||1 })).filter(i => i.price > 0 || (i.desc||'').trim() !== ''); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const _orig = exI > -1 ? db[exI] : null; const _storico = _editingStorico && _orig && _orig.stato !== 'preventivo'; const data = { id: nowId, data: _storico ? (_orig.data||getOggiLocale()) : getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: _storico ? (_orig.acconti||[]) : [], lavori_richiesti: _storico ? (_orig.lavori_richiesti||'Vedi voci preventivo') : 'Vedi voci preventivo', stato: _storico ? _orig.stato : (comeCommessa ? 'todo' : 'preventivo'), era_preventivo: true, data_accettazione: _storico ? (_orig.data_accettazione||null) : (comeCommessa ? getOggiLocale() : null), conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa && !_storico) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; _editingStorico = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(doStampa) { printPreventivo(nowId); return; } if(comeCommessa && !_storico) switchView('board'); else switchView('preventivi'); }
+        function savePreventivo(inviaWA = false, comeCommessa = false, doStampa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = Array.from(document.querySelectorAll('#p-conto-rows tr.voce-row')).map(tr => ({ desc: tr.querySelector('.p-desc')?.value||'', price: (parseFloat(tr.querySelector('.p-price')?.value)||0)*(parseFloat(tr.querySelector('.p-qty')?.value)||1), iva: parseFloat(tr.dataset.iva??22)||0, qty: parseFloat(tr.querySelector('.p-qty')?.value)||1 })).filter(i => i.price > 0 || (i.desc||'').trim() !== ''); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const _orig = exI > -1 ? db[exI] : null; const _storico = _editingStorico && _orig && _orig.stato !== 'preventivo'; const data = { id: nowId, data: _storico ? (_orig.data||getOggiLocale()) : getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: _orig ? (_orig.acconti||[]) : [], lavori_richiesti: _storico ? (_orig.lavori_richiesti||'Vedi voci preventivo') : 'Vedi voci preventivo', stato: _storico ? _orig.stato : (comeCommessa ? 'todo' : 'preventivo'), era_preventivo: true, data_accettazione: _storico ? (_orig.data_accettazione||null) : (comeCommessa ? getOggiLocale() : null), conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa && !_storico && agendaDB.findIndex(a=>String(a.jobId)===String(nowId))===-1) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; _editingStorico = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(doStampa) { printPreventivo(nowId); return; } if(comeCommessa && !_storico) switchView('board'); else switchView('preventivi'); }
         function archiviaPreventivo(id) {
             if (!confirm('Archiviare questo preventivo nello storico senza convertirlo in commessa?')) return;
             const i = db.findIndex(j => String(j.id) === String(id));
@@ -4665,7 +4658,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             db[i].data_accettazione = getOggiLocale();
             db[i].data = getOggiLocale();
             db[i].lavori_richiesti = p.lavori_richiesti || 'Vedi voci preventivo';
-            agendaDB.push({ id: genId(), tipo: 'officina', jobId: p.id, data: db[i].data, ora: '09:00', cliente: ((p.cognome||'') + ' ' + (p.nome||'')).trim(), moto: ((p.marca||'') + ' ' + (p.modello||'') + ' - ' + (p.targa||'')).trim(), tel: p.tel||'', note: db[i].lavori_richiesti, raw_nome: p.nome||'', raw_cognome: p.cognome||'', raw_marca: p.marca||'', raw_modello: p.modello||'', raw_targa: p.targa||'' });
+            if(agendaDB.findIndex(a=>String(a.jobId)===String(p.id))===-1) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: p.id, data: db[i].data, ora: '09:00', cliente: ((p.cognome||'') + ' ' + (p.nome||'')).trim(), moto: ((p.marca||'') + ' ' + (p.modello||'') + ' - ' + (p.targa||'')).trim(), tel: p.tel||'', note: db[i].lavori_richiesti, raw_nome: p.nome||'', raw_cognome: p.cognome||'', raw_marca: p.marca||'', raw_modello: p.modello||'', raw_targa: p.targa||'' }); }
             saveDBAgenda();
             mostraToast('Preventivo convertito in commessa ✅');
             switchView('board');
@@ -7126,19 +7119,19 @@ if ('serviceWorker' in navigator) {
                     : '';
                 return `<div style="background:var(--card); border-radius:14px; padding:16px; border:1px solid #334155; border-left:4px solid ${cfg.bl}; display:flex; flex-direction:column; gap:8px;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
-                        ${m.targa?`<span style="background:#1e293b; border:1px solid #475569; color:#94a3b8; font-family:monospace; font-weight:900; font-size:0.9rem; padding:3px 9px; border-radius:6px; letter-spacing:1px;">${m.targa}</span>`:'<span></span>'}
+                        ${m.targa?`<span style="background:#1e293b; border:1px solid #475569; color:#94a3b8; font-family:monospace; font-weight:900; font-size:0.9rem; padding:3px 9px; border-radius:6px; letter-spacing:1px;">${htmlEsc(m.targa)}</span>`:'<span></span>'}
                         <span style="background:${cfg.bg}; color:${cfg.color}; border:1px solid ${cfg.border}; padding:3px 10px; border-radius:20px; font-size:0.72rem; font-weight:700; white-space:nowrap;">${cfg.label}</span>
                     </div>
                     <div>
-                        <div style="font-size:1.05rem; font-weight:800; color:white; margin-bottom:4px;">${m.marca} ${m.modello}${m.anno?` <span style="font-weight:400; color:var(--muted); font-size:0.85rem;">(${m.anno})</span>`:''}</div>
+                        <div style="font-size:1.05rem; font-weight:800; color:white; margin-bottom:4px;">${htmlEsc(m.marca)} ${htmlEsc(m.modello)}${m.anno?` <span style="font-weight:400; color:var(--muted); font-size:0.85rem;">(${htmlEsc(m.anno)})</span>`:''}</div>
                         <div style="display:flex; gap:5px; flex-wrap:wrap;">
                             ${kmStr?`<span style="background:rgba(148,163,184,0.12); color:#94a3b8; font-size:0.78rem; padding:2px 7px; border-radius:4px;">${kmStr}</span>`:''}
-                            ${m.colore?`<span style="background:rgba(148,163,184,0.1); color:#94a3b8; font-size:0.78rem; padding:2px 7px; border-radius:4px;">${m.colore}</span>`:''}
+                            ${m.colore?`<span style="background:rgba(148,163,184,0.1); color:#94a3b8; font-size:0.78rem; padding:2px 7px; border-radius:4px;">${htmlEsc(m.colore)}</span>`:''}
                             <span style="font-size:0.72rem; color:var(--muted); align-self:center;">ins. ${formattaData(m.data_ins)}</span>
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; border-top:1px solid #1e293b; padding-top:6px;">
-                        <span style="color:#cbd5e1; font-size:0.88rem; font-weight:700;">👤 ${m.cognome}${m.nome?' '+m.nome:''}</span>
+                        <span style="color:#cbd5e1; font-size:0.88rem; font-weight:700;">👤 ${htmlEsc(m.cognome)}${m.nome?' '+htmlEsc(m.nome):''}</span>
                         ${m.tel?`<a href="tel:${m.tel}" onclick="event.stopPropagation()" style="display:inline-flex; align-items:center; gap:4px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); color:#93c5fd; font-size:0.8rem; padding:2px 9px; border-radius:20px; text-decoration:none;">📞 ${m.tel}</a>`:''}
                     </div>
                     ${prezzoStr?`<div style="font-size:1.25rem; font-weight:900; color:#f59e0b;">${prezzoStr}</div>${pvStr}`:pvStr}
