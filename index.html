@@ -354,8 +354,6 @@
             const _s = _sf[_t.sfondo]; if (_s) { _r.style.setProperty('--bg',_s.bg); _r.style.setProperty('--sidebar',_s.sidebar); _r.style.setProperty('--card',_s.card); }
         } catch(e) {}
     </script>
-    <!-- EmailJS SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -882,10 +880,7 @@
                     <h2 style="color:var(--purple); margin:0 0 10px;">📝 Preventivi</h2>
                     <div id="prev-tab-bar" style="display:flex; border-bottom:1px solid #334155;"></div>
                 </div>
-                <div style="display:flex; gap:8px; flex-shrink:0; margin-top:4px;">
-                    <button class="btn btn-dark w-auto" onclick="openPeritiModal()" style="border:1px solid var(--info); color:var(--info);">📋 Rubrica Periti</button>
-                    <button class="btn btn-purple w-auto" onclick="openPreventivoForm()">➕ Nuovo</button>
-                </div>
+                <button class="btn btn-purple w-auto" onclick="openPreventivoForm()" style="margin-top:4px; flex-shrink:0;">➕ Nuovo</button>
             </div>
             <div id="preventivi-results" style="overflow-y:auto; flex-grow:1; padding-top:14px;"></div>
         </div>
@@ -1845,58 +1840,6 @@
         </div>
     </div>
 
-    <!-- Modal Rubrica Periti -->
-    <div id="modal-periti" class="modal hidden no-print" onclick="closeModal('modal-periti')">
-        <div class="modal-content" style="max-width:680px; width:96%; padding:28px;" onclick="event.stopPropagation()">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 style="margin:0; color:var(--info); font-size:1.1rem;">📋 Rubrica Periti Assicurativi</h2>
-                <button onclick="closeModal('modal-periti')" style="background:none; border:none; color:var(--muted); font-size:1.8rem; cursor:pointer; line-height:1;">&times;</button>
-            </div>
-            <!-- Form aggiunta/modifica -->
-            <div style="background:rgba(59,130,246,0.06); border:1px solid rgba(59,130,246,0.2); border-radius:10px; padding:16px; margin-bottom:18px;">
-                <div style="font-size:0.72rem; color:var(--info); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">➕ Aggiungi / Modifica Perito</div>
-                <input type="hidden" id="perito-edit-id">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
-                    <input id="perito-nome" placeholder="Nome e Cognome *" style="margin:0;">
-                    <input id="perito-compagnia" placeholder="Compagnia Assicurativa *" style="margin:0;">
-                </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
-                    <input id="perito-email" type="email" placeholder="Email *" style="margin:0;">
-                    <input id="perito-tel" placeholder="Telefono (opz.)" style="margin:0;">
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <button class="btn btn-dark w-auto" onclick="salvaPerito()" style="flex:1; background:var(--info); color:white; border-color:var(--info);">💾 Salva Perito</button>
-                    <button class="btn btn-dark w-auto" onclick="_clearPeritoForm()" style="flex:0 0 auto;">✕ Annulla</button>
-                </div>
-            </div>
-            <!-- Lista periti -->
-            <div id="periti-list" style="max-height:320px; overflow-y:auto;"></div>
-        </div>
-    </div>
-
-    <!-- Modal Email Perito -->
-    <div id="modal-email-perito" class="modal hidden no-print" onclick="closeModal('modal-email-perito')">
-        <div class="modal-content" style="max-width:640px; width:96%; padding:28px;" onclick="event.stopPropagation()">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 style="margin:0; color:var(--info); font-size:1.1rem;">📧 Invia Preventivo a Perito</h2>
-                <button onclick="closeModal('modal-email-perito')" style="background:none; border:none; color:var(--muted); font-size:1.8rem; cursor:pointer; line-height:1;">&times;</button>
-            </div>
-            <input type="hidden" id="email-perito-prev-id">
-            <label style="font-size:0.72rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Seleziona Perito dalla Rubrica</label>
-            <select id="email-perito-select" onchange="onSelectPerito(this)" style="width:100%; margin-bottom:12px; background:var(--card); color:var(--text); border:1px solid #334155; border-radius:8px; padding:10px 12px;">
-                <option value="">— Seleziona perito o inserisci email manualmente —</option>
-            </select>
-            <label style="font-size:0.72rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Email destinatario *</label>
-            <input id="email-perito-dest" type="email" placeholder="perito@assicurazione.it" style="width:100%; margin:0 0 12px;">
-            <label style="font-size:0.72rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Oggetto</label>
-            <input id="email-perito-subject" style="width:100%; margin:0 0 12px;">
-            <label style="font-size:0.72rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Corpo email</label>
-            <textarea id="email-perito-body" rows="10" style="width:100%; margin:0 0 16px; background:var(--card); color:var(--text); border:1px solid #334155; border-radius:8px; padding:10px 12px; font-size:0.85rem; resize:vertical; font-family:inherit;"></textarea>
-            <button onclick="inviaEmailPerito()" style="width:100%; padding:13px; background:var(--info); color:white; border:none; border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer;">📧 Invia Email</button>
-            <p style="font-size:0.72rem; color:var(--muted); text-align:center; margin:8px 0 0;">Invio automatico da info@motogaragemarcello.it</p>
-        </div>
-    </div>
-
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -2069,17 +2012,8 @@
         const $$ = (sel) => document.querySelectorAll(sel);
 
         const MGM_INFO = { nome: "MOTO GARAGE MARCELLO", tel: "0932 644902", piva: "01622620886", via: "Ragusa (RG)" };
-
-        // ── EMAILJS CONFIG ── sostituisci con i tuoi valori da emailjs.com ──
-        const EMAILJS_PUBLIC_KEY  = 'INSERISCI_QUI_LA_TUA_PUBLIC_KEY';
-        const EMAILJS_SERVICE_ID  = 'INSERISCI_QUI_IL_TUO_SERVICE_ID';
-        const EMAILJS_TEMPLATE_ID = 'INSERISCI_QUI_IL_TUO_TEMPLATE_ID';
-        if (typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY !== 'INSERISCI_QUI_LA_TUA_PUBLIC_KEY') {
-            emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
-        }
-        // ────────────────────────────────────────────────────────────────────
         let db = [], agendaDB = [], ledgerDB = [], ordiniDB = [], rubricaDB = [];
-        let noteDB = "", billingDB = {}, taggliandiDB = {}, scadenzeDB = [], motoUsateDB = [], peritiDB = [];
+        let noteDB = "", billingDB = {}, taggliandiDB = {}, scadenzeDB = [], motoUsateDB = [];
         let currentJobId = null, currentEditStoricoId = null, currentEditStoricoPlate = null, isEditing = false, currentView = 'board', currentArchiveFilter = 'all';
         let currentCollabView = null;
         let dataInizioSettimana = new Date(); dataInizioSettimana.setHours(0,0,0,0); const gDay = dataInizioSettimana.getDay(); dataInizioSettimana = new Date(dataInizioSettimana.setDate(dataInizioSettimana.getDate() - gDay + (gDay === 0 ? -6 : 1)));
@@ -2199,11 +2133,6 @@
                 motoUsateDB = snap.val() ? Object.values(snap.val()) : [];
                 motoUsateDB.forEach(m => { if (m.foto && !Array.isArray(m.foto)) m.foto = Object.values(m.foto); });
                 if (currentView === 'usate') refreshUsate();
-            });
-
-            database.ref('/periti').on('value', (snap) => {
-                peritiDB = snap.val() ? Object.values(snap.val()) : [];
-                peritiDB.sort((a,b)=>(a.compagnia||'').localeCompare(b.compagnia||''));
             });
 
         } // fine initFirebaseListeners
@@ -4845,7 +4774,6 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                     <button onclick="accettaPreventivo(${p.id})" style="color:var(--success); width:100%; text-align:left; font-weight:bold;">✅ Converti in Commessa</button>
                                     <button onclick="archiviaPreventivo(${p.id})" style="color:#94a3b8; width:100%; text-align:left;">📁 Archivia in Storico</button>
                                     <button onclick="sendWhatsAppPreventivo(${p.id})" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button>
-                                    <button onclick="openEmailPeritoModal(${p.id})" style="color:var(--info); width:100%; text-align:left;">📧 Invia a Perito</button>
                                     <button onclick="openPreventivoForm(${p.id})" style="color:var(--info); width:100%; text-align:left;">✏️ Modifica</button>
                                     <button onclick="printPreventivo(${p.id})" style="color:var(--text); width:100%; text-align:left;">🖨️ Stampa Preventivo</button>
                                     <button onclick="deleteJob(${p.id})" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina</button>
@@ -7228,149 +7156,6 @@ if ('serviceWorker' in navigator) {
         }
 
         // ═══════════════ LISTA ATTESA MOTO ═══════════════
-        // ── PERITI ASSICURATIVI ───────────────────────────────────────────────
-        function savePeritiDB() {
-            const obj = {};
-            peritiDB.forEach(p => { obj[p.id] = p; });
-            database.ref('/periti').set(obj).then(showCloudCheck).catch(_onSaveError);
-        }
-
-        function openPeritiModal() {
-            _clearPeritoForm();
-            refreshPeritiList();
-            $('modal-periti').classList.remove('hidden');
-        }
-
-        function _clearPeritoForm() {
-            $('perito-edit-id').value = '';
-            $('perito-nome').value = '';
-            $('perito-compagnia').value = '';
-            $('perito-email').value = '';
-            $('perito-tel').value = '';
-        }
-
-        function salvaPerito() {
-            const nome      = ($('perito-nome').value||'').trim();
-            const compagnia = ($('perito-compagnia').value||'').trim();
-            const email     = ($('perito-email').value||'').trim();
-            if (!nome)      { mostraErrore('Inserisci nome e cognome del perito!'); return; }
-            if (!compagnia) { mostraErrore('Inserisci la compagnia assicurativa!'); return; }
-            if (!email)     { mostraErrore("Inserisci l'email del perito!"); return; }
-            const editId = $('perito-edit-id').value;
-            const obj = {
-                id:        editId || genId(),
-                nome:      nome,
-                compagnia: compagnia.toUpperCase(),
-                email:     email.toLowerCase(),
-                tel:       ($('perito-tel').value||'').trim()
-            };
-            if (editId) {
-                const i = peritiDB.findIndex(x=>String(x.id)===String(editId));
-                if (i>-1) peritiDB[i]=obj; else peritiDB.push(obj);
-            } else {
-                peritiDB.push(obj);
-            }
-            savePeritiDB();
-            _clearPeritoForm();
-            refreshPeritiList();
-            mostraToast(editId ? '✅ Perito aggiornato!' : '✅ Perito aggiunto!');
-        }
-
-        function editPerito(id) {
-            const p = peritiDB.find(x=>String(x.id)===String(id)); if(!p) return;
-            $('perito-edit-id').value   = p.id;
-            $('perito-nome').value      = p.nome||'';
-            $('perito-compagnia').value = p.compagnia||'';
-            $('perito-email').value     = p.email||'';
-            $('perito-tel').value       = p.tel||'';
-            $('perito-nome').focus();
-        }
-
-        function eliminaPerito(id) {
-            if (!confirm('Eliminare questo perito dalla rubrica?')) return;
-            peritiDB = peritiDB.filter(x=>String(x.id)!==String(id));
-            savePeritiDB();
-            refreshPeritiList();
-            mostraToast('🗑️ Perito eliminato');
-        }
-
-        function refreshPeritiList() {
-            const box = $('periti-list'); if (!box) return;
-            if (!peritiDB.length) {
-                box.innerHTML = '<p style="color:var(--muted); text-align:center; padding:20px;">Nessun perito in rubrica. Aggiungine uno sopra.</p>';
-                return;
-            }
-            box.innerHTML = peritiDB.map(p => `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border:1px solid #334155; border-radius:8px; margin-bottom:6px; background:rgba(59,130,246,0.04);">
-                    <div>
-                        <div style="font-weight:700; color:white;">${p.nome||''}</div>
-                        <div style="font-size:0.78rem; color:var(--info);">${p.compagnia||''}</div>
-                        <div style="font-size:0.78rem; color:var(--muted);">📧 ${p.email||''}${p.tel?' · 📞 '+p.tel:''}</div>
-                    </div>
-                    <div style="display:flex; gap:6px; flex-shrink:0;">
-                        <button onclick="editPerito(${p.id})" style="background:transparent; border:1px solid var(--info); color:var(--info); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.78rem;">✏️</button>
-                        <button onclick="eliminaPerito(${p.id})" style="background:transparent; border:1px solid var(--accent); color:var(--accent); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.78rem;">🗑️</button>
-                    </div>
-                </div>`).join('');
-        }
-
-        function openEmailPeritoModal(prevId) {
-            const p = db.find(x=>String(x.id)===String(prevId)); if(!p) return;
-            $('email-perito-prev-id').value = prevId;
-            const sel = $('email-perito-select');
-            sel.innerHTML = '<option value="">— Seleziona perito o inserisci email manualmente —</option>' +
-                peritiDB.map(pt => `<option value="${pt.id}" data-email="${pt.email}">${pt.compagnia} – ${pt.nome}</option>`).join('');
-            $('email-perito-dest').value = '';
-            const soggetto = `Preventivo Assicurativo – ${(p.cognome||'').toUpperCase()} ${p.nome||''} – Targa ${p.targa||'—'} – ${p.marca||''} ${p.modello||''}`.trim();
-            $('email-perito-subject').value = soggetto;
-            const voci = (p.conto||[]).map(v=>`  • ${v.desc||''}: €${parseFloat(v.price||0).toFixed(2)}`).join('\n');
-            const totale = (parseFloat(p.totale_lordo)||0).toFixed(2);
-            const corpo = `Gentile Perito,\n\nle trasmettiamo il preventivo relativo al seguente veicolo:\n\nIntestatario: ${(p.cognome||'').toUpperCase()} ${p.nome||''}\nTarga: ${p.targa||'—'}\nVeicolo: ${p.marca||''} ${p.modello||''}\nData preventivo: ${formattaData(p.data)}\n\nVOCI:\n${voci}\n\nTOTALE: €${totale} (IVA inclusa)\n\nRestiamo a disposizione per qualsiasi chiarimento.\n\nDistinti saluti,\n${MGM_INFO.nome}\nTel. ${MGM_INFO.tel}`;
-            $('email-perito-body').value = corpo;
-            $('modal-email-perito').classList.remove('hidden');
-        }
-
-        function onSelectPerito(sel) {
-            const opt = sel.options[sel.selectedIndex];
-            $('email-perito-dest').value = (opt && opt.dataset.email) ? opt.dataset.email : '';
-        }
-
-        function inviaEmailPerito() {
-            const dest    = ($('email-perito-dest').value||'').trim();
-            const subject = ($('email-perito-subject').value||'').trim();
-            const body    = ($('email-perito-body').value||'').trim();
-            if (!dest) { mostraErrore("Inserisci l'email del destinatario!"); return; }
-
-            // Se EmailJS è configurato → invio automatico
-            const ejsReady = (typeof emailjs !== 'undefined') &&
-                             EMAILJS_PUBLIC_KEY  !== 'INSERISCI_QUI_LA_TUA_PUBLIC_KEY' &&
-                             EMAILJS_SERVICE_ID  !== 'INSERISCI_QUI_IL_TUO_SERVICE_ID' &&
-                             EMAILJS_TEMPLATE_ID !== 'INSERISCI_QUI_IL_TUO_TEMPLATE_ID';
-
-            if (ejsReady) {
-                const btn = document.querySelector('#modal-email-perito button[onclick="inviaEmailPerito()"]');
-                if (btn) { btn.textContent = '⏳ Invio in corso...'; btn.disabled = true; }
-                emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-                    to_email:  dest,
-                    from_name: MGM_INFO.nome,
-                    subject:   subject,
-                    message:   body
-                }).then(() => {
-                    mostraToast('✅ Email inviata a ' + dest);
-                    closeModal('modal-email-perito');
-                }).catch(err => {
-                    mostraErrore('Errore invio email: ' + (err.text || err));
-                    console.error('EmailJS error', err);
-                }).finally(() => {
-                    if (btn) { btn.textContent = '📧 Invia Email'; btn.disabled = false; }
-                });
-            } else {
-                // Fallback: apre il client email
-                window.open(`mailto:${dest}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-            }
-        }
-        // ── FINE PERITI ────────────────────────────────────────────────────────
-
         function saveAttesaDB() { const obj = {}; listaAttesaDB.forEach(e => { obj[e.id] = e; }); database.ref('/lista_attesa').set(obj).then(showCloudCheck).catch(_onSaveError); }
 
         function aggiornaAttesaBadge() {
