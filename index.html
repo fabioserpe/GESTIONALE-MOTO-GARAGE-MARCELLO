@@ -2042,7 +2042,7 @@
             let _dbMigrateGuard = false;
             database.ref('/db').on('value', (snap) => {
                 _segnaCaricato('db');
-                db = snap.val() ? Object.values(snap.val()) : [];
+                db = _leggiSezione('db', snap);
                 if (_dbMigrateGuard) { _dbMigrateGuard = false; }
                 else {
                 // Migrazione silenziosa: pulizie varie
@@ -2086,7 +2086,7 @@
 
             database.ref('/agenda').on('value', (snap) => {
                 _segnaCaricato('agenda');
-                agendaDB = snap.val() ? Object.values(snap.val()) : [];
+                agendaDB = _leggiSezione('agenda', snap);
                 _agendaCleanDone = false;
                 if (currentView === 'agenda') refreshAgenda();
             });
@@ -2329,9 +2329,53 @@
         // =====================================================================
         const _onSaveError = (e) => mostraErrore("\u26a0\ufe0f Errore salvataggio Cloud: " + e.message);
 
-        function saveDB()       { if (!_puoSalvare('db')) return; database.ref('/').update({ db }).then(showCloudCheck).catch(_onSaveError); updateDatalist(); }
-        function saveAgenda()   { if (!_puoSalvare('agenda')) return; database.ref('/').update({ agenda: agendaDB }).then(showCloudCheck).catch(_onSaveError); }
-        function saveDBAgenda() { if (!_puoSalvare('db', 'agenda')) return; database.ref('/').update({ db, agenda: agendaDB }).then(showCloudCheck).catch(_onSaveError); updateDatalist(); }
+        // Archivio lavori e agenda: si scrivono solo le schede cambiate rispetto all'ultimo dato
+        // ricevuto dal cloud, così due dispositivi che salvano insieme non si cancellano a vicenda.
+        // Con schede senza id o con id doppi si torna alla scrittura dell'intera sezione.
+        const _baseCloud = {};
+
+        function _leggiSezione(nome, snap) {
+            const arr = [], chiavi = Object.create(null), json = Object.create(null);
+            let affidabile = true;
+            snap.forEach(ch => {
+                const v = ch.val();
+                if (!v || typeof v !== 'object') return;
+                const id = v.id == null ? '' : String(v.id);
+                if (!id || id in chiavi) affidabile = false;
+                arr.push(v);
+                chiavi[id] = ch.key;
+                json[id] = JSON.stringify(v);
+            });
+            _baseCloud[nome] = { chiavi, json, affidabile };
+            return arr;
+        }
+
+        function _modificheSezione(nome, arr, updates) {
+            const base = _baseCloud[nome];
+            const ids = arr.map(v => (v && typeof v === 'object' && v.id != null) ? String(v.id) : '');
+            if (!base || !base.affidabile || ids.some(id => !id) || new Set(ids).size !== ids.length) {
+                updates[nome] = arr;
+                return;
+            }
+            ids.forEach((id, i) => {
+                const k = base.chiavi[id];
+                if (k === undefined) updates[nome + '/' + database.ref(nome).push().key] = arr[i];
+                else if (base.json[id] !== JSON.stringify(arr[i])) updates[nome + '/' + k] = arr[i];
+            });
+            const presenti = new Set(ids);
+            Object.keys(base.chiavi).forEach(id => { if (!presenti.has(id)) updates[nome + '/' + base.chiavi[id]] = null; });
+        }
+
+        function _salvaSezioni(sezioni, extra) {
+            const updates = Object.assign({}, extra);
+            sezioni.forEach(([nome, arr]) => _modificheSezione(nome, arr, updates));
+            if (!Object.keys(updates).length) return showCloudCheck();
+            database.ref('/').update(updates).then(showCloudCheck).catch(_onSaveError);
+        }
+
+        function saveDB()       { if (!_puoSalvare('db')) return; _salvaSezioni([['db', db]]); updateDatalist(); }
+        function saveAgenda()   { if (!_puoSalvare('agenda')) return; _salvaSezioni([['agenda', agendaDB]]); }
+        function saveDBAgenda() { if (!_puoSalvare('db', 'agenda')) return; _salvaSezioni([['db', db], ['agenda', agendaDB]]); updateDatalist(); }
         function saveLedger()   { if (!_puoSalvare('ledger')) return; database.ref('/ledger').set(ledgerDB).then(showCloudCheck).catch(_onSaveError); }
         function saveOrdini()   { if (!_puoSalvare('ordini')) return; database.ref('/').update({ ordini: ordiniDB }).then(showCloudCheck).catch(_onSaveError); }
         function saveRubrica()  { if (!_puoSalvare('rubrica')) return; database.ref('/').update({ rubrica: rubricaDB }).then(showCloudCheck).catch(_onSaveError); }
@@ -2382,8 +2426,7 @@
         function saveAll() {
             if (!_puoSalvare('db', 'agenda', 'ledger', 'ordini', 'rubrica', 'note')) return;
             // Salva ogni collezione separatamente (evita permission su radice /)
-            database.ref('/').update({ db, agenda: agendaDB, ledger: ledgerDB, ordini: ordiniDB, rubrica: rubricaDB, note: noteDB })
-            .then(showCloudCheck).catch(_onSaveError);
+            _salvaSezioni([['db', db], ['agenda', agendaDB]], { ledger: ledgerDB, ordini: ordiniDB, rubrica: rubricaDB, note: noteDB });
             updateDatalist();
             // Salva anche il magazzino se ci sono dati
             if (inventarioMag && inventarioMag.length > 0) {
@@ -4677,7 +4720,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (Object.keys(magUpdates).length > 0) renderSummaryMag();
             }
             // Unica operazione Firebase: job + magazzino insieme (atomica)
-            database.ref('/').update({ db, ...magUpdates }).then(showCloudCheck).catch(_onSaveError);
+            _salvaSezioni([['db', db]], magUpdates);
             updateDatalist();
             closeModal('modal-conto');
         }
