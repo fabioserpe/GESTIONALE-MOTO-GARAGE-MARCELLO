@@ -99,6 +99,7 @@
         input:focus, textarea:focus, select:focus { outline: none; border-color: var(--info); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
         label { font-size: 0.75rem; font-weight: bold; color: var(--muted); margin-bottom: 5px; display: block; }
         
+        @keyframes cloudOvIn { from { opacity: 0; } to { opacity: 1; } }
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .modal-content { background: var(--card); padding: 30px; border-radius: 20px; width: 750px; max-height: 90vh; overflow-y: auto; border: 1px solid #334155; position: relative; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
         .hidden { display: none !important; }
@@ -411,8 +412,13 @@
     <!-- ============================================================
          APP PRINCIPALE (nascosta finché non si fa login)
     ============================================================ -->
-    <div id="offline-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:white; text-align:center; padding:8px 16px; font-size:0.85rem; font-weight:700; letter-spacing:0.3px;">
-        ⚠️ Connessione assente — le modifiche sono in attesa. Non chiudere la scheda.
+    <div id="offline-banner" role="alertdialog" aria-modal="true" aria-labelledby="cloud-ov-titolo" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(2,6,23,0.72); align-items:center; justify-content:center; padding:16px; animation:cloudOvIn .2s ease .5s both;">
+        <div style="background:#0f172a; border:1px solid #334155; border-radius:14px; padding:22px 24px; max-width:420px; width:100%; text-align:center; color:#f8fafc; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+            <div id="cloud-ov-icona" style="font-size:2rem; line-height:1; margin-bottom:10px;">☁️</div>
+            <div id="cloud-ov-titolo" style="font-size:1.1rem; font-weight:800; margin-bottom:6px;">Caricamento dati…</div>
+            <div id="cloud-ov-testo" style="font-size:0.9rem; color:#cbd5e1; line-height:1.5;"></div>
+            <button id="cloud-ov-ricarica" type="button" onclick="location.reload()" style="display:none; margin-top:14px; background:#3b82f6; color:white; border:none; border-radius:8px; padding:9px 18px; font-weight:700; cursor:pointer;">Ricarica ora</button>
+        </div>
     </div>
 
     <div id="app-shell" style="display:none; width:100%; height:100vh; overflow:hidden; flex-direction:row;">
@@ -1965,6 +1971,9 @@
                 if (loginScreen) loginScreen.style.display = 'none';
                 if (appShell)    appShell.style.display    = 'flex';
                 if (logoutBtn)   logoutBtn.style.display   = 'flex';
+                _cloud.inizio = Date.now();
+                _aggiornaOverlayCloud();
+                setTimeout(_aggiornaOverlayCloud, 6500);
                 // Inizializza form e notes listener
                 if ($('f_data')) $('f_data').value = getOggiLocale();
                 if ($('ld_data')) $('ld_data').value = getOggiLocale();
@@ -1985,6 +1994,7 @@
                 if (loginScreen) loginScreen.style.display = 'flex';
                 if (appShell)    appShell.style.display    = 'none';
                 if (logoutBtn)   logoutBtn.style.display   = 'none';
+                _aggiornaOverlayCloud();
                 // Reset flag per permettere re-login
                 _listenersInit = false;
             }
@@ -2031,6 +2041,7 @@
 
             let _dbMigrateGuard = false;
             database.ref('/db').on('value', (snap) => {
+                _segnaCaricato('db');
                 db = snap.val() ? Object.values(snap.val()) : [];
                 if (_dbMigrateGuard) { _dbMigrateGuard = false; }
                 else {
@@ -2074,12 +2085,14 @@
             });
 
             database.ref('/agenda').on('value', (snap) => {
+                _segnaCaricato('agenda');
                 agendaDB = snap.val() ? Object.values(snap.val()) : [];
                 _agendaCleanDone = false;
                 if (currentView === 'agenda') refreshAgenda();
             });
 
             database.ref('/ledger').on('value', (snap) => {
+                _segnaCaricato('ledger');
                 ledgerDB = snap.val() ? (Array.isArray(snap.val()) ? snap.val() : Object.values(snap.val())) : [];
                 if (currentView === 'ledger') {
                     refreshLedger();
@@ -2088,31 +2101,37 @@
             });
 
             database.ref('/ordini').on('value', (snap) => {
+                _segnaCaricato('ordini');
                 ordiniDB = snap.val() ? Object.values(snap.val()) : [];
                 if (currentView === 'ordini') refreshOrdini();
             });
 
             database.ref('/lista_ordini').on('value', snap => {
+                _segnaCaricato('lista_ordini');
                 listaOrdiniMag = snap.val() ? Object.values(snap.val()) : [];
                 if (currentView === 'magazzino') refreshListaOrdini();
             });
 
             database.ref('/rubrica').on('value', (snap) => {
+                _segnaCaricato('rubrica');
                 rubricaDB = snap.val() ? Object.values(snap.val()) : [];
                 if (currentView === 'rubrica') refreshRubrica();
             });
 
             database.ref('/note').on('value', (snap) => {
+                _segnaCaricato('note');
                 noteDB = snap.val() || '';
                 const notesEl = $('dashboard-notes');
                 if (notesEl && document.activeElement !== notesEl) notesEl.value = noteDB;
             });
 
             database.ref('/billing').on('value', (snap) => {
+                _segnaCaricato('billing');
                 billingDB = snap.val() || {};
             });
 
             database.ref('/scadenze').on('value', (snap) => {
+                _segnaCaricato('scadenze');
                 scadenzeDB = snap.val() || [];
                 if (!Array.isArray(scadenzeDB)) scadenzeDB = Object.values(scadenzeDB);
                 aggiornaScadenzeBadge();
@@ -2120,17 +2139,20 @@
             });
 
             database.ref('/tagliandi').on('value', (snap) => {
+                _segnaCaricato('tagliandi');
                 taggliandiDB = snap.val() || {};
                 if (currentView === 'tagliandi') refreshTagliandi();
             });
 
             database.ref('/lista_attesa').on('value', (snap) => {
+                _segnaCaricato('lista_attesa');
                 listaAttesaDB = snap.val() ? Object.values(snap.val()) : [];
                 aggiornaAttesaBadge();
                 if (currentView === 'lista-attesa') refreshAttesa();
             });
 
             database.ref('/moto_usate').on('value', (snap) => {
+                _segnaCaricato('moto_usate');
                 motoUsateDB = snap.val() ? Object.values(snap.val()) : [];
                 motoUsateDB.forEach(m => { if (m.foto && !Array.isArray(m.foto)) m.foto = Object.values(m.foto); });
                 if (currentView === 'usate') refreshUsate();
@@ -2179,12 +2201,72 @@
         }
         function mostraErrore(msg) { mostraToast(msg, '#ef4444'); }
 
+        // =====================================================================
+        // PROTEZIONE SALVATAGGI: niente scritture prima del caricamento o senza connessione
+        // =====================================================================
+        const _cloud = { connesso: false, maiConnesso: false, caricati: new Set(), ricaricaAlRitorno: false, inizio: Date.now() };
+
+        function _segnaCaricato(nome) {
+            if (_cloud.caricati.has(nome)) return;
+            _cloud.caricati.add(nome);
+            _aggiornaOverlayCloud();
+        }
+
+        function _puoSalvare(...nomi) {
+            if (_cloud.connesso && nomi.every(n => _cloud.caricati.has(n))) return true;
+            if (_cloud.maiConnesso && !_cloud.connesso) {
+                // Lo stato locale può contenere la modifica rifiutata: si riallinea ricaricando al ritorno della rete
+                _cloud.ricaricaAlRitorno = true;
+                _aggiornaOverlayCloud();
+            } else {
+                alert('Dati non ancora caricati dal cloud: la modifica NON è stata salvata.\nAspetta qualche secondo e riprova.');
+            }
+            return false;
+        }
+
+        function _aggiornaOverlayCloud() {
+            const ov = $('offline-banner');
+            if (!ov) return;
+            let stato = null;
+            if (auth.currentUser) {
+                if (!_cloud.connesso) stato = _cloud.maiConnesso ? 'offline' : 'caricamento';
+                else if (_cloud.ricaricaAlRitorno) stato = 'ricarica';
+                else if (!_cloud.caricati.has('db')) stato = 'caricamento';
+            }
+            if (!stato) { ov.style.display = 'none'; return; }
+            const lento = Date.now() - _cloud.inizio > 6000;
+            const testi = {
+                caricamento: ['☁️', 'Caricamento dati…', lento
+                    ? 'Il collegamento al cloud sta impiegando più del solito: controlla la connessione Internet.'
+                    : 'Sto scaricando i dati dal cloud.'],
+                offline: ['📡', 'Connessione assente', 'Il gestionale è in pausa per non perdere dati: riprende da solo appena torna la connessione.'
+                    + (_cloud.ricaricaAlRitorno ? '<br><br><b style="color:#fca5a5;">Una modifica fatta senza connessione NON è stata salvata.</b> Al ritorno della connessione il gestionale si ricaricherà.' : '')],
+                ricarica: ['🔄', 'Connessione tornata', 'Ricarico i dati aggiornati…'],
+            };
+            const [icona, titolo, testo] = testi[stato];
+            $('cloud-ov-icona').textContent = icona;
+            $('cloud-ov-titolo').textContent = titolo;
+            $('cloud-ov-testo').innerHTML = testo;
+            $('cloud-ov-ricarica').style.display = stato === 'ricarica' ? '' : 'none';
+            ov.style.display = 'flex';
+        }
+
+        function _ricaricaDopoRiconnessione() {
+            let ultimo = 0;
+            try { ultimo = Number(sessionStorage.getItem('mgCloudReload') || 0); } catch(e) {}
+            if (Date.now() - ultimo < 60000) return;
+            try { sessionStorage.setItem('mgCloudReload', String(Date.now())); } catch(e) {}
+            setTimeout(() => location.reload(), 1500);
+        }
+
         function initConnectionMonitor() {
             if (window._connMonitorInit) return;
             window._connMonitorInit = true;
-            const banner = document.getElementById('offline-banner');
             database.ref('.info/connected').on('value', (snap) => {
-                if (banner) banner.style.display = snap.val() ? 'none' : 'block';
+                _cloud.connesso = !!snap.val();
+                if (_cloud.connesso) _cloud.maiConnesso = true;
+                _aggiornaOverlayCloud();
+                if (_cloud.connesso && _cloud.ricaricaAlRitorno) _ricaricaDopoRiconnessione();
             });
         }
         function checkBackupReminder() {
@@ -2247,15 +2329,15 @@
         // =====================================================================
         const _onSaveError = (e) => mostraErrore("\u26a0\ufe0f Errore salvataggio Cloud: " + e.message);
 
-        function saveDB()       { database.ref('/').update({ db }).then(showCloudCheck).catch(_onSaveError); updateDatalist(); }
-        function saveAgenda()   { database.ref('/').update({ agenda: agendaDB }).then(showCloudCheck).catch(_onSaveError); }
-        function saveDBAgenda() { database.ref('/').update({ db, agenda: agendaDB }).then(showCloudCheck).catch(_onSaveError); updateDatalist(); }
-        function saveLedger()   { database.ref('/ledger').set(ledgerDB).then(showCloudCheck).catch(_onSaveError); }
-        function saveOrdini()   { database.ref('/').update({ ordini: ordiniDB }).then(showCloudCheck).catch(_onSaveError); }
-        function saveRubrica()  { database.ref('/').update({ rubrica: rubricaDB }).then(showCloudCheck).catch(_onSaveError); }
-        function saveNote()     { database.ref('/').update({ note: noteDB }).then(showCloudCheck).catch(_onSaveError); }
-        function saveBilling()  { database.ref('/').update({ billing: billingDB }).then(showCloudCheck).catch(_onSaveError); }
-        function saveTagliandi() { database.ref('/tagliandi').set(taggliandiDB).then(showCloudCheck).catch(_onSaveError); }
+        function saveDB()       { if (!_puoSalvare('db')) return; database.ref('/').update({ db }).then(showCloudCheck).catch(_onSaveError); updateDatalist(); }
+        function saveAgenda()   { if (!_puoSalvare('agenda')) return; database.ref('/').update({ agenda: agendaDB }).then(showCloudCheck).catch(_onSaveError); }
+        function saveDBAgenda() { if (!_puoSalvare('db', 'agenda')) return; database.ref('/').update({ db, agenda: agendaDB }).then(showCloudCheck).catch(_onSaveError); updateDatalist(); }
+        function saveLedger()   { if (!_puoSalvare('ledger')) return; database.ref('/ledger').set(ledgerDB).then(showCloudCheck).catch(_onSaveError); }
+        function saveOrdini()   { if (!_puoSalvare('ordini')) return; database.ref('/').update({ ordini: ordiniDB }).then(showCloudCheck).catch(_onSaveError); }
+        function saveRubrica()  { if (!_puoSalvare('rubrica')) return; database.ref('/').update({ rubrica: rubricaDB }).then(showCloudCheck).catch(_onSaveError); }
+        function saveNote()     { if (!_puoSalvare('note')) return; database.ref('/').update({ note: noteDB }).then(showCloudCheck).catch(_onSaveError); }
+        function saveBilling()  { if (!_puoSalvare('billing')) return; database.ref('/').update({ billing: billingDB }).then(showCloudCheck).catch(_onSaveError); }
+        function saveTagliandi() { if (!_puoSalvare('tagliandi')) return; database.ref('/tagliandi').set(taggliandiDB).then(showCloudCheck).catch(_onSaveError); }
 
         function openBillingModal(encodedClientId, encodedNameFallback, clienteLabel) {
             // encodedClientId = clientId (UUID), encodedNameFallback = "COGNOME NOME" vecchia chiave
@@ -2298,6 +2380,7 @@
 
         // saveAll rimane solo per importData() ed eseguiUndo() che toccano più collezioni
         function saveAll() {
+            if (!_puoSalvare('db', 'agenda', 'ledger', 'ordini', 'rubrica', 'note')) return;
             // Salva ogni collezione separatamente (evita permission su radice /)
             database.ref('/').update({ db, agenda: agendaDB, ledger: ledgerDB, ordini: ordiniDB, rubrica: rubricaDB, note: noteDB })
             .then(showCloudCheck).catch(_onSaveError);
@@ -4562,6 +4645,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         function saveJobConConto(nuovoStato) {
+            if (!_puoSalvare('db')) return;
             const j = db.find(x => String(x.id) === String(currentJobId));
             if(!j) return;
             j.acconti = extractList('#conto-acconti-container .acc-row', '.c_acc_val', '.c_acc_date', true);
@@ -5640,6 +5724,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             // Listener real-time: aggiorna inventarioMag ad ogni modifica su Firebase
             const st = $('mag-cloud-status');
             database.ref('/magazzino').on('value', snap => {
+                _segnaCaricato('magazzino');
                 inventarioMag = Object.values(snap.val() || {});
                 if (st) { st.innerHTML = '🟢 Cloud'; st.style.color = '#4ade80'; st.title = ''; }
                 renderAllMag();
@@ -5785,6 +5870,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         function saveListaOrdiniMag() {
+            if (!_puoSalvare('lista_ordini')) return;
             database.ref('/lista_ordini').set(listaOrdiniMag).then(showCloudCheck).catch(_onSaveError);
         }
 
@@ -6949,6 +7035,7 @@ if ('serviceWorker' in navigator) {
         }
 
         function saveUsateDB() {
+            if (!_puoSalvare('moto_usate')) return;
             const obj = {};
             motoUsateDB.forEach(e => { obj[e.id] = e; });
             database.ref('/moto_usate').set(obj).then(showCloudCheck).catch(_onSaveError);
@@ -7151,7 +7238,7 @@ if ('serviceWorker' in navigator) {
         }
 
         // ═══════════════ LISTA ATTESA MOTO ═══════════════
-        function saveAttesaDB() { const obj = {}; listaAttesaDB.forEach(e => { obj[e.id] = e; }); database.ref('/lista_attesa').set(obj).then(showCloudCheck).catch(_onSaveError); }
+        function saveAttesaDB() { if (!_puoSalvare('lista_attesa')) return; const obj = {}; listaAttesaDB.forEach(e => { obj[e.id] = e; }); database.ref('/lista_attesa').set(obj).then(showCloudCheck).catch(_onSaveError); }
 
         function aggiornaAttesaBadge() {
             const badge = $('attesa-badge');
@@ -7299,7 +7386,7 @@ if ('serviceWorker' in navigator) {
             setStatoAttesa(id, 'contattato');
         }
 
-        function saveScadenzeDB() { database.ref('/scadenze').set(scadenzeDB).then(showCloudCheck).catch(_onSaveError); }
+        function saveScadenzeDB() { if (!_puoSalvare('scadenze')) return; database.ref('/scadenze').set(scadenzeDB).then(showCloudCheck).catch(_onSaveError); }
 
         function aggiornaScadenzeBadge() {
             const oggi = getOggiLocale();
