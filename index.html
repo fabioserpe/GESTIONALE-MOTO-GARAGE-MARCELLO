@@ -3476,7 +3476,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 // Calcola riepilogo IVA per la preview
                 let totImp = 0, ivaGroups = {};
                 j.conto.forEach(c => {
-                    const price = parseFloat(c.price) || 0;
+                    const price = (parseFloat(c.price) || 0) * (parseFloat(c.qty) || 1);
                     const ivaRate = parseFloat(c.iva) || 0;
                     const imp = ivaRate > 0 ? price / (1 + ivaRate/100) : price;
                     const ivaAmt = price - imp;
@@ -3508,11 +3508,13 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                             ${hasIva ? '<th style="text-align:center; padding:4px 0; width:55px;">IVA</th><th style="text-align:right; padding:4px 0; width:85px; color:#f59e0b;">Imponibile</th>' : ''}
                         </tr></thead>
                         <tbody>${j.conto.map(c => {
-                            const price = parseFloat(c.price)||0;
+                            const qty = parseFloat(c.qty) || 1;
+                            const price = (parseFloat(c.price)||0) * qty;
                             const ivaRate = parseFloat(c.iva)||0;
                             const imp = ivaRate > 0 ? price/(1+ivaRate/100) : price;
+                            const qtyLabel = qty > 1 ? ` <span style="color:var(--muted); font-size:0.8rem; font-weight:400;">×${qty}</span>` : '';
                             return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-                                <td style="padding:7px 0;">${c.desc}</td>
+                                <td style="padding:7px 0;">${c.desc}${qtyLabel}</td>
                                 <td style="padding:7px 8px; text-align:right; font-weight:bold;">€ ${price.toFixed(2)}</td>
                                 ${hasIva ? `<td style="padding:7px 0; text-align:center; color:var(--muted); font-size:0.8rem;">${ivaRate}%</td><td style="padding:7px 0; text-align:right; color:#f59e0b;">€ ${imp.toFixed(2)}</td>` : ''}
                             </tr>`;
