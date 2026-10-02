@@ -354,6 +354,8 @@
             const _s = _sf[_t.sfondo]; if (_s) { _r.style.setProperty('--bg',_s.bg); _r.style.setProperty('--sidebar',_s.sidebar); _r.style.setProperty('--card',_s.card); }
         } catch(e) {}
     </script>
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -1890,8 +1892,8 @@
             <input id="email-perito-subject" style="width:100%; margin:0 0 12px;">
             <label style="font-size:0.72rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Corpo email</label>
             <textarea id="email-perito-body" rows="10" style="width:100%; margin:0 0 16px; background:var(--card); color:var(--text); border:1px solid #334155; border-radius:8px; padding:10px 12px; font-size:0.85rem; resize:vertical; font-family:inherit;"></textarea>
-            <button onclick="inviaEmailPerito()" style="width:100%; padding:13px; background:var(--info); color:white; border:none; border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer;">📧 Apri nel Client Email</button>
-            <p style="font-size:0.72rem; color:var(--muted); text-align:center; margin:8px 0 0;">Si aprirà il tuo programma email (Outlook, Mail, Gmail...) con il messaggio pre-compilato</p>
+            <button onclick="inviaEmailPerito()" style="width:100%; padding:13px; background:var(--info); color:white; border:none; border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer;">📧 Invia Email</button>
+            <p style="font-size:0.72rem; color:var(--muted); text-align:center; margin:8px 0 0;">Invio automatico da info@motogaragemarcello.it</p>
         </div>
     </div>
 
@@ -2067,6 +2069,15 @@
         const $$ = (sel) => document.querySelectorAll(sel);
 
         const MGM_INFO = { nome: "MOTO GARAGE MARCELLO", tel: "0932 644902", piva: "01622620886", via: "Ragusa (RG)" };
+
+        // ── EMAILJS CONFIG ── sostituisci con i tuoi valori da emailjs.com ──
+        const EMAILJS_PUBLIC_KEY  = 'INSERISCI_QUI_LA_TUA_PUBLIC_KEY';
+        const EMAILJS_SERVICE_ID  = 'INSERISCI_QUI_IL_TUO_SERVICE_ID';
+        const EMAILJS_TEMPLATE_ID = 'INSERISCI_QUI_IL_TUO_TEMPLATE_ID';
+        if (typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY !== 'INSERISCI_QUI_LA_TUA_PUBLIC_KEY') {
+            emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+        }
+        // ────────────────────────────────────────────────────────────────────
         let db = [], agendaDB = [], ledgerDB = [], ordiniDB = [], rubricaDB = [];
         let noteDB = "", billingDB = {}, taggliandiDB = {}, scadenzeDB = [], motoUsateDB = [], peritiDB = [];
         let currentJobId = null, currentEditStoricoId = null, currentEditStoricoPlate = null, isEditing = false, currentView = 'board', currentArchiveFilter = 'all';
@@ -7325,11 +7336,38 @@ if ('serviceWorker' in navigator) {
         }
 
         function inviaEmailPerito() {
-            const dest = ($('email-perito-dest').value||'').trim();
+            const dest    = ($('email-perito-dest').value||'').trim();
+            const subject = ($('email-perito-subject').value||'').trim();
+            const body    = ($('email-perito-body').value||'').trim();
             if (!dest) { mostraErrore("Inserisci l'email del destinatario!"); return; }
-            const subject = encodeURIComponent($('email-perito-subject').value||'');
-            const body    = encodeURIComponent($('email-perito-body').value||'');
-            window.open(`mailto:${dest}?subject=${subject}&body=${body}`, '_blank');
+
+            // Se EmailJS è configurato → invio automatico
+            const ejsReady = (typeof emailjs !== 'undefined') &&
+                             EMAILJS_PUBLIC_KEY  !== 'INSERISCI_QUI_LA_TUA_PUBLIC_KEY' &&
+                             EMAILJS_SERVICE_ID  !== 'INSERISCI_QUI_IL_TUO_SERVICE_ID' &&
+                             EMAILJS_TEMPLATE_ID !== 'INSERISCI_QUI_IL_TUO_TEMPLATE_ID';
+
+            if (ejsReady) {
+                const btn = document.querySelector('#modal-email-perito button[onclick="inviaEmailPerito()"]');
+                if (btn) { btn.textContent = '⏳ Invio in corso...'; btn.disabled = true; }
+                emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+                    to_email:  dest,
+                    from_name: MGM_INFO.nome,
+                    subject:   subject,
+                    message:   body
+                }).then(() => {
+                    mostraToast('✅ Email inviata a ' + dest);
+                    closeModal('modal-email-perito');
+                }).catch(err => {
+                    mostraErrore('Errore invio email: ' + (err.text || err));
+                    console.error('EmailJS error', err);
+                }).finally(() => {
+                    if (btn) { btn.textContent = '📧 Invia Email'; btn.disabled = false; }
+                });
+            } else {
+                // Fallback: apre il client email
+                window.open(`mailto:${dest}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+            }
         }
         // ── FINE PERITI ────────────────────────────────────────────────────────
 
