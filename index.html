@@ -3170,7 +3170,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
         function azzeraCassa() {
             const name = safeDecode(currentCollabView);
-            if(confirm(`Sei sicuro di voler svuotare la scheda di ${name}? Le voci attuali verranno archiviate e la scheda ripartirà da zero.`)) {
+            if(confirm(`Svuotare la scheda di ${name}? Le voci correnti verranno ELIMINATE e la scheda ripartirà da zero.\nSe vuoi conservarle, usa prima "Archivia Scheda"!`)) {
                 const voci = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase());
                 const avere = voci.filter(x=>x.tipo==='in').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
                 const dare  = voci.filter(x=>x.tipo==='out').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
@@ -3182,9 +3182,6 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     saldo: avere - dare,
                     voci: voci
                 };
-                const collabKey = name.toUpperCase().replace(/[.#$[\]/]/g,'_');
-                database.ref('/storico_casse/' + collabKey).push(snapshot).catch(e => console.error('Errore salvataggio archivio:', e));
-
                 ledgerDB = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() !== name.toUpperCase());
                 ledgerDB.push({
                     id: genId(),
@@ -3238,6 +3235,13 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             }
         }
 
+        function eliminaArchivioScheda(collabKey, firebaseKey) {
+            if (!confirm("Eliminare definitivamente questa scheda dall'archivio?")) return;
+            database.ref('/storico_casse/' + collabKey + '/' + firebaseKey).remove()
+                .then(() => { mostraToast("🗑️ Scheda eliminata dall'archivio"); loadArchivioCollab(); })
+                .catch(e => mostraErrore('Errore eliminazione: ' + e.message));
+        }
+
         function loadArchivioCollab() {
             const name = safeDecode(currentCollabView);
             const collabKey = name.toUpperCase().replace(/[.#$[\]/]/g,'_');
@@ -3262,6 +3266,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                 <span style="color:var(--success); font-weight:700;">↑ €${(s.avere||0).toFixed(2)}</span>
                                 <span style="color:var(--accent); font-weight:700;">↓ €${(s.dare||0).toFixed(2)}</span>
                                 <span style="color:${(s.saldo||0)>=0?'var(--success)':'var(--accent)'}; font-weight:800;">= €${(s.saldo||0).toFixed(2)}</span>
+                                <button onclick="event.stopPropagation(); eliminaArchivioScheda('${collabKey}', '${key}')" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); color:#f87171; border-radius:6px; padding:3px 9px; cursor:pointer; font-size:0.78rem;" title="Elimina scheda">🗑️</button>
                                 <span class="arch-arrow" style="color:var(--muted); transition:transform 0.2s; transform:rotate(-90deg);">▶</span>
                             </div>
                         </div>
