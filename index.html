@@ -154,6 +154,9 @@
         .topbar-qbtn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--muted); border-radius: 8px; padding: 5px 11px; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: 0.2s; white-space: nowrap; }
         .topbar-qbtn:hover { background: rgba(255,255,255,0.1); color: white; }
         .topbar-qbtn.tq-active { background: var(--accent); color: white; border-color: var(--accent); }
+        #topbar-quicklinks::-webkit-scrollbar { display: none; }
+        @media (min-width: 769px) and (max-width: 1600px) { #topbar-quicklinks { gap: 4px !important; } .topbar-qbtn { padding: 5px 7px; } }
+        @media (min-width: 769px) and (max-width: 1360px) { #topbar-quicklinks { gap: 3px !important; } .topbar-qbtn { padding: 4px 5px; font-size: 0.73rem; } }
         .main-content { flex-grow: 1; width: 100%; display: flex; flex-direction: column; overflow-y: auto; overflow-x: clip; padding: 0; position: relative; z-index: 1; }
         /* .view padding already set globally above */
         #app-shell { overflow: visible !important; }
@@ -491,7 +494,7 @@
         <div class="mobile-header no-print">
             <button class="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
             <span style="font-weight:900; color:var(--accent); font-size:1rem; text-transform:uppercase; letter-spacing:1px; flex-shrink:0;">🏍️ Garage Marcello</span>
-            <div id="topbar-quicklinks" style="display:flex; gap:5px; flex:1; justify-content:center; overflow:hidden;">
+            <div id="topbar-quicklinks" style="display:flex; gap:5px; flex:1; justify-content:center; justify-content:safe center; overflow-x:auto; overflow-y:hidden; scrollbar-width:none;">
                 <button class="topbar-qbtn tq-active" data-view="board" onclick="switchView('board',null)">📊 Board</button>
                 <button class="topbar-qbtn" data-view="nuova" onclick="switchView('nuova',null)">➕ Nuova</button>
                 <button class="topbar-qbtn" data-view="agenda" onclick="switchView('agenda',null)">📅 Agenda</button>
@@ -500,6 +503,7 @@
                 <button class="topbar-qbtn" data-view="ordini" onclick="switchView('ordini',null)">📦 Ordini Ricambi</button>
                 <button class="topbar-qbtn" data-view="preventivi" onclick="switchView('preventivi',null)">📝 Preventivi</button>
                 <button class="topbar-qbtn" data-view="nuovo-cliente" onclick="switchView('nuovo-cliente',null)">👤 Cliente</button>
+                <button class="topbar-qbtn" data-view="specials" onclick="switchView('specials',null)">🕰️ Lavori Lunghi</button>
                 <button class="topbar-qbtn" data-view="incidentate" onclick="switchView('incidentate',null)">🚗 Incidentate</button>
             </div>
             <span id="topbar-section" style="font-size:0.72rem; color:var(--muted); font-weight:600; letter-spacing:0.5px; text-transform:uppercase; flex-shrink:0;"></span>
