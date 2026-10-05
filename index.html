@@ -877,10 +877,11 @@
                     <div style="font-size:0.78rem; color:var(--muted);">Gestione schede, preventivi e riparazioni per moto incidentate</div>
                 </div>
                 <div style="display:flex; gap:8px;">
-                    <button class="btn btn-purple w-auto" onclick="switchView('crea-prev')">📝 Nuovo Preventivo</button>
+                    <button class="btn btn-purple w-auto" onclick="openPreventivoForm(); _setAssicForm({ assicurativo: true });">📝 Nuovo Preventivo</button>
                     <button class="btn btn-dark w-auto" onclick="_pendingSpecialCat='incidentate'; switchView('nuova')">🚗 Nuova Scheda</button>
                 </div>
             </div>
+            <input type="text" id="incidentate-search" placeholder="🔍 Cerca tra le moto incidentate (cognome, targa, moto, telefono...)" oninput="refreshIncidentate()" style="background:var(--card); border:2px solid #f87171; margin-bottom:12px; flex-shrink:0;">
             <div id="incidentate-results" style="overflow-y:auto; flex-grow:1;"></div>
         </div>
 
@@ -900,7 +901,10 @@
 
         <div id="view-crea-prev" class="view hidden" style="padding:0 10px;">
             <div style="width:100%; box-sizing:border-box; background:var(--card); padding:30px 40px; border-radius:20px; border:1px solid var(--purple); border-top:4px solid var(--purple);">
-                <h2 style="color:var(--purple); margin:0 0 3px;">📝 Generatore Preventivo</h2>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <h2 style="color:var(--purple); margin:0 0 3px;">📝 Generatore Preventivo</h2>
+                    <button type="button" id="p-nuovo-stessa" class="btn btn-dark w-auto" onclick="nuovoPreventivoStessaMoto()" style="display:none; border:1px solid var(--purple); color:var(--purple);">➕ Nuovo preventivo per questa moto</button>
+                </div>
                 <p style="font-size:0.78rem; color:var(--muted); margin:0 0 18px;">Prezzi IVA inclusa &middot; l'imponibile viene calcolato in automatico per aliquota.</p>
                 <input type="hidden" id="p_id">
 
@@ -3840,69 +3844,110 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             calcPrevTotale();
         }
 
+        function _preventiviApertiTarga(targa) {
+            const k = chiaveTarga(targa);
+            if (!k) return [];
+            return db.filter(p => p.stato === 'preventivo' && chiaveTarga(p.targa) === k)
+                     .sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || (Number(b.id) - Number(a.id)));
+        }
+
+        function apriPreventivoIncidentata(jobId) {
+            const j = db.find(x => String(x.id) === String(jobId));
+            if (!j) return;
+            const aperti = _preventiviApertiTarga(j.targa);
+            if (!aperti.length) { nuovoPreventivoFromIncidentata(jobId); return; }
+            openPreventivoForm(aperti[0].id);
+            if (aperti.length > 1) mostraToast(`Ci sono ${aperti.length} preventivi aperti per ${j.targa}: aperto il più recente`, '#8b5cf6');
+        }
+
+        function nuovoPreventivoStessaMoto() {
+            const assic = { assicurativo: $('p_assic').checked, perito_id: $('p_perito').value, n_sinistro: $('p_sinistro').value };
+            isEditing = false;
+            _editingStorico = false;
+            $('p_id').value = '';
+            $('p-conto-rows').innerHTML = '';
+            addVocePrev('', '', 22, true);
+            _setAssicForm(assic);
+            calcPrevTotale();
+            mostraToast('Nuovo preventivo per la stessa moto: inserisci le voci e salva', '#8b5cf6');
+        }
+
         function refreshIncidentate() {
             chiudiTuttiMenuBoard();
             const c = $('incidentate-results');
             if (!c) return;
-            const incidentate = db.filter(j => j.stato === 'special' && j.special_cat === 'incidentate')
-                                  .sort((a,b) => new Date(b.data||0) - new Date(a.data||0));
-
-            if (incidentate.length === 0) {
+            const tutte = db.filter(j => j.stato === 'special' && j.special_cat === 'incidentate');
+            if (tutte.length === 0) {
                 c.innerHTML = '<div style="text-align:center; padding:50px 20px; color:var(--muted);"><div style="font-size:2rem; margin-bottom:12px;">🚗</div><div style="font-size:1rem; margin-bottom:16px;">Nessuna moto incidentata in gestione.</div><button class="btn btn-dark w-auto" onclick="_pendingSpecialCat=\'incidentate\'; switchView(\'nuova\')">🚗 Aggiungi scheda</button></div>';
                 return;
             }
+            const termini = (($('incidentate-search') || {}).value || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+            const incidentate = tutte.filter(j => {
+                const testo = `${j.cognome || ''} ${j.nome || ''} ${j.tel || ''} ${j.targa || ''} ${j.marca || ''} ${j.modello || ''} ${j.lavori_richiesti || ''}`.toLowerCase();
+                return termini.every(t => testo.includes(t));
+            }).sort((a, b) => `${a.cognome || ''} ${a.nome || ''}`.trim().localeCompare(`${b.cognome || ''} ${b.nome || ''}`.trim(), 'it', { sensitivity: 'base' }));
 
-            const grid = document.createElement('div');
-            grid.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px;';
+            if (!incidentate.length) {
+                c.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--muted);">Nessuna moto incidentata corrisponde alla ricerca.</div>`;
+                return;
+            }
 
+            const list = document.createElement('div');
+            list.style.cssText = 'display:flex; flex-direction:column; gap:8px;';
             incidentate.forEach(j => {
-                const prevAperti = db.filter(p => p.stato === 'preventivo' && p.targa === j.targa);
-                const hasPrev = prevAperti.length > 0;
-                const accTot = (j.acconti||[]).reduce((a,b) => a + (parseFloat(b.val)||0), 0);
+                const prevAperti = _preventiviApertiTarga(j.targa);
+                const accTot = (j.acconti || []).reduce((a, b) => a + (parseFloat(b.val) || 0), 0);
                 const lordo = parseFloat(j.totale_lordo) || 0;
-                const noteText = (j.lavori_richiesti||'—').split('\n').join(' · ').split('\r').join('');
+                const resta = lordo - accTot;
+                const noteText = htmlEsc((j.lavori_richiesti || '—').split('\n').join(' · ').split('\r').join(''));
                 const menuId = 'imenu-' + j.id;
+                const importi = lordo > 0
+                    ? `<div style="font-weight:bold; font-size:1.05rem; color:var(--success);">€ ${lordo.toFixed(2)}</div>
+                       ${accTot > 0 ? `<div style="font-size:0.75rem; color:var(--info); font-weight:bold; margin-top:2px;">Acconti € ${accTot.toFixed(2)}</div>` : ''}
+                       ${accTot > 0 && resta > 0.01 ? `<div style="font-size:0.75rem; color:#f59e0b; font-weight:bold;">Resta € ${resta.toFixed(2)}</div>` : ''}`
+                    : `<div style="font-size:0.8rem; color:var(--muted);">Nessun conto</div>`;
+                const prevBadge = prevAperti.length
+                    ? `<div style="margin-top:6px;"><span style="background:rgba(167,139,250,0.15); color:var(--purple); padding:2px 8px; border-radius:20px; font-size:0.7rem; font-weight:bold; border:1px solid rgba(167,139,250,0.3);">📝 ${prevAperti.length === 1 ? 'Preventivo aperto' : prevAperti.length + ' preventivi aperti'}</span></div>`
+                    : '';
 
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.style.cssText = 'border-top:3px solid #f87171;';
-                card.innerHTML = `
-                    <div onclick="previewJob(${j.id})" style="cursor:pointer;">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; flex-wrap:wrap; gap:5px;">
-                            <span class="targa-badge" style="font-size:0.82rem;">${j.targa||'N/D'}</span>
-                            <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
-                                ${lordo > 0 ? ((lordo-accTot) <= 0.01 ? `<span style="background:rgba(34,197,94,0.2); color:#22c55e; padding:1px 7px; border-radius:4px; font-size:0.72rem; font-weight:bold;">✓ SALDATO</span>` : accTot > 0 ? `<span style="background:rgba(245,158,11,0.25); color:#f59e0b; padding:1px 7px; border-radius:4px; font-size:0.72rem; font-weight:bold;">€ ${(lordo-accTot).toFixed(2)}</span>` : `<span style="background:rgba(34,197,94,0.15); color:#86efac; padding:1px 7px; border-radius:4px; font-size:0.72rem; font-weight:bold;">€ ${lordo.toFixed(2)}</span>`) : ''}
-                                ${hasPrev ? `<span onclick="event.stopPropagation(); setPrevTab('aperti'); switchView('preventivi');" style="background:rgba(167,139,250,0.2); color:var(--purple); padding:1px 7px; border-radius:4px; font-size:0.72rem; font-weight:bold; cursor:pointer;" title="Vai ai preventivi">📝 ${prevAperti.length} prev.</span>` : ''}
-                                <span style="font-size:0.68rem; color:var(--muted);">${formattaData(j.data)}</span>
-                            </div>
-                        </div>
-                        <div style="font-weight:bold; font-size:0.95rem; color:white; margin-bottom:3px;">${j.marca||''} ${j.modello||''}</div>
-                        <div style="font-size:0.82rem; color:var(--muted); margin-bottom:4px;">${(j.cognome||'').toUpperCase()} ${j.nome||''}${j.tel ? ' · 📞 '+j.tel : ''}</div>
-                        ${accTot > 0 ? `<div style="font-size:0.72rem; color:var(--info); font-weight:bold; margin-bottom:4px;">Acconti: €${accTot.toFixed(2)}</div>` : ''}
-                        <div style="font-size:0.75rem; color:#64748b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${noteText}</div>
+                const row = document.createElement('div');
+                row.className = 'card archive-card-row';
+                row.style.cssText = 'display:grid; grid-template-columns:minmax(200px,1.4fr) minmax(200px,1.6fr) 140px auto; align-items:center; gap:14px; padding:14px 18px; margin:0; border-left:5px solid #f87171;';
+                row.innerHTML = `
+                    <div style="cursor:pointer;" onclick="previewJob(${j.id})" title="Clicca per dettagli e conto">
+                        <div style="font-weight:bold; font-size:1.05rem; color:white; text-transform:uppercase; line-height:1.25;">${htmlEsc(j.cognome || '')} ${htmlEsc(j.nome || '')}</div>
+                        ${j.tel ? `<div style="color:var(--info); font-size:0.8rem; margin-top:3px;">📞 ${htmlEsc(j.tel)}</div>` : ''}
+                        <div style="font-size:0.72rem; color:var(--muted); margin-top:3px;">📅 ${formattaData(j.data)}</div>
                     </div>
-                    <div style="display:flex; gap:6px; margin-top:12px; align-items:center;">
-                        <button class="btn btn-purple w-auto" style="flex:1; padding:6px; font-size:0.78rem;"
-                            onclick="event.stopPropagation(); nuovoPreventivoFromIncidentata(${j.id})">📝 Preventivo</button>
-                        <button class="btn btn-warning w-auto" style="flex:1; padding:6px; font-size:0.78rem; color:black;"
+                    <div style="cursor:pointer; min-width:0;" onclick="previewJob(${j.id})">
+                        <div><span class="targa-badge" style="font-size:0.75rem; padding:2px 6px;">${htmlEsc(j.targa || 'N/D')}</span> <span style="color:var(--text); font-size:0.9rem; font-weight:bold;">${htmlEsc(j.marca || '')} ${htmlEsc(j.modello || '')}</span></div>
+                        <div style="font-size:0.78rem; color:#94a3b8; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${noteText}</div>
+                        ${prevBadge}
+                    </div>
+                    <div>${importi}</div>
+                    <div style="display:flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:wrap;">
+                        <button class="btn btn-purple w-auto" style="padding:7px 10px; font-size:0.8rem;" title="${prevAperti.length ? 'Apri il preventivo esistente' : 'Crea il preventivo'}"
+                            onclick="event.stopPropagation(); apriPreventivoIncidentata(${j.id})">📝 Preventivo</button>
+                        <button class="btn btn-warning w-auto" style="padding:7px 10px; font-size:0.8rem; color:black;"
                             onclick="event.stopPropagation(); moveStatus(${j.id},'doing'); refreshBoard(); switchView('board');">⚙️ Ponte</button>
-                        <button class="btn btn-info w-auto" style="flex:1; padding:6px; font-size:0.78rem;"
+                        <button class="btn btn-info w-auto" style="padding:7px 10px; font-size:0.8rem;"
                             onclick="event.stopPropagation(); openClosingModal(${j.id})">💰 Conto</button>
                         <div style="position:relative; flex-shrink:0;">
                             <button onclick="event.stopPropagation(); toggleMenuBoard('${menuId}', event)"
-                                style="background:#334155; border:none; color:var(--muted); border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; line-height:1;">⋯</button>
-                            <div id="${menuId}" style="display:none; position:absolute; bottom:calc(100% + 4px); right:0; background:var(--card); border:1px solid #334155; border-radius:10px; min-width:190px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:50; overflow:hidden;">
+                                style="background:#334155; border:none; color:var(--muted); border-radius:6px; width:30px; height:30px; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; line-height:1;">⋯</button>
+                            <div id="${menuId}" style="display:none; position:absolute; top:calc(100% + 4px); right:0; background:var(--card); border:1px solid #334155; border-radius:10px; min-width:190px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:50; overflow:hidden;">
                                 <button onclick="editJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">✏️ Modifica scheda</button>
+                                <button onclick="nuovoPreventivoFromIncidentata(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--purple); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">➕ Nuovo preventivo</button>
                                 <button onclick="printJobSheet(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">🖨️ Stampa scheda</button>
                                 <div style="border-top:1px solid #334155; margin:4px 0;"></div>
                                 <button onclick="deleteJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--accent); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">🗑️ Elimina</button>
                             </div>
                         </div>
                     </div>`;
-                grid.appendChild(card);
+                list.appendChild(row);
             });
             c.innerHTML = '';
-            c.appendChild(grid);
+            c.appendChild(list);
         }
 
         function refreshSpecials() {
@@ -4845,7 +4890,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // =====================================================================
         // 10. PREVENTIVI
         // =====================================================================
-        function openPreventivoForm(id = null, fromStorico = false) { isEditing = !!id; _editingStorico = fromStorico; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); if(!p){mostraErrore('Preventivo non trovato');return;} $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVocePrev(c.desc,p.stato==='preventivo'?Number(((parseFloat(c.price)||0)/(parseFloat(c.qty)||1)).toFixed(6)):c.price,c.iva!==undefined?c.iva:22,false,c.qty||1)):addVocePrev('','',22,false); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVocePrev('','',22,false); } _setAssicForm(id ? db.find(j=>String(j.id)===String(id)) : null); calcPrevTotale(); }
+        function openPreventivoForm(id = null, fromStorico = false) { isEditing = !!id; _editingStorico = fromStorico; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); if(!p){mostraErrore('Preventivo non trovato');return;} $('p_id').value = p.id; $('p_nome').value=p.nome||''; $('p_cognome').value=p.cognome||''; $('p_tel').value=p.tel||''; $('p_targa').value=p.targa||''; $('p_marca').value=p.marca||''; $('p_modello').value=p.modello||''; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVocePrev(c.desc,p.stato==='preventivo'?Number(((parseFloat(c.price)||0)/(parseFloat(c.qty)||1)).toFixed(6)):c.price,c.iva!==undefined?c.iva:22,false,c.qty||1)):addVocePrev('','',22,false); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVocePrev('','',22,false); } _setAssicForm(id ? db.find(j=>String(j.id)===String(id)) : null); calcPrevTotale(); }
         function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVocePrev('','',22,false); _setAssicForm(null); calcPrevTotale(); setTimeout(() => checkCustomerBikes('p'), 100); }
         function calcPrevTotale() {
             const rows = document.querySelectorAll('#p-conto-rows tr.voce-row');
@@ -5796,6 +5841,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const chk = $('p_assic');
             if (!chk) return;
             chk.checked = !!(p && p.assicurativo);
+            const _btnNuovo = $('p-nuovo-stessa');
+            if (_btnNuovo) _btnNuovo.style.display = $('p_id').value ? '' : 'none';
             $('p_sinistro').value = (p && p.n_sinistro) || '';
             _popolaSelectPeriti('p_perito', (p && p.perito_id) || '');
             toggleAssicPrev();
