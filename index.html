@@ -632,7 +632,7 @@
                     </div>
                     <div>
                         <label>Cons. Prevista</label>
-                        <input id="ord_data_consegna" type="date" style="margin:0;">
+                        <input id="ord_data_consegna" type="date" style="margin:0;" onchange="aggiornaInfoJobOrdine()">
                     </div>
                     <div style="display:flex; gap:5px; align-items:flex-end;">
                         <button id="btn-save-ordine" class="btn btn-success" onclick="addOrdine()" style="margin:0; flex:1;">➕ Aggiungi</button>
@@ -644,6 +644,7 @@
                     <div>
                         <label>Moto in officina</label>
                         <select id="ord_job" onchange="onCambioJobOrdine()" style="margin:0;"></select>
+                        <div id="ord-job-info" style="font-size:0.78rem; margin-top:5px; line-height:1.4;"></div>
                     </div>
                     <div>
                         <label>Cliente che lo aspetta</label>
@@ -2225,6 +2226,7 @@
                 else if (currentView === 'board') _dRefreshBoard();
                 else if (currentView === 'specials') refreshSpecials();
                 else if (currentView === 'incidentate') refreshIncidentate();
+                else if (currentView === 'agenda') refreshAgenda();
             });
 
             database.ref('/lista_ordini').on('value', snap => {
@@ -3181,19 +3183,60 @@
         function _ordiniDelJob(jobId) {
             return ordiniDB.filter(o => o && o.jobId != null && o.jobId !== '' && String(o.jobId) === String(jobId));
         }
-        function _badgeRicambi(jobId) {
+        // Appuntamento in agenda della moto: il prossimo da oggi in poi, altrimenti l'ultimo
+        function _appuntamentoDelJob(jobId) {
+            const apps = agendaDB.filter(a => a && a.jobId != null && String(a.jobId) === String(jobId) && a.data)
+                .sort((x, y) => (x.data + (x.ora || '')).localeCompare(y.data + (y.ora || '')));
+            const oggi = getOggiLocale();
+            return apps.find(a => a.data >= oggi) || apps[apps.length - 1] || null;
+        }
+        function _giorniDaOggi(dataIso) {
+            const [y, m, d] = String(dataIso).split('-').map(Number);
+            const [oy, om, od] = getOggiLocale().split('-').map(Number);
+            return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(oy, om - 1, od)) / 86400000);
+        }
+        function _quando(dataIso) {
+            const g = _giorniDaOggi(dataIso);
+            return g === 0 ? 'oggi' : g === 1 ? 'domani' : g > 1 ? `tra ${g} giorni` : g === -1 ? 'ieri' : `${-g} giorni fa`;
+        }
+        // dataAppuntamento: se data, avvisa quando la consegna prevista di un ricambio è successiva
+        function _badgeRicambi(jobId, dataAppuntamento) {
             const ord = _ordiniDelJob(jobId);
             if (!ord.length) return '';
             const attesa = ord.filter(o => o.stato !== 'done');
-            const elenco = htmlEsc((attesa.length ? attesa : ord).map(o => (o.qta > 1 ? o.qta + '× ' : '') + (o.desc || '')).join(', '));
-            return attesa.length
-                ? `<div style="margin-top:5px;"><span title="${elenco}" style="background:rgba(245,158,11,0.16); color:#f59e0b; border:1px solid rgba(245,158,11,0.4); padding:2px 9px; border-radius:20px; font-size:0.72rem; font-weight:bold;">⏳ Attesa ricambi${attesa.length > 1 ? ' (' + attesa.length + ')' : ''}</span></div>`
-                : `<div style="margin-top:5px;"><span title="${elenco}" style="background:rgba(34,197,94,0.14); color:#22c55e; border:1px solid rgba(34,197,94,0.35); padding:2px 9px; border-radius:20px; font-size:0.72rem; font-weight:bold;">📦 Ricambi arrivati</span></div>`;
+            const elenco = htmlEsc((attesa.length ? attesa : ord).map(o => (o.qta > 1 ? o.qta + '× ' : '') + (o.desc || '') + (o.data_consegna && o.stato !== 'done' ? ' (previsto ' + formattaData(o.data_consegna) + ')' : '')).join(', '));
+            const pill = (bg, col, bd, txt) => `<div style="margin-top:5px;"><span title="${elenco}" style="background:${bg}; color:${col}; border:1px solid ${bd}; padding:2px 9px; border-radius:20px; font-size:0.72rem; font-weight:bold; display:inline-block;">${txt}</span></div>`;
+            if (!attesa.length) return pill('rgba(34,197,94,0.14)', '#22c55e', 'rgba(34,197,94,0.35)', '📦 Ricambi arrivati');
+            const previste = attesa.map(o => o.data_consegna).filter(Boolean).sort();
+            const ultima = previste.length === attesa.length ? previste[previste.length - 1] : '';
+            if (dataAppuntamento && previste.some(d => d > dataAppuntamento)) {
+                return pill('rgba(239,68,68,0.15)', '#f87171', 'rgba(239,68,68,0.45)', `⚠️ Ricambio previsto il ${formattaData(previste[previste.length - 1])}, dopo l'appuntamento`);
+            }
+            return pill('rgba(245,158,11,0.16)', '#f59e0b', 'rgba(245,158,11,0.4)', `⏳ Attesa ricambi${attesa.length > 1 ? ' (' + attesa.length + ')' : ''}${ultima ? ' · arrivo previsto ' + formattaData(ultima) : ''}`);
+        }
+        function aggiornaInfoJobOrdine() {
+            const box = $('ord-job-info');
+            if (!box) return;
+            const j = $('ord_job') ? db.find(x => String(x.id) === String($('ord_job').value)) : null;
+            if (!j) { box.innerHTML = ''; return; }
+            if (j.stato !== 'todo') {
+                const dove = j.stato === 'doing' ? 'sul ponte' : j.stato === 'done' ? 'pronta' : j.special_cat === 'incidentate' ? 'tra le incidentate' : 'nei lavori lunghi';
+                box.innerHTML = `<span style="color:var(--muted);">🏍️ Moto già in officina (${dove})</span>`;
+                return;
+            }
+            const a = _appuntamentoDelJob(j.id);
+            if (!a) { box.innerHTML = `<span style="color:var(--muted);">📅 Nessun appuntamento in agenda</span>`; return; }
+            const giorno = new Date(a.data + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long' });
+            let html = `<span style="color:var(--info); font-weight:bold;">📅 Appuntamento ${giorno} ${formattaData(a.data)}${a.ora ? ' alle ' + htmlEsc(a.ora) : ''} (${_quando(a.data)})</span>`;
+            const cons = $('ord_data_consegna') ? $('ord_data_consegna').value : '';
+            if (cons && cons > a.data) html += `<br><span style="color:#f87171; font-weight:bold;">⚠️ La consegna prevista (${formattaData(cons)}) è dopo l'appuntamento: valuta di spostarlo</span>`;
+            else if (cons) html += `<br><span style="color:#22c55e;">✓ Consegna prevista ${formattaData(cons)}: in tempo per l'appuntamento</span>`;
+            box.innerHTML = html;
         }
         function popolaSelectJobOrdine(valore) {
             const sel = $('ord_job');
             if (!sel) return;
-            const statoLbl = j => j.stato === 'todo' ? 'appuntamento' : j.stato === 'doing' ? 'sul ponte' : j.stato === 'done' ? 'pronta'
+            const statoLbl = j => j.stato === 'todo' ? (() => { const a = _appuntamentoDelJob(j.id); return a ? 'appuntamento ' + formattaData(a.data) : 'appuntamento'; })() : j.stato === 'doing' ? 'sul ponte' : j.stato === 'done' ? 'pronta'
                 : j.stato === 'special' ? (j.special_cat === 'incidentate' ? 'incidentata' : 'lavoro lungo') : 'chiusa';
             const haValore = valore != null && valore !== '';
             const jobs = db.filter(j => ['todo', 'doing', 'done', 'special'].includes(j.stato) || (haValore && String(j.id) === String(valore)))
@@ -3201,10 +3244,12 @@
             sel.innerHTML = `<option value="">— Nessuna (ricambio per il banco o un cliente) —</option>`
                 + jobs.map(j => `<option value="${htmlEsc(j.id)}">${htmlEsc(`${(j.cognome || '').toUpperCase()} ${j.nome || ''} · ${j.targa || 'senza targa'} · ${j.marca || ''} ${j.modello || ''} (${statoLbl(j)})`.replace(/\s+/g, ' '))}</option>`).join('');
             sel.value = (haValore && jobs.some(j => String(j.id) === String(valore))) ? String(valore) : '';
+            aggiornaInfoJobOrdine();
         }
         function onCambioJobOrdine() {
             const j = db.find(x => String(x.id) === String($('ord_job').value));
-            if (!j) return;
+            if (!j) { aggiornaInfoJobOrdine(); return; }
+            aggiornaInfoJobOrdine();
             $('ord_cliente').value = `${(j.cognome || '').toUpperCase()} ${j.nome || ''}`.trim();
             if (j.tel) $('ord_tel_cliente').value = j.tel;
         }
@@ -3326,7 +3371,13 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     <div style="font-size:0.85rem; font-weight:bold; color:white; line-height:1.25; margin:2px 0;">${o.desc}</div>
                     ${(o.cliente || o.rif) ? `<div style="font-size:0.75rem; color:var(--info);">👤 ${o.cliente || o.rif}${o.tel_cliente ? ` · 📞 ${o.tel_cliente}` : ''}</div>` : ''}
                     ${(o.jobId != null && o.jobId !== '') ? (db.some(j => String(j.id) === String(o.jobId))
-                        ? `<div onclick="previewJob('${htmlEsc(o.jobId)}')" title="Apri la scheda della moto" style="font-size:0.75rem; color:#f59e0b; cursor:pointer; font-weight:bold;">🏍️ Per la moto <span class="targa-badge" style="font-size:0.68rem; padding:1px 5px;">${htmlEsc(o.targa || 'N/D')}</span> ${htmlEsc(o.moto || '')}</div>`
+                        ? `<div onclick="previewJob('${htmlEsc(o.jobId)}')" title="Apri la scheda della moto" style="font-size:0.75rem; color:#f59e0b; cursor:pointer; font-weight:bold;">🏍️ Per la moto <span class="targa-badge" style="font-size:0.68rem; padding:1px 5px;">${htmlEsc(o.targa || 'N/D')}</span> ${htmlEsc(o.moto || '')}</div>${(() => {
+                            const j = db.find(x => String(x.id) === String(o.jobId));
+                            const a = (j && j.stato === 'todo' && o.stato !== 'done') ? _appuntamentoDelJob(j.id) : null;
+                            if (!a) return '';
+                            const tardi = o.data_consegna && o.data_consegna > a.data;
+                            return `<div style="font-size:0.72rem; font-weight:bold; color:${tardi ? '#f87171' : 'var(--info)'};">📅 Appuntamento ${formattaData(a.data)} (${_quando(a.data)})${tardi ? ' · ⚠️ il ricambio arriva dopo' : ''}</div>`;
+                        })()}`
                         : `<div style="font-size:0.75rem; color:var(--muted);">🏍️ Per la moto ${htmlEsc(o.targa || '')} ${htmlEsc(o.moto || '')} (scheda chiusa o eliminata)</div>`) : ''}
                     ${(o.num_ordine || o.note) ? `<div style="font-size:0.7rem; color:var(--muted);">${o.num_ordine ? `N° ${o.num_ordine}` : ''}${o.num_ordine && o.note ? ' · ' : ''}${o.note || ''}</div>` : ''}
                     <div style="display:flex; gap:4px; margin-top:5px;">
@@ -4280,7 +4331,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
     ${j.tel ? `<a href="tel:${j.tel}" onclick="event.stopPropagation();" class="tel-link" style="display:inline-flex; align-items:center; gap:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.35); color:#93c5fd; font-size:0.88rem; font-weight:700; padding:3px 9px; border-radius:20px; margin-left:6px; text-decoration:none; letter-spacing:0.3px; flex-shrink:0;">📞 ${j.tel}</a>` : ''}
 </div>
                     ${accTot>0?`<div style="font-size:0.75rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €${accTot.toFixed(2)}${lordo > 0 && daPagare <= 0.01 ? ` <span style="color:#22c55e; font-weight:600; margin-left:6px;">· acconti = totale attuale</span>` : ''}</div>`:''}
-                    ${_badgeRicambi(j.id)}
+                    ${_badgeRicambi(j.id, j.stato === 'todo' ? ((_appuntamentoDelJob(j.id) || {}).data || j.data) : null)}
                     <div class="work-box-compact" style="margin-top:8px; pointer-events:none; max-height:55px; overflow:hidden;">${htmlEsc(j.lavori_richiesti||'...')}</div>
                 </div>
                 ${contattatoRow}
@@ -4365,7 +4416,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             return `<div class="agenda-card ${a.tipo === 'personale' ? 'personal' : ''} ${statusClass}" draggable="true" ondragstart="dragAgenda(event, ${a.id})" ondragend="this.style.opacity='1'" onclick="modificaApp(${a.id})" title="Trascina per spostare" ${extraStyle}>
                 <div class="flex-between" style="pointer-events:none;">
                     <span>🕒 ${a.ora||'--:--'} ${a.tipo==='personale'?'💸':''}</span>
+                    <span style="display:inline-flex; gap:4px;">
+                    ${(jobCollegato && !['done', 'archived'].includes(jobCollegato.stato)) ? `<button type="button" onclick="event.stopPropagation(); ordinaRicambioPerJob('${htmlEsc(a.jobId)}')" title="Ordina un ricambio per questa moto" aria-label="Ordina ricambio" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.45); color:#f59e0b; padding:1px 5px; border-radius:4px; cursor:pointer; pointer-events:auto; font-size:0.85rem; line-height:1.3;">📦</button>` : ''}
                     ${a.jobId ? `<span onclick="event.stopPropagation(); previewJob(${a.jobId})" title="Vedi Anteprima Lavori" style="background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px; cursor:zoom-in; pointer-events:auto;">🔍</span>` : ''}
+                    </span>
                 </div>
                 <div style="color:white; margin-top:4px; font-weight:bold; pointer-events:none;">${a.cliente}</div>
                 ${a.tipo !== 'personale' ? `<div style="color:var(--muted); font-size:0.75rem; pointer-events:none; margin-top:2px;">
@@ -4373,6 +4427,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     ${a.moto ? `🏍️ ${a.moto}` : ''}${a.tel ? ` | 📞 ${a.tel}` : ''}
                 </div>` : ''}
                 ${a.note ? `<div style="font-size:0.75rem; margin-top:6px; padding-top:6px; border-top:1px dashed #334155; color:var(--info); pointer-events:none;">${htmlEsc(a.note)}</div>` : ''}
+                ${(jobCollegato && !['done', 'archived'].includes(jobCollegato.stato)) ? `<div style="pointer-events:none;">${_badgeRicambi(a.jobId, a.data)}</div>` : ''}
             </div>`;
         }
 
