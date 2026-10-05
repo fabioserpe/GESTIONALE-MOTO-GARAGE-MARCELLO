@@ -655,6 +655,32 @@
     switchView('board');
   });
 
+  await passo('Più ricambi per la stessa moto', async () => {
+    fb.scritturaRemota({ 'db/-Nmulti': { id: 1701, data: oggi, cognome: 'MOLTI', nome: 'PIERO', tel: '3407770000', marca: 'KTM', modello: '890 ADVENTURE', targa: 'KT89000', stato: 'doing', lavori_richiesti: 'REVISIONE COMPLETA', conto: [], totale_lordo: 0, clientId: 'c-molti' } }, false);
+    const val = id => document.getElementById(id).value;
+    ordinaRicambioPerJob(1701);
+    campo('ord_fornitore', 'gipa'); campo('ord_num_ordine', 'ORD-77'); campo('ord_data_consegna', oggi);
+    campo('ord_desc', 'filtro olio'); campo('ord_prezzo_cliente', '18'); addOrdine();
+    ok(document.getElementById('ord-form-container').style.display === '' && val('ord_job') === '1701' && val('ord_fornitore').toUpperCase() === 'GIPA' && val('ord_num_ordine') === 'ORD-77' && val('ord_data_consegna') === oggi && val('ord_cliente') === 'MOLTI PIERO',
+       'Dopo "Aggiungi" il modulo resta aperto con moto, cliente, fornitore, n° ordine e consegna');
+    ok(val('ord_desc') === '' && val('ord_prezzo_cliente') === '' && val('ord_qta') === '1', 'Descrizione, prezzo e quantità pronti per il ricambio successivo');
+    campo('ord_desc', 'candele'); campo('ord_qta', '2'); campo('ord_prezzo_cliente', '12'); addOrdine();
+    campo('ord_desc', 'pastiglie post'); campo('ord_prezzo_cliente', '35'); addOrdine();
+    const el = document.getElementById('ord-job-elenco').textContent;
+    ok(/Ricambi per KT89000 \(3\)/.test(el) && el.includes('FILTRO OLIO') && el.includes('2× CANDELE') && el.includes('PASTIGLIE POST'), 'Sotto il modulo: elenco dei 3 ricambi inseriti per la moto');
+    const ordJ = Object.values(fb.leggi('ordini') || {}).filter(o => String(o.jobId) === '1701');
+    ok(ordJ.length === 3 && ordJ.every(o => o.fornitore === 'GIPA' && o.num_ordine === 'ORD-77' && o.data_consegna === oggi), 'Tre ordini, tutti con fornitore, n° ordine e consegna prevista');
+    const r = recordDi('db', 1701);
+    ok((r.conto || []).length === 3 && r.totale_lordo === 18 + 24 + 35, 'Nel conto 3 righe, totale 18 + 2×12 + 35 = 77 €');
+    switchView('board'); await attendi(350);
+    const card = [...document.querySelectorAll('#view-board .card-compact')].find(c => c.textContent.includes('KT89000'));
+    ok(card && card.textContent.includes('Attesa ricambi (3)'), 'Bacheca: "Attesa ricambi (3)"');
+    const primo = ordJ.find(o => o.desc === 'FILTRO OLIO');
+    editOrdine(primo.id); campo('ord_note', 'originale'); addOrdine();
+    ok(document.getElementById('ord-form-container').style.display === 'none', 'La modifica di un ordine esistente chiude il modulo come prima');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
