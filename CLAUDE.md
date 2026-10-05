@@ -54,7 +54,7 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | Periti e libretti | `openPeritiModal`, `salvaPerito`, `caricaLibretto`, `apriLibretto`, `aggiornaLibrettoBox` |
 | Anagrafica | `refreshArchive`, `viewHistoryCognome`, `openEditStorico`/`saveEditStorico`, `sincronizzaAnagrafica` |
 | Prima Nota | `refreshLedger`, `openCollabDetail`, `archiviaSoloScheda` (→ `/storico_casse`), `azzeraCassa` |
-| Magazzino | `initMagazzino`, `renderAllMag`, `magSave`, `modificaArticoloMag`; il conto usa `prezzo_pubblico` se > 0 |
+| Magazzino | `initMagazzino`, `renderAllMag`, `magSave`, `modificaArticoloMag`; il conto usa `prezzo_pubblico` se > 0. Sotto scorta = `magDaRiordinare` (esaurito o giacenza ≤ `min_stock`, default 1): stessa regola per righe colorate, riquadro "Da Riordinare", filtro e `apriRiordino`/`confermaRiordino` (→ lista da ordinare, senza doppioni per codice). `spostaInMagazzino` ricarica la merce arrivata |
 | Moto usate | `refreshUsate`, `saveUsateDB`, `compressImgUsata` (foto in base64) |
 | Backup manuale | `exportData`/`importData` (salvano solo 8 sezioni su 14: c'è il backup automatico, vedi sotto) |
 
@@ -90,3 +90,4 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | v140 | Bacheca: importo invece di "SALDATO" quando gli acconti coprono il totale |
 | v141–v142 | Preventivi assicurativi: rubrica periti, libretti per targa, invio al perito; fix quantità nei preventivi |
 | v143 | Incidentate come l'Anagrafica, ricerca, Preventivo apre quello esistente; fix "undefined" |
+| v144 | Magazzino: "Riordina sotto scorta" in un clic; regola sotto scorta unificata (prima il riquadro usava "≤ 3 pezzi") |
