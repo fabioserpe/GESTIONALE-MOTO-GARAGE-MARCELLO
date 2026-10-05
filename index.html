@@ -640,7 +640,11 @@
                     </div>
                 </div>
                 <!-- Riga cliente -->
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid #334155;">
+                <div class="mob-form-grid" style="display:grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid #334155;">
+                    <div>
+                        <label>Moto in officina</label>
+                        <select id="ord_job" onchange="onCambioJobOrdine()" style="margin:0;"></select>
+                    </div>
                     <div>
                         <label>Cliente che lo aspetta</label>
                         <input id="ord_cliente" placeholder="Nome o Cognome cliente" list="ord-clienti-list" style="margin:0;" oninput="autoFillOrdineCliente()">
@@ -1137,6 +1141,9 @@
             <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
                 <button onclick="toggleListaOrdini()" style="display:flex; align-items:center; gap:6px; background:rgba(96,165,250,0.1); border:1px solid #60a5fa; color:#60a5fa; border-radius:8px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap;">
                     📋 Da Ordinare <span id="lo-badge" style="background:#3b82f6; color:white; border-radius:20px; padding:1px 7px; font-size:0.72rem; display:none;"></span>
+                </button>
+                <button onclick="apriRiordino()" title="Aggiungi alla lista da ordinare gli articoli esauriti o sotto la scorta minima" style="display:flex; align-items:center; gap:6px; background:rgba(245,158,11,0.1); border:1px solid var(--warning); color:var(--warning); border-radius:8px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap;">
+                    🔁 Riordina sotto scorta <span id="mag-riordina-badge" style="background:#d97706; color:white; border-radius:20px; padding:1px 7px; font-size:0.72rem; display:none;"></span>
                 </button>
                 <button onclick="toggleMagForm()" style="display:flex; align-items:center; gap:6px; background:rgba(239,68,68,0.1); border:1px solid var(--accent); color:var(--accent); border-radius:8px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap;">
                     ➕ Aggiungi Articolo
@@ -1737,6 +1744,22 @@
         </div>
     </div>
 
+    <div id="modal-riordino" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:860px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <h2 style="margin:0; color:var(--warning);">🔁 Riordina sotto scorta</h2>
+                <button type="button" onclick="closeModal('modal-riordino')" aria-label="Chiudi" style="background:none; border:none; color:var(--muted); font-size:1.8rem; cursor:pointer; line-height:1;">×</button>
+            </div>
+            <p style="margin:0 0 14px; font-size:0.85rem; color:var(--muted);">Articoli esauriti o sotto la scorta minima. La quantità proposta riporta la giacenza sopra la scorta minima: puoi cambiarla o togliere la spunta.</p>
+            <div id="riordino-lista" style="max-height:52vh; overflow:auto;"></div>
+            <div id="riordino-gia" style="font-size:0.82rem; color:var(--muted); margin-top:10px;"></div>
+            <div class="flex-row mt-15">
+                <button type="button" class="btn btn-dark" onclick="closeModal('modal-riordino')" style="flex:1;">Annulla</button>
+                <button type="button" id="riordino-conferma" class="btn" onclick="confermaRiordino()" style="flex:2; background:var(--warning); color:#1e1e1e; font-weight:800;">Aggiungi alla lista</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-anagrafica" class="modal hidden no-print">
         <div class="modal-content" style="max-width:680px;">
             <h2 style="color:var(--accent);" class="mb-20">Modifica Dati Cliente e Veicoli</h2>
@@ -2199,6 +2222,9 @@
                 _segnaCaricato('ordini');
                 ordiniDB = snap.val() ? Object.values(snap.val()) : [];
                 if (currentView === 'ordini') refreshOrdini();
+                else if (currentView === 'board') _dRefreshBoard();
+                else if (currentView === 'specials') refreshSpecials();
+                else if (currentView === 'incidentate') refreshIncidentate();
             });
 
             database.ref('/lista_ordini').on('value', snap => {
@@ -3019,6 +3045,7 @@
             const open = c.style.display !== 'none';
             c.style.display = open ? 'none' : '';
             if (btn) btn.innerHTML = open ? '➕ Nuovo Ordine' : '✖ Chiudi Form';
+            if (!open) popolaSelectJobOrdine($('ord_job') ? $('ord_job').value : '');
             if (!open) setTimeout(() => { const d = $('ord_desc'); if(d) d.focus(); }, 50);
         }
 
@@ -3041,16 +3068,18 @@
                 cliente:       $('ord_cliente').value.trim(),
                 tel_cliente:   $('ord_tel_cliente').value.trim(),
                 note:          $('ord_note').value.trim(),
-                qta:           parseInt($('ord_qta').value) || 1,
-                data:          getOggiLocale(),
-                stato:         'todo'
+                qta:           parseInt($('ord_qta').value) || 1
             };
+            const _job = $('ord_job') ? db.find(x => String(x.id) === String($('ord_job').value)) : null;
+            obj.jobId = _job ? _job.id : null;
+            obj.targa = _job ? (_job.targa || '') : '';
+            obj.moto  = _job ? `${_job.marca || ''} ${_job.modello || ''}`.trim() : '';
             if (editId) {
+                // In modifica restano stato e data dell'ordine (prima tornava sempre in "Da ordinare")
                 const idx = ordiniDB.findIndex(x => String(x.id) === String(editId));
                 if (idx > -1) { ordiniDB[idx] = { ...ordiniDB[idx], ...obj }; }
             } else {
-                obj.id = genId();
-                ordiniDB.push(obj);
+                ordiniDB.push({ ...obj, id: genId(), data: getOggiLocale(), stato: 'todo' });
             }
             cancelEditOrdine();
             saveOrdini();
@@ -3105,6 +3134,7 @@
             $('ord_tel_cliente').value = o.tel_cliente || '';
             $('ord_note').value     = o.note || '';
             $('ord_qta').value      = o.qta || 1;
+            popolaSelectJobOrdine(o.jobId);
             $('btn-save-ordine').className = "btn btn-warning";
             $('btn-save-ordine').innerHTML = "💾 Salva";
             $('btn-cancel-ordine').classList.remove('hidden');
@@ -3117,7 +3147,7 @@
 
         function cancelEditOrdine() {
             ['ord_edit_id','ord_desc','ord_sku','ord_fornitore','ord_num_ordine',
-             'ord_prezzo','ord_data_consegna','ord_cliente','ord_tel_cliente','ord_note'].forEach(id => { if($(id)) $(id).value = ''; });
+             'ord_prezzo','ord_data_consegna','ord_cliente','ord_tel_cliente','ord_note','ord_job'].forEach(id => { if($(id)) $(id).value = ''; });
             $('ord_qta').value = '1';
             $('btn-save-ordine').className = "btn btn-success";
             $('btn-save-ordine').innerHTML = "➕ Aggiungi";
@@ -3131,7 +3161,13 @@
 
         function moveOrdine(id, s) {
             const o = ordiniDB.find(x => String(x.id) === String(id));
-            if (o) { o.stato = s; saveOrdini(); }
+            if (!o) return;
+            o.stato = s;
+            saveOrdini();
+            if (s === 'done' && o.jobId != null && o.jobId !== '') {
+                const restano = _ordiniDelJob(o.jobId).filter(x => x.stato !== 'done').length;
+                mostraToast(`📦 Ricambio per ${o.targa || o.cliente || 'la moto'} arrivato` + (restano ? ` · ne mancano ancora ${restano}` : ' · tutti i ricambi arrivati'));
+            }
         }
 
         function deleteOrdine(id) {
@@ -3139,6 +3175,48 @@
                 ordiniDB = ordiniDB.filter(x => String(x.id) !== String(id));
                 saveOrdini();
             }
+        }
+
+        // Ordini ricambi collegati a una moto in officina (jobId = id della scheda in /db)
+        function _ordiniDelJob(jobId) {
+            return ordiniDB.filter(o => o && o.jobId != null && o.jobId !== '' && String(o.jobId) === String(jobId));
+        }
+        function _badgeRicambi(jobId) {
+            const ord = _ordiniDelJob(jobId);
+            if (!ord.length) return '';
+            const attesa = ord.filter(o => o.stato !== 'done');
+            const elenco = htmlEsc((attesa.length ? attesa : ord).map(o => (o.qta > 1 ? o.qta + '× ' : '') + (o.desc || '')).join(', '));
+            return attesa.length
+                ? `<div style="margin-top:5px;"><span title="${elenco}" style="background:rgba(245,158,11,0.16); color:#f59e0b; border:1px solid rgba(245,158,11,0.4); padding:2px 9px; border-radius:20px; font-size:0.72rem; font-weight:bold;">⏳ Attesa ricambi${attesa.length > 1 ? ' (' + attesa.length + ')' : ''}</span></div>`
+                : `<div style="margin-top:5px;"><span title="${elenco}" style="background:rgba(34,197,94,0.14); color:#22c55e; border:1px solid rgba(34,197,94,0.35); padding:2px 9px; border-radius:20px; font-size:0.72rem; font-weight:bold;">📦 Ricambi arrivati</span></div>`;
+        }
+        function popolaSelectJobOrdine(valore) {
+            const sel = $('ord_job');
+            if (!sel) return;
+            const statoLbl = j => j.stato === 'todo' ? 'appuntamento' : j.stato === 'doing' ? 'sul ponte' : j.stato === 'done' ? 'pronta'
+                : j.stato === 'special' ? (j.special_cat === 'incidentate' ? 'incidentata' : 'lavoro lungo') : 'chiusa';
+            const haValore = valore != null && valore !== '';
+            const jobs = db.filter(j => ['todo', 'doing', 'done', 'special'].includes(j.stato) || (haValore && String(j.id) === String(valore)))
+                .sort((a, b) => `${a.cognome || ''} ${a.nome || ''}`.trim().localeCompare(`${b.cognome || ''} ${b.nome || ''}`.trim(), 'it', { sensitivity: 'base' }));
+            sel.innerHTML = `<option value="">— Nessuna (ricambio per il banco o un cliente) —</option>`
+                + jobs.map(j => `<option value="${htmlEsc(j.id)}">${htmlEsc(`${(j.cognome || '').toUpperCase()} ${j.nome || ''} · ${j.targa || 'senza targa'} · ${j.marca || ''} ${j.modello || ''} (${statoLbl(j)})`.replace(/\s+/g, ' '))}</option>`).join('');
+            sel.value = (haValore && jobs.some(j => String(j.id) === String(valore))) ? String(valore) : '';
+        }
+        function onCambioJobOrdine() {
+            const j = db.find(x => String(x.id) === String($('ord_job').value));
+            if (!j) return;
+            $('ord_cliente').value = `${(j.cognome || '').toUpperCase()} ${j.nome || ''}`.trim();
+            if (j.tel) $('ord_tel_cliente').value = j.tel;
+        }
+        function ordinaRicambioPerJob(jobId) {
+            switchView('ordini');
+            cancelEditOrdine();
+            const c = $('ord-form-container'), tb = $('ord-form-toggle-btn');
+            if (c) c.style.display = '';
+            if (tb) tb.innerHTML = '✖ Chiudi Form';
+            popolaSelectJobOrdine(jobId);
+            onCambioJobOrdine();
+            setTimeout(() => { const d = $('ord_desc'); if (d) d.focus(); }, 50);
         }
 
         function waOrdineArrivato(id) {
@@ -3164,6 +3242,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const col = { todo: 'var(--accent)', doing: 'var(--info)', done: 'var(--success)' };
 
             updateOrdiniDatalist();
+            popolaSelectJobOrdine($('ord_job') ? $('ord_job').value : '');
 
             // Aggiorna pill filtro fornitori
             const filterBar = $('ord-filter-bar');
@@ -3246,6 +3325,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     </div>
                     <div style="font-size:0.85rem; font-weight:bold; color:white; line-height:1.25; margin:2px 0;">${o.desc}</div>
                     ${(o.cliente || o.rif) ? `<div style="font-size:0.75rem; color:var(--info);">👤 ${o.cliente || o.rif}${o.tel_cliente ? ` · 📞 ${o.tel_cliente}` : ''}</div>` : ''}
+                    ${(o.jobId != null && o.jobId !== '') ? (db.some(j => String(j.id) === String(o.jobId))
+                        ? `<div onclick="previewJob('${htmlEsc(o.jobId)}')" title="Apri la scheda della moto" style="font-size:0.75rem; color:#f59e0b; cursor:pointer; font-weight:bold;">🏍️ Per la moto <span class="targa-badge" style="font-size:0.68rem; padding:1px 5px;">${htmlEsc(o.targa || 'N/D')}</span> ${htmlEsc(o.moto || '')}</div>`
+                        : `<div style="font-size:0.75rem; color:var(--muted);">🏍️ Per la moto ${htmlEsc(o.targa || '')} ${htmlEsc(o.moto || '')} (scheda chiusa o eliminata)</div>`) : ''}
                     ${(o.num_ordine || o.note) ? `<div style="font-size:0.7rem; color:var(--muted);">${o.num_ordine ? `N° ${o.num_ordine}` : ''}${o.num_ordine && o.note ? ' · ' : ''}${o.note || ''}</div>` : ''}
                     <div style="display:flex; gap:4px; margin-top:5px;">
                         ${actionBtns}
@@ -3923,6 +4005,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         <div><span class="targa-badge" style="font-size:0.75rem; padding:2px 6px;">${htmlEsc(j.targa || 'N/D')}</span> <span style="color:var(--text); font-size:0.9rem; font-weight:bold;">${htmlEsc(j.marca || '')} ${htmlEsc(j.modello || '')}</span></div>
                         <div style="font-size:0.78rem; color:#94a3b8; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${noteText}</div>
                         ${prevBadge}
+                        ${_badgeRicambi(j.id)}
                     </div>
                     <div>${importi}</div>
                     <div style="display:flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:wrap;">
@@ -3937,6 +4020,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                 style="background:#334155; border:none; color:var(--muted); border-radius:6px; width:30px; height:30px; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; line-height:1;">⋯</button>
                             <div id="${menuId}" style="display:none; position:absolute; top:calc(100% + 4px); right:0; background:var(--card); border:1px solid #334155; border-radius:10px; min-width:190px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:50; overflow:hidden;">
                                 <button onclick="editJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">✏️ Modifica scheda</button>
+                    <button onclick="ordinaRicambioPerJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#f59e0b; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">📦 Ordina ricambio</button>
                                 <button onclick="nuovoPreventivoFromIncidentata(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--purple); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">➕ Nuovo preventivo</button>
                                 <button onclick="printJobSheet(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">🖨️ Stampa scheda</button>
                                 <div style="border-top:1px solid #334155; margin:4px 0;"></div>
@@ -4018,6 +4102,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         <div style="font-weight:bold; font-size:0.88rem; color:white; margin-bottom:2px;">${j.marca||''} ${j.modello||''}</div>
                         <div style="font-size:0.78rem; color:var(--muted); margin-bottom:2px;">${(j.cognome||'').toUpperCase()} ${j.nome||''}${telHtml}</div>
                         ${preContoHtml}
+                        ${_badgeRicambi(j.id)}
                         <div style="font-size:0.75rem; color:#64748b; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${noteText}</div>
                     </div>
                     <div style="display:flex; gap:5px; margin-top:10px; align-items:center;">
@@ -4034,6 +4119,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                             <div id="${menuId}" style="display:none; position:absolute; bottom:calc(100% + 4px); right:0; background:var(--card); border:1px solid #334155; border-radius:10px; min-width:190px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:50; overflow:hidden;">
 
                                 <button onclick="editJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">✏️ Modifica scheda</button>
+                    <button onclick="ordinaRicambioPerJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#f59e0b; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">📦 Ordina ricambio</button>
                                 <button onclick="printJobSheet(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🖨️ Stampa scheda</button>
                                 <div style="border-top:1px solid #334155; margin:4px 0;"></div>
                                 <button onclick="deleteJob(${j.id}); setTimeout(refreshSpecials,500); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--accent); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">🗑️ Elimina</button>
@@ -4102,6 +4188,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const menuId = `menu-${j.id}`;
                 let menuItems = `
                     <button onclick="editJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">✏️ Modifica scheda</button>
+                    <button onclick="ordinaRicambioPerJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#f59e0b; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">📦 Ordina ricambio</button>
                     <button onclick="${printFn}(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🖨️ Stampa</button>
                     <button onclick="moveStatus(${j.id}, 'special'); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#d8b4fe; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🕰️ Lavori Lunghi</button>
                     <div style="border-top:1px solid #334155; margin:4px 0;"></div>
@@ -4193,6 +4280,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
     ${j.tel ? `<a href="tel:${j.tel}" onclick="event.stopPropagation();" class="tel-link" style="display:inline-flex; align-items:center; gap:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.35); color:#93c5fd; font-size:0.88rem; font-weight:700; padding:3px 9px; border-radius:20px; margin-left:6px; text-decoration:none; letter-spacing:0.3px; flex-shrink:0;">📞 ${j.tel}</a>` : ''}
 </div>
                     ${accTot>0?`<div style="font-size:0.75rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €${accTot.toFixed(2)}${lordo > 0 && daPagare <= 0.01 ? ` <span style="color:#22c55e; font-weight:600; margin-left:6px;">· acconti = totale attuale</span>` : ''}</div>`:''}
+                    ${_badgeRicambi(j.id)}
                     <div class="work-box-compact" style="margin-top:8px; pointer-events:none; max-height:55px; overflow:hidden;">${htmlEsc(j.lavori_richiesti||'...')}</div>
                 </div>
                 ${contattatoRow}
@@ -6346,7 +6434,6 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // =====================================================================
         // Magazzino su Realtime Database (nodo /magazzino)
 
-        const MAG_SOGLIA = 3;
 
         function isMagEsaurito(item) { return (item.giacenza||0) <= 0; }
         function isMagScarso(item) {
@@ -6354,6 +6441,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const soglia = (item.min_stock != null && item.min_stock !== '') ? parseInt(item.min_stock) : 1;
             return soglia > 0 && (item.giacenza||0) <= soglia;
         }
+        function magDaRiordinare(item) { return isMagEsaurito(item) || isMagScarso(item); }
         const MAG_IVA = 0.22;
         let inventarioMag = [];
         let listaOrdiniMag = [];
@@ -6431,7 +6519,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function toggleFiltroSottosogliaMag() {
             magFiltroSottosoglia = !magFiltroSottosoglia;
             if (magFiltroSottosoglia) {
-                inventarioMag.filter(i => i.giacenza <= MAG_SOGLIA).forEach(i => {
+                inventarioMag.filter(magDaRiordinare).forEach(i => {
                     if (i.categoria) categorieAperteMag.add(i.categoria);
                 });
                 const si = $('mag-search-input'); if (si) si.value = '';
@@ -6623,6 +6711,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (!list) return;
             const badge = $('lo-badge');
             if (badge) { badge.textContent = listaOrdiniMag.length; badge.style.display = listaOrdiniMag.length > 0 ? 'inline' : 'none'; }
+            aggiornaBadgeRiordino();
             if (listaOrdiniMag.length === 0) {
                 list.innerHTML = '<p style="color:var(--muted); font-size:0.85rem; text-align:center; padding:8px 0;">Lista vuota — aggiungi i ricambi da ordinare sopra.</p>';
                 return;
@@ -6676,6 +6765,94 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             mostraToast(`✅ "${item.nome}" caricato in magazzino!`);
         }
 
+        function _codiciInListaOrdini() {
+            return new Set(listaOrdiniMag.map(x => String(x.codice || '').toUpperCase().trim()).filter(Boolean));
+        }
+        function _articoliDaRiordinare() {
+            const inLista = _codiciInListaOrdini();
+            const tutti = inventarioMag.filter(magDaRiordinare)
+                .sort((a, b) => (Number(isMagEsaurito(b)) - Number(isMagEsaurito(a))) || String(a.codice || '').localeCompare(String(b.codice || '')));
+            return {
+                nuovi: tutti.filter(i => !inLista.has(String(i.codice || '').toUpperCase().trim())),
+                giaInLista: tutti.filter(i => inLista.has(String(i.codice || '').toUpperCase().trim()))
+            };
+        }
+        function _qtaRiordinoProposta(item) {
+            const soglia = (item.min_stock != null && item.min_stock !== '') ? (parseInt(item.min_stock) || 1) : 1;
+            return Math.max(1, soglia - Math.max(0, item.giacenza || 0) + 1);
+        }
+        function aggiornaBadgeRiordino() {
+            const b = $('mag-riordina-badge');
+            if (!b) return;
+            const n = _articoliDaRiordinare().nuovi.length;
+            b.textContent = n;
+            b.style.display = n > 0 ? 'inline' : 'none';
+        }
+
+        function apriRiordino() {
+            const { nuovi, giaInLista } = _articoliDaRiordinare();
+            if (!nuovi.length) {
+                mostraToast(giaInLista.length ? `Gli articoli sotto scorta (${giaInLista.length}) sono già tutti nella lista da ordinare` : 'Nessun articolo sotto scorta: magazzino in ordine ✅');
+                return;
+            }
+            $('riordino-lista').innerHTML = `<table style="width:100%; border-collapse:collapse; font-size:0.88rem;">
+                <thead><tr style="background:#1e293b;">
+                    <th style="width:36px; padding:8px;"></th>
+                    <th style="text-align:left; padding:8px 10px; font-size:0.72rem; color:var(--muted);">CODICE</th>
+                    <th style="text-align:left; padding:8px 10px; font-size:0.72rem; color:var(--muted);">ARTICOLO</th>
+                    <th style="text-align:center; padding:8px 10px; font-size:0.72rem; color:var(--muted);">IN MAGAZZINO</th>
+                    <th style="text-align:center; padding:8px 10px; font-size:0.72rem; color:var(--muted);">SCORTA MIN.</th>
+                    <th style="text-align:center; padding:8px 10px; font-size:0.72rem; color:var(--warning); width:90px;">DA ORDINARE</th>
+                </tr></thead>
+                <tbody>${nuovi.map((i, n) => `
+                    <tr style="border-bottom:1px solid #334155;">
+                        <td style="padding:6px 8px; text-align:center;"><input type="checkbox" class="riordino-chk" data-codice="${htmlEsc(i.codice)}" checked aria-label="Riordina ${htmlEsc(i.nome || i.codice)}" style="width:auto; margin:0;"></td>
+                        <td style="padding:6px 10px; font-family:monospace; font-weight:800;">${htmlEsc(i.codice)}</td>
+                        <td style="padding:6px 10px;"><b style="color:white;">${htmlEsc(i.nome || '')}</b>${i.marca ? ` <span style="color:var(--muted);">· ${htmlEsc(i.marca)}</span>` : ''}</td>
+                        <td style="padding:6px 10px; text-align:center; font-weight:800; color:${isMagEsaurito(i) ? 'var(--accent)' : 'var(--warning)'};">${i.giacenza || 0}</td>
+                        <td style="padding:6px 10px; text-align:center; color:var(--muted);">${(i.min_stock != null && i.min_stock !== '') ? i.min_stock : 1}</td>
+                        <td style="padding:6px 10px; text-align:center;"><input type="number" class="riordino-qta" min="1" step="1" value="${_qtaRiordinoProposta(i)}" aria-label="Quantità da ordinare" style="margin:0; width:70px; text-align:center; padding:6px;"></td>
+                    </tr>`).join('')}
+                </tbody></table>`;
+            $('riordino-gia').textContent = giaInLista.length
+                ? `Già nella lista da ordinare (non vengono aggiunti di nuovo): ${giaInLista.map(i => i.codice).join(', ')}`
+                : '';
+            $('riordino-conferma').textContent = `Aggiungi ${nuovi.length} articol${nuovi.length === 1 ? 'o' : 'i'} alla lista`;
+            $('modal-riordino').classList.remove('hidden');
+        }
+
+        function confermaRiordino() {
+            const righe = Array.from(document.querySelectorAll('#riordino-lista tbody tr'));
+            const scelti = righe.map(tr => ({ chk: tr.querySelector('.riordino-chk'), qta: tr.querySelector('.riordino-qta') }))
+                .filter(r => r.chk && r.chk.checked);
+            if (!scelti.length) return mostraErrore('Nessun articolo selezionato');
+            if (!_puoSalvare('lista_ordini')) return;
+            const inLista = _codiciInListaOrdini();
+            let aggiunti = 0;
+            scelti.forEach(r => {
+                const codice = r.chk.dataset.codice;
+                const item = inventarioMag.find(i => i.codice === codice);
+                if (!item || inLista.has(String(codice).toUpperCase().trim())) return;
+                listaOrdiniMag.push({
+                    id: genId(),
+                    codice: item.codice,
+                    nome: item.nome || '',
+                    marca: item.marca || '',
+                    categoria: item.categoria || '',
+                    giacenza: Math.max(1, parseInt(r.qta && r.qta.value) || 1),
+                    prezzo: parseFloat(item.prezzo) || 0,
+                    prezzo_pubblico: parseFloat(item.prezzo_pubblico) || 0
+                });
+                aggiunti++;
+            });
+            saveListaOrdiniMag();
+            closeModal('modal-riordino');
+            const card = $('lo-card');
+            if (card) card.style.display = 'block';
+            refreshListaOrdini();
+            mostraToast(`📋 ${aggiunti} articol${aggiunti === 1 ? 'o aggiunto' : 'i aggiunti'} alla lista da ordinare`);
+        }
+
         function deleteListaOrdine(id) {
             if (!confirm('Eliminare questo articolo dalla lista?')) return;
             listaOrdiniMag = listaOrdiniMag.filter(x => x.id !== id);
@@ -6726,7 +6903,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
             // Filtro sottosoglia
             if (magFiltroSottosoglia) {
-                filtered = filtered.filter(i => i.giacenza <= MAG_SOGLIA);
+                filtered = filtered.filter(magDaRiordinare);
             }
 
             if (!filtered.length) {
@@ -6752,7 +6929,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const isOpen = isSearch || categorieAperteMag.has(cat);
                 const items = groups[cat];
                 const totCat = items.reduce((s, i) => s + i.giacenza * i.prezzo, 0);
-                const lowCount = items.filter(i => i.giacenza <= MAG_SOGLIA).length;
+                const lowCount = items.filter(magDaRiordinare).length;
 
                 if (isMob) {
                     // --- MOBILE: righe compatte ---
@@ -6772,7 +6949,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         const cod = safe(item.codice);
                         let sc;
                         if (item.giacenza <= 0) sc='var(--accent)';
-                        else if (item.giacenza <= MAG_SOGLIA) sc='var(--warning)';
+                        else if (isMagScarso(item)) sc='var(--warning)';
                         else sc='var(--success)';
                         const rDiv = document.createElement('div');
                         rDiv.setAttribute('data-cat', cat);
@@ -6921,7 +7098,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             inventarioMag.forEach(i => {
                 const n = i.giacenza * i.prezzo;
                 tN += n; tI += n * (1 + MAG_IVA);
-                if (i.giacenza <= MAG_SOGLIA) sotto++;
+                if (magDaRiordinare(i)) sotto++;
                 totArticoli++;
                 const cat = i.categoria || 'ALTRO';
                 stats[cat] = (stats[cat] || 0) + n;
@@ -6949,6 +7126,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             }
             c.innerHTML = html;
             const badge = $('mag-inv-count'); if (badge) badge.textContent = totArticoli;
+            aggiornaBadgeRiordino();
         }
 
                 function renderDatalistMag() {
