@@ -67,6 +67,7 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 - **Firebase trasforma gli array in oggetti** (`{"0":…,"1":…}`) e lascia buchi dopo le cancellazioni: leggi con `Object.values(...)`/`Array.isArray` e non fidarti degli indici.
 - **Prezzi nel conto**: nei preventivi aperti (`stato === 'preventivo'`) `c.price` è il **totale di riga**; nelle commesse è il **prezzo unitario** (totale = price × qty). Per mostrare il totale di riga usa sempre `_totaleRiga(j, c)`. Una migrazione nel listener `/db` converte le commesse nate da preventivi.
 - Stati di una scheda in `db`: `todo` (appuntamento), `doing` (sul ponte), `done` (pronta), `archived`, `preventivo`, `special` (+ `special_cat`: `restauri` / `specials` / `ricambi` / `incidentate`). Il pre-conto di una scheda `special` non cambia lo stato.
+- **Ricambi ordinati nel conto**: un ordine collegato a una moto aperta crea nel suo conto una riga con `ordine_id` (prezzo = `prezzo_cliente` dell'ordine, senza `mag_codice`: non scala il magazzino). `_sincronizzaContoOrdine` aggiorna solo i campi cambiati nell'ordine; `in_conto` sull'ordine evita di rimettere una riga tolta a mano. `addVoceConto`/`saveJobConConto` devono conservare `ordine_id` (dataset `ordineId`), altrimenti il legame si perde e nascono doppioni.
 - Preventivo assicurativo: campi `assicurativo`, `perito_id`, `n_sinistro`, `inviato_perito`. `savePreventivo` ricostruisce l'oggetto da zero: un campo nuovo va aggiunto lì o si perde al salvataggio.
 - Nei form, i campi vuoti vanno impostati con `valore || ''`, altrimenti compare e si salva la parola "undefined".
 - Libretti: `/libretti/{TARGA}` contiene il file (letto solo con `.once` quando serve), `/libretti_info/{TARGA}` l'elenco leggero (con listener). Massimo 7 MB.
@@ -97,3 +98,4 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | v145 | Ordini ricambi collegati alla moto, indicazione "Attesa ricambi" sulle schede; fix: modificare un ordine non lo rimanda più in "Da ordinare" |
 | v146 | Solo ripubblicazione: la pubblicazione di v144–v145 era fallita per il guasto GitHub Actions del 5/10 sera |
 | v147 | Ordina ricambio dagli appuntamenti in Agenda; confronto consegna prevista / data appuntamento |
+| v148 | Ricambio ordinato per una moto → riga nel suo conto (prezzo al cliente nell'ordine, preso dal magazzino se il codice esiste) |
