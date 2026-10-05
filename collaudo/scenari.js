@@ -564,6 +564,46 @@
     switchView('board');
   });
 
+  await passo('Ricambi per gli appuntamenti futuri', async () => {
+    const tra = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    const dApp = tra(5);
+    fb.scritturaRemota({
+      'db/-Nfut1': { id: 1501, data: dApp, cognome: 'FUTURI', nome: 'ELENA', tel: '3409990000', marca: 'TRIUMPH', modello: 'STREET TRIPLE', targa: 'TR55501', stato: 'todo', lavori_richiesti: 'TAGLIANDO E KIT CATENA', clientId: 'c-fut' },
+      'agenda/-Nfut1': { id: 2501, tipo: 'officina', jobId: 1501, data: dApp, ora: '09:30', cliente: 'FUTURI ELENA', moto: 'TRIUMPH STREET TRIPLE - TR55501', raw_targa: 'TR55501' }
+    }, false);
+    switchView('agenda');
+    const cerca = async q => { campo('agenda-search-input', q); refreshAgenda(); await attendi(30); return document.getElementById('agenda-search-results').innerHTML; };
+    let html = await cerca('futuri');
+    ok(html.includes("ordinaRicambioPerJob('1501')"), 'Agenda: l\'appuntamento futuro ha il pulsante 📦 Ordina ricambio');
+    html = await cerca('rossi');
+    ok(!html.includes('ordinaRicambioPerJob'), 'Agenda: niente pulsante sugli appuntamenti di lavori già chiusi');
+    ordinaRicambioPerJob('1501');
+    const info = () => document.getElementById('ord-job-info').textContent;
+    ok(document.getElementById('ord_job').value === '1501' && /Appuntamento .* alle 09:30 \(tra 5 giorni\)/.test(info()), 'Modulo ordine: mostra l\'appuntamento e i giorni mancanti (' + info() + ')');
+    ok([...document.getElementById('ord_job').options].some(o => o.value === '1501' && o.textContent.includes('appuntamento ' + formattaData(dApp))), 'Elenco moto: indica la data dell\'appuntamento');
+    campo('ord_data_consegna', tra(7)); aggiornaInfoJobOrdine();
+    ok(/dopo l'appuntamento/.test(info()), 'Consegna prevista dopo l\'appuntamento: avviso nel modulo');
+    campo('ord_desc', 'kit catena 525'); campo('ord_fornitore', 'gipa');
+    addOrdine();
+    switchView('agenda');
+    html = await cerca('futuri');
+    ok(/Ricambio previsto il .*dopo l'appuntamento/.test(html), 'Agenda: avviso rosso "ricambio previsto dopo l\'appuntamento"');
+    switchView('ordini'); await attendi(30);
+    ok(/Appuntamento .*tra 5 giorni.*il ricambio arriva dopo/.test(document.getElementById('view-ordini').textContent), 'Scheda dell\'ordine: appuntamento e avviso di ritardo');
+    const o = Object.values(fb.leggi('ordini') || {}).find(x => x.desc === 'KIT CATENA 525');
+    editOrdine(o.id); campo('ord_data_consegna', tra(3)); aggiornaInfoJobOrdine();
+    ok(/in tempo per l'appuntamento/.test(info()), 'Consegna prevista prima: "in tempo per l\'appuntamento"');
+    addOrdine();
+    switchView('agenda');
+    html = await cerca('futuri');
+    ok(html.includes('Attesa ricambi') && html.includes('arrivo previsto ' + formattaData(tra(3))) && !html.includes("dopo l'appuntamento"), 'Agenda: "Attesa ricambi · arrivo previsto" con la data');
+    moveOrdine(o.id, 'doing'); moveOrdine(o.id, 'done');
+    html = await cerca('futuri');
+    ok(html.includes('Ricambi arrivati'), 'Agenda: dopo l\'arrivo "Ricambi arrivati"');
+    campo('agenda-search-input', ''); refreshAgenda();
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);

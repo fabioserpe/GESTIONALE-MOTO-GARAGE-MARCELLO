@@ -57,7 +57,7 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | Anagrafica | `refreshArchive`, `viewHistoryCognome`, `openEditStorico`/`saveEditStorico`, `sincronizzaAnagrafica` |
 | Prima Nota | `refreshLedger`, `openCollabDetail`, `archiviaSoloScheda` (→ `/storico_casse`), `azzeraCassa` |
 | Magazzino | `initMagazzino`, `renderAllMag`, `magSave`, `modificaArticoloMag`; il conto usa `prezzo_pubblico` se > 0. Sotto scorta = `magDaRiordinare` (esaurito o giacenza ≤ `min_stock`, default 1): stessa regola per righe colorate, riquadro "Da Riordinare", filtro e `apriRiordino`/`confermaRiordino` (→ lista da ordinare, senza doppioni per codice). `spostaInMagazzino` ricarica la merce arrivata |
-| Ordini ricambi | `refreshOrdini`, `addOrdine` (in modifica conserva stato e data), `moveOrdine`, `waOrdineArrivato`. Collegamento alla moto: campo `jobId` (+ `targa`, `moto`) scelto con `popolaSelectJobOrdine`; `ordinaRicambioPerJob` dal menu ⋯ delle schede; `_badgeRicambi(jobId)` mostra "Attesa ricambi"/"Ricambi arrivati" su bacheca, Lavori Lunghi e Incidentate |
+| Ordini ricambi | `refreshOrdini`, `addOrdine` (in modifica conserva stato e data), `moveOrdine`, `waOrdineArrivato`. Collegamento alla moto: campo `jobId` (+ `targa`, `moto`) scelto con `popolaSelectJobOrdine`; `ordinaRicambioPerJob` dal menu ⋯ delle schede; `_badgeRicambi(jobId, dataAppuntamento)` mostra "Attesa ricambi"/"Ricambi arrivati" su bacheca, Lavori Lunghi, Incidentate e schede dell'Agenda (`_renderAgendaCard`, pulsante 📦), in rosso se la consegna prevista è dopo l'appuntamento (`_appuntamentoDelJob`, `aggiornaInfoJobOrdine`) |
 | Moto usate | `refreshUsate`, `saveUsateDB`, `compressImgUsata` (foto in base64) |
 | Backup manuale | `exportData`/`importData` (salvano solo 8 sezioni su 14: c'è il backup automatico, vedi sotto) |
 
@@ -96,3 +96,4 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | v144 | Magazzino: "Riordina sotto scorta" in un clic; regola sotto scorta unificata (prima il riquadro usava "≤ 3 pezzi") |
 | v145 | Ordini ricambi collegati alla moto, indicazione "Attesa ricambi" sulle schede; fix: modificare un ordine non lo rimanda più in "Da ordinare" |
 | v146 | Solo ripubblicazione: la pubblicazione di v144–v145 era fallita per il guasto GitHub Actions del 5/10 sera |
+| v147 | Ordina ricambio dagli appuntamenti in Agenda; confronto consegna prevista / data appuntamento |
