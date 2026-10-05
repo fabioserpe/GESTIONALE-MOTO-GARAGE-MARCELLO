@@ -525,6 +525,45 @@
     switchView('board');
   });
 
+  await passo('Ordini collegati alla moto', async () => {
+    const toast = () => (document.querySelector('.toast-msg') || {}).textContent || '';
+    const ordine = desc => Object.values(fb.leggi('ordini') || {}).find(x => x.desc === desc);
+    ordinaRicambioPerJob(1002);
+    ok(currentView === 'ordini' && document.getElementById('ord-form-container').style.display === '', 'Dalla scheda (menu ⋯ → Ordina ricambio) si apre il modulo ordine');
+    ok(document.getElementById('ord_job').value === '1002' && document.getElementById('ord_cliente').value === 'BIANCHI LUCA' && document.getElementById('ord_tel_cliente').value === '3334445555', 'Moto già scelta, cliente e telefono compilati');
+    const opzioni = [...document.getElementById('ord_job').options].map(o => o.value);
+    ok(!opzioni.includes('1004') && opzioni.includes('1401') && opzioni.includes('1002'), 'Elenco moto: solo quelle aperte (anche incidentate), non le archiviate');
+    campo('ord_desc', 'kit catena'); campo('ord_fornitore', 'gipa');
+    let n = nScr();
+    addOrdine();
+    ok(uguali(chiaviDa(n), ['ordini']), 'Salvataggio: scritta solo la sezione ordini');
+    let o = ordine('KIT CATENA');
+    ok(o && String(o.jobId) === '1002' && o.targa === 'CD67890' && o.moto === 'YAMAHA MT07' && o.stato === 'todo' && o.data === oggi, 'Ordine salvato e collegato alla moto CD67890');
+    switchView('ordini'); await attendi(50);
+    ok(document.getElementById('view-ordini').textContent.includes('Per la moto'), 'Scheda dell\'ordine: indica la moto collegata');
+    switchView('board'); await attendi(350);
+    const cardB = () => [...document.querySelectorAll('#view-board .card-compact')].find(c => c.textContent.includes('CD67890'));
+    ok(cardB() && cardB().textContent.includes('Attesa ricambi'), 'Bacheca: la moto mostra "Attesa ricambi"');
+    ok(document.getElementById('view-board').innerHTML.includes('ordinaRicambioPerJob('), 'Bacheca: voce "Ordina ricambio" nel menu ⋯');
+    moveOrdine(o.id, 'doing');
+    editOrdine(o.id); campo('ord_prezzo', '75');
+    addOrdine();
+    o = ordine('KIT CATENA');
+    ok(o.stato === 'doing' && o.prezzo === 75 && o.data === oggi && String(o.jobId) === '1002', 'Modifica di un ordine già ordinato: resta ordinato (prima tornava in "Da ordinare")');
+    moveOrdine(o.id, 'done');
+    ok(/CD67890 arrivato · tutti i ricambi arrivati/.test(toast()), 'Arrivo del ricambio: avviso con la targa');
+    switchView('board'); await attendi(350);
+    ok(cardB() && cardB().textContent.includes('Ricambi arrivati') && !cardB().textContent.includes('Attesa ricambi'), 'Bacheca: diventa "Ricambi arrivati"');
+    ordinaRicambioPerJob(1401); campo('ord_desc', 'carena destra'); addOrdine();
+    switchView('incidentate'); await attendi(100);
+    const rigaZ = [...document.querySelectorAll('#incidentate-results .archive-card-row')].find(r => r.textContent.includes('ZANCHI'));
+    ok(rigaZ && rigaZ.textContent.includes('Attesa ricambi'), 'Incidentate: la moto mostra "Attesa ricambi"');
+    switchView('ordini'); cancelEditOrdine(); campo('ord_desc', 'olio da banco'); addOrdine();
+    const banco = ordine('OLIO DA BANCO');
+    ok(banco && (banco.jobId == null) && !banco.targa, 'Ordine senza moto: resta libero come prima');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
