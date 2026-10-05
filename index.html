@@ -604,7 +604,7 @@
             <div id="ord-form-container" style="display:none; flex-shrink:0;">
             <div class="card mb-20" style="border-top:3px solid #fca5a5;">
                 <input type="hidden" id="ord_edit_id">
-                <div class="mob-form-grid" style="display:grid; grid-template-columns: 70px 2fr 1fr 1fr 1fr 1fr 1fr 120px 120px; gap:10px; align-items:end;">
+                <div class="mob-form-grid" style="display:grid; grid-template-columns: 70px 2fr 1fr 1fr 1fr 1fr 1fr 120px 180px; gap:10px; align-items:end;">
                     <div>
                         <label>Q.tà</label>
                         <input id="ord_qta" type="number" value="1" min="1" style="margin:0; text-align:center;">
@@ -639,8 +639,9 @@
                         <input id="ord_data_consegna" type="date" style="margin:0;" onchange="aggiornaInfoJobOrdine()">
                     </div>
                     <div style="display:flex; gap:5px; align-items:flex-end;">
-                        <button id="btn-save-ordine" class="btn btn-success" onclick="addOrdine()" style="margin:0; flex:1;">➕ Aggiungi</button>
-                        <button id="btn-cancel-ordine" class="btn btn-dark hidden" onclick="cancelEditOrdine()" style="margin:0; padding:10px 8px;">❌</button>
+                        <button id="btn-save-ordine" class="btn btn-success" onclick="addOrdine()" style="margin:0; flex:1; white-space:nowrap;">➕ Aggiungi</button>
+                        <button id="btn-svuota-ordine" type="button" class="btn btn-dark" onclick="svuotaModuloOrdine()" title="Svuota il modulo per un nuovo ordine" aria-label="Svuota il modulo" style="margin:0; padding:10px 12px; font-size:1.1rem; width:auto; flex-shrink:0;">🧹</button>
+                        <button id="btn-cancel-ordine" class="btn btn-dark hidden" onclick="cancelEditOrdine()" title="Annulla la modifica" style="margin:0; padding:10px 8px;">❌</button>
                     </div>
                 </div>
                 <!-- Riga cliente -->
@@ -3050,6 +3051,7 @@
             const c = $('ord-form-container'), btn = $('ord-form-toggle-btn');
             if (!c) return;
             const open = c.style.display !== 'none';
+            if (open) { cancelEditOrdine(); return; }
             c.style.display = open ? 'none' : '';
             if (btn) btn.innerHTML = open ? '➕ Nuovo Ordine' : '✖ Chiudi Form';
             if (!open) popolaSelectJobOrdine($('ord_job') ? $('ord_job').value : '');
@@ -3152,6 +3154,7 @@
             $('btn-save-ordine').className = "btn btn-warning";
             $('btn-save-ordine').innerHTML = "💾 Salva";
             $('btn-cancel-ordine').classList.remove('hidden');
+            if ($('btn-svuota-ordine')) $('btn-svuota-ordine').classList.add('hidden');
             // Espandi form se collassato
             const _ofc = $('ord-form-container');
             if (_ofc && _ofc.style.display === 'none') { _ofc.style.display = ''; const _tb = $('ord-form-toggle-btn'); if(_tb) _tb.innerHTML = '✖ Chiudi Form'; }
@@ -3166,6 +3169,8 @@
             $('btn-save-ordine').className = "btn btn-success";
             $('btn-save-ordine').innerHTML = "➕ Aggiungi";
             $('btn-cancel-ordine').classList.add('hidden');
+            if ($('btn-svuota-ordine')) $('btn-svuota-ordine').classList.remove('hidden');
+            aggiornaInfoJobOrdine();
             // Chiudi form
             const _cfc = $('ord-form-container');
             if (_cfc) _cfc.style.display = 'none';
@@ -3307,6 +3312,14 @@
             }
         }
         // Dopo un ordine nuovo il modulo resta aperto: restano moto, cliente, fornitore, n° ordine e consegna prevista
+        function svuotaModuloOrdine() {
+            cancelEditOrdine();
+            const c = $('ord-form-container'), tb = $('ord-form-toggle-btn');
+            if (c) c.style.display = '';
+            if (tb) tb.innerHTML = '✖ Chiudi Form';
+            popolaSelectJobOrdine('');
+            setTimeout(() => { const d = $('ord_desc'); if (d) d.focus(); }, 50);
+        }
         function _prontoPerProssimoRicambio() {
             ['ord_desc', 'ord_sku', 'ord_prezzo', 'ord_prezzo_cliente', 'ord_note'].forEach(id => { if ($(id)) $(id).value = ''; });
             if ($('ord_qta')) $('ord_qta').value = '1';
