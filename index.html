@@ -663,6 +663,7 @@
                         <label>Note</label>
                         <input id="ord_note" placeholder="Note aggiuntive..." style="margin:0;">
                     </div>
+                    <div id="ord-job-elenco" style="grid-column:1/-1;"></div>
                 </div>
             </div>
             </div><!-- /ord-form-container -->
@@ -3091,9 +3092,10 @@
                 ordiniDB.push(salvato);
             }
             const esitoConto = salvato ? _sincronizzaContoOrdine(salvato, vecchio) : '';
-            cancelEditOrdine();
+            if (editId) cancelEditOrdine(); else _prontoPerProssimoRicambio();
             saveOrdini();
             if (esitoConto) { saveDB(); _avvisoContoOrdine(salvato, vecchio, esitoConto); }
+            aggiornaInfoJobOrdine();
             // Aggiorna datalist fornitori
             updateOrdiniDatalist();
         }
@@ -3239,6 +3241,7 @@
             const box = $('ord-job-info');
             if (!box) return;
             const j = $('ord_job') ? db.find(x => String(x.id) === String($('ord_job').value)) : null;
+            _elencoRicambiJob(j);
             if (!j) { box.innerHTML = ''; return; }
             if (j.stato !== 'todo') {
                 const dove = j.stato === 'doing' ? 'sul ponte' : j.stato === 'done' ? 'pronta' : j.special_cat === 'incidentate' ? 'tra le incidentate' : 'nei lavori lunghi';
@@ -3303,6 +3306,24 @@
                 mostraToast(`Riga tolta dal conto di ${jv ? (jv.cognome || '').toUpperCase() : 'della moto precedente'}`);
             }
         }
+        // Dopo un ordine nuovo il modulo resta aperto: restano moto, cliente, fornitore, n° ordine e consegna prevista
+        function _prontoPerProssimoRicambio() {
+            ['ord_desc', 'ord_sku', 'ord_prezzo', 'ord_prezzo_cliente', 'ord_note'].forEach(id => { if ($(id)) $(id).value = ''; });
+            if ($('ord_qta')) $('ord_qta').value = '1';
+            setTimeout(() => { const d = $('ord_desc'); if (d) d.focus(); }, 50);
+        }
+        function _elencoRicambiJob(j) {
+            const el = $('ord-job-elenco');
+            if (!el) return;
+            const ord = j ? _ordiniDelJob(j.id) : [];
+            if (!ord.length) { el.innerHTML = ''; return; }
+            const st = { todo: ['da ordinare', 'var(--accent)'], doing: ['ordinato', 'var(--info)'], done: ['arrivato', 'var(--success)'] };
+            el.innerHTML = `<div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding-top:8px; border-top:1px dashed #334155; font-size:0.8rem;">
+                <span style="color:var(--muted); font-weight:bold;">📋 Ricambi per ${htmlEsc(j.targa || 'questa moto')} (${ord.length}):</span>
+                ${ord.map(o => { const [lbl, col] = st[o.stato] || ['', 'var(--muted)']; return `<span style="background:#0f172a; border:1px solid #334155; border-radius:14px; padding:2px 9px; color:var(--text);">${o.qta > 1 ? o.qta + '× ' : ''}${htmlEsc(o.desc || '')}${o.prezzo_cliente > 0 ? ` <b style="color:#f59e0b;">€${Number(o.prezzo_cliente).toFixed(2)}</b>` : ''} <span style="color:${col}; font-size:0.72rem; font-weight:bold;">${lbl}</span></span>`; }).join('')}
+            </div>`;
+        }
+
         function prezziDaMagazzinoOrdine() {
             const sku = ($('ord_sku').value || '').toUpperCase().trim();
             if (!sku) return;
