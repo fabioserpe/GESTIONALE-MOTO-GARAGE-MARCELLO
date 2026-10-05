@@ -890,7 +890,10 @@
                     <h2 style="color:var(--purple); margin:0 0 10px;">📝 Preventivi</h2>
                     <div id="prev-tab-bar" style="display:flex; border-bottom:1px solid #334155;"></div>
                 </div>
-                <button class="btn btn-purple w-auto" onclick="openPreventivoForm()" style="margin-top:4px; flex-shrink:0;">➕ Nuovo</button>
+                <div style="display:flex; gap:8px; margin-top:4px; flex-shrink:0;">
+                    <button class="btn btn-dark w-auto" onclick="openPeritiModal()" style="border:1px solid var(--info); color:var(--info);">📋 Rubrica Periti</button>
+                    <button class="btn btn-purple w-auto" onclick="openPreventivoForm()">➕ Nuovo</button>
+                </div>
             </div>
             <div id="preventivi-results" style="overflow-y:auto; flex-grow:1; padding-top:14px;"></div>
         </div>
@@ -920,8 +923,30 @@
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:22px;">
                     <input id="p_marca" placeholder="Marca" style="margin:0;">
                     <input id="p_modello" placeholder="Modello" style="margin:0;">
-                    <input id="p_targa" placeholder="Targa 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('p')" style="border-color:var(--purple); margin:0;">
+                    <input id="p_targa" placeholder="Targa 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('p'); aggiornaLibrettoBox()" oninput="aggiornaLibrettoBox()" style="border-color:var(--purple); margin:0;">
                     <input id="p_km" type="number" placeholder="KM" style="margin:0;">
+                </div>
+
+                <!-- Preventivo assicurativo -->
+                <div style="margin:-8px 0 22px; padding:12px 14px; border:1px solid rgba(56,189,248,0.3); border-radius:12px; background:rgba(56,189,248,0.05);">
+                    <label style="display:flex; align-items:center; gap:8px; margin:0; font-size:0.9rem; color:var(--info); cursor:pointer; text-transform:none;">
+                        <input type="checkbox" id="p_assic" onchange="toggleAssicPrev()" style="width:auto; margin:0;"> 🛡️ Preventivo assicurativo
+                    </label>
+                    <div id="p-assic-campi" style="display:none; grid-template-columns:2fr 1fr; gap:10px; margin-top:12px;">
+                        <div>
+                            <label style="margin-bottom:4px;">Perito</label>
+                            <div style="display:flex; gap:6px;">
+                                <select id="p_perito" onchange="onCambioPeritoForm(this)" style="margin:0;"></select>
+                                <button type="button" class="btn btn-dark w-auto" onclick="openPeritiModal(true)" title="Rubrica periti" style="border:1px solid var(--info); color:var(--info); padding:8px 12px;">📋</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="margin-bottom:4px;">N° sinistro</label>
+                            <input id="p_sinistro" placeholder="Es. 2026/123456" style="margin:0;">
+                        </div>
+                        <div id="p-libretto-box" style="grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding-top:10px; border-top:1px dashed #334155;"></div>
+                        <input type="file" id="p_libretto_file" accept="application/pdf,image/*" onchange="caricaLibretto(this)" style="display:none;">
+                    </div>
                 </div>
 
                 <table style="width:100%; border-collapse:collapse;">
@@ -1661,6 +1686,52 @@
         </div>
     </div>
 
+    <div id="modal-periti" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:760px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h2 style="margin:0; color:var(--info);">📋 Rubrica Periti</h2>
+                <button type="button" onclick="closeModal('modal-periti')" aria-label="Chiudi" style="background:none; border:none; color:var(--muted); font-size:1.8rem; cursor:pointer; line-height:1;">×</button>
+            </div>
+            <div class="section-dark" style="border-top:3px solid var(--info); margin-bottom:14px;">
+                <div id="per-form-titolo" style="font-weight:800; color:var(--info); margin-bottom:10px;">➕ Nuovo perito</div>
+                <input type="hidden" id="per_id">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <input id="per_nome" placeholder="Nome e cognome (obbligatorio)" style="margin:0;">
+                    <input id="per_compagnia" placeholder="Compagnia / studio" style="margin:0;">
+                    <input id="per_cell" type="tel" placeholder="Cellulare" style="margin:0;">
+                    <input id="per_email" type="email" placeholder="Email" style="margin:0; text-transform:none;">
+                    <input id="per_note" placeholder="Note (facoltative)" style="margin:0; grid-column:1/-1;">
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+                    <button type="button" id="per-annulla" class="btn btn-dark w-auto" onclick="_resetPeritoForm()" style="display:none;">Annulla modifica</button>
+                    <button type="button" class="btn btn-info w-auto" onclick="salvaPerito()">💾 Salva perito</button>
+                </div>
+            </div>
+            <div id="periti-list" style="max-height:340px; overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <div id="modal-invio-perito" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:640px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h2 style="margin:0; color:var(--info);">📤 Invia al perito</h2>
+                <button type="button" onclick="closeModal('modal-invio-perito')" aria-label="Chiudi" style="background:none; border:none; color:var(--muted); font-size:1.8rem; cursor:pointer; line-height:1;">×</button>
+            </div>
+            <div id="ip-info" style="font-size:0.9rem; color:var(--muted); margin-bottom:14px; line-height:1.6;"></div>
+            <label>Perito</label>
+            <select id="ip_perito" onchange="aggiornaInvioPerito()"></select>
+            <div id="ip-contatti" style="font-size:0.88rem; color:var(--muted); margin:-4px 0 14px;"></div>
+            <label>Allegati</label>
+            <div id="ip-allegati" style="margin-bottom:12px;"></div>
+            <div class="flex-row" style="flex-wrap:wrap;">
+                <button type="button" class="btn btn-dark" onclick="closeModal('modal-invio-perito')" style="flex:1;">Chiudi</button>
+                <button type="button" id="ip-wa" class="btn btn-wa" onclick="waPerito()" style="flex:1;" title="Solo testo: WhatsApp non accetta allegati da qui">📲 WhatsApp (solo testo)</button>
+                <button type="button" id="ip-invia" class="btn btn-info" onclick="inviaAlPerito()" style="flex:2;">⏳ Preparo gli allegati…</button>
+            </div>
+            <div id="ip-nota" style="font-size:0.8rem; color:var(--muted); margin-top:10px; line-height:1.5;"></div>
+        </div>
+    </div>
+
     <div id="modal-anagrafica" class="modal hidden no-print">
         <div class="modal-content" style="max-width:680px;">
             <h2 style="color:var(--accent);" class="mb-20">Modifica Dati Cliente e Veicoli</h2>
@@ -2029,6 +2100,7 @@
         const MGM_INFO = { nome: "MOTO GARAGE MARCELLO", tel: "0932 644902", piva: "01622620886", via: "Ragusa (RG)" };
         let db = [], agendaDB = [], ledgerDB = [], ordiniDB = [], rubricaDB = [];
         let noteDB = "", billingDB = {}, taggliandiDB = {}, scadenzeDB = [], motoUsateDB = [];
+        let peritiDB = [], librettiInfo = {};
         let currentJobId = null, currentEditStoricoId = null, currentEditStoricoPlate = null, isEditing = false, currentView = 'board', currentArchiveFilter = 'all';
         let currentCollabView = null;
         let dataInizioSettimana = new Date(); dataInizioSettimana.setHours(0,0,0,0); const gDay = dataInizioSettimana.getDay(); dataInizioSettimana = new Date(dataInizioSettimana.setDate(dataInizioSettimana.getDate() - gDay + (gDay === 0 ? -6 : 1)));
@@ -2076,7 +2148,20 @@
                         _needsClientIdSave = true;
                     }
                 });
-                if (needsSaveChiusura || needsCleanSpecialCat || _needsClientIdSave) { _dbMigrateGuard = true; saveDB(); }
+                // Preventivi diventati commesse: righe con totale di riga → prezzo unitario (il totale non cambia)
+                let _needsContoUnit = false;
+                db.forEach(j => {
+                    if (j.stato === 'preventivo' || !Array.isArray(j.conto)) return;
+                    if (!j.conto.some(c => c && (parseFloat(c.qty) || 1) > 1 && (parseFloat(c.price) || 0) > 0)) return;
+                    const tot = parseFloat(j.totale_lordo) || 0;
+                    const sommaRighe = j.conto.reduce((a, c) => a + (parseFloat(c && c.price) || 0), 0);
+                    const sommaUnit = j.conto.reduce((a, c) => a + (parseFloat(c && c.price) || 0) * (parseFloat(c && c.qty) || 1), 0);
+                    if (Math.abs(sommaRighe - tot) < 0.01 && Math.abs(sommaUnit - tot) > 0.01) {
+                        j.conto = j.conto.map(c => c ? Object.assign({}, c, { price: Number(((parseFloat(c.price) || 0) / (parseFloat(c.qty) || 1)).toFixed(6)) }) : c);
+                        _needsContoUnit = true;
+                    }
+                });
+                if (needsSaveChiusura || needsCleanSpecialCat || _needsClientIdSave || _needsContoUnit) { _dbMigrateGuard = true; saveDB(); }
                 }
                 updateDatalist();
                 const v = currentView;
@@ -2161,6 +2246,22 @@
                 motoUsateDB = snap.val() ? Object.values(snap.val()) : [];
                 motoUsateDB.forEach(m => { if (m.foto && !Array.isArray(m.foto)) m.foto = Object.values(m.foto); });
                 if (currentView === 'usate') refreshUsate();
+            });
+
+            database.ref('/periti').on('value', (snap) => {
+                _segnaCaricato('periti');
+                const v = snap.val() || {};
+                peritiDB = Object.keys(v).filter(k => v[k] && typeof v[k] === 'object').map(k => Object.assign({}, v[k], { id: v[k].id || k }))
+                    .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+                refreshPeritiList();
+                if ($('p_perito')) _popolaSelectPeriti('p_perito', $('p_perito').value);
+                if (_invio && $('ip_perito')) { _popolaSelectPeriti('ip_perito', $('ip_perito').value); aggiornaInvioPerito(); }
+            });
+
+            database.ref('/libretti_info').on('value', (snap) => {
+                _segnaCaricato('libretti_info');
+                librettiInfo = snap.val() || {};
+                if (currentView === 'crea-prev') aggiornaLibrettoBox();
             });
 
         } // fine initFirebaseListeners
@@ -3607,7 +3708,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 // Calcola riepilogo IVA per la preview
                 let totImp = 0, ivaGroups = {};
                 j.conto.forEach(c => {
-                    const price = (parseFloat(c.price) || 0) * (parseFloat(c.qty) || 1);
+                    const price = _totaleRiga(j, c);
                     const ivaRate = parseFloat(c.iva) || 0;
                     const imp = ivaRate > 0 ? price / (1 + ivaRate/100) : price;
                     const ivaAmt = price - imp;
@@ -3640,7 +3741,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         </tr></thead>
                         <tbody>${j.conto.map(c => {
                             const qty = parseFloat(c.qty) || 1;
-                            const price = (parseFloat(c.price)||0) * qty;
+                            const price = _totaleRiga(j, c);
                             const ivaRate = parseFloat(c.iva)||0;
                             const imp = ivaRate > 0 ? price/(1+ivaRate/100) : price;
                             const qtyLabel = qty > 1 ? ` <span style="color:var(--muted); font-size:0.8rem; font-weight:400;">×${qty}</span>` : '';
@@ -3702,6 +3803,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         <b>Moto:</b> ${j.marca||''} ${j.modello||''}<br>
                         <b>KM:</b> ${j.km||'N/D'}<br>
                         <b>Telefono:</b> ${j.tel||'Nessun numero'}
+                        ${librettiInfo[chiaveTarga(j.targa)] ? `<br><button type="button" onclick="apriLibretto('${htmlEsc(j.targa)}')" style="margin-top:8px; background:transparent; border:1px solid var(--info); color:var(--info); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:0.85rem; font-weight:700;">📄 Apri libretto</button>` : ''}
                     </div>
                     <h3 style="color:var(--info); margin-bottom:10px;">Note Lavori:</h3>
                     <div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; border-left:4px solid var(--accent); white-space:pre-wrap; color:white; min-height:60px; font-size:1.1rem; margin-bottom:20px;">${htmlEsc(j.lavori_richiesti || 'Nessuna nota.')}</div>
@@ -3733,6 +3835,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             $('p_km').value = j.km || '';
             $('p-conto-rows').innerHTML = '';
             addVocePrev('','',22,true);
+            _setAssicForm({ assicurativo: true });
             calcPrevTotale();
         }
 
@@ -4741,8 +4844,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // =====================================================================
         // 10. PREVENTIVI
         // =====================================================================
-        function openPreventivoForm(id = null, fromStorico = false) { isEditing = !!id; _editingStorico = fromStorico; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); if(!p){mostraErrore('Preventivo non trovato');return;} $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVocePrev(c.desc,c.price,c.iva!==undefined?c.iva:22,false,c.qty||1)):addVocePrev('','',22,false); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVocePrev('','',22,false); } calcPrevTotale(); }
-        function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVocePrev('','',22,false); calcPrevTotale(); setTimeout(() => checkCustomerBikes('p'), 100); }
+        function openPreventivoForm(id = null, fromStorico = false) { isEditing = !!id; _editingStorico = fromStorico; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); if(!p){mostraErrore('Preventivo non trovato');return;} $('p_id').value = p.id; $('p_nome').value=p.nome; $('p_cognome').value=p.cognome; $('p_tel').value=p.tel; $('p_targa').value=p.targa; $('p_marca').value=p.marca; $('p_modello').value=p.modello; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVocePrev(c.desc,p.stato==='preventivo'?Number(((parseFloat(c.price)||0)/(parseFloat(c.qty)||1)).toFixed(6)):c.price,c.iva!==undefined?c.iva:22,false,c.qty||1)):addVocePrev('','',22,false); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVocePrev('','',22,false); } _setAssicForm(id ? db.find(j=>String(j.id)===String(id)) : null); calcPrevTotale(); }
+        function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVocePrev('','',22,false); _setAssicForm(null); calcPrevTotale(); setTimeout(() => checkCustomerBikes('p'), 100); }
         function calcPrevTotale() {
             const rows = document.querySelectorAll('#p-conto-rows tr.voce-row');
             let totLordo = 0;
@@ -4778,7 +4881,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (tEl) tEl.textContent = `TOTALE: ${totLordo.toFixed(2)} \u20ac`;
         }
         function calcPrevTotal() { calcPrevTotale(); }
-        function savePreventivo(inviaWA = false, comeCommessa = false, doStampa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = Array.from(document.querySelectorAll('#p-conto-rows tr.voce-row')).map(tr => ({ desc: tr.querySelector('.p-desc')?.value||'', price: (parseFloat(tr.querySelector('.p-price')?.value)||0)*(parseFloat(tr.querySelector('.p-qty')?.value)||1), iva: parseFloat(tr.dataset.iva??22)||0, qty: parseFloat(tr.querySelector('.p-qty')?.value)||1 })).filter(i => i.price > 0 || (i.desc||'').trim() !== ''); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const _orig = exI > -1 ? db[exI] : null; const _storico = _editingStorico && _orig && _orig.stato !== 'preventivo'; const data = { id: nowId, data: _storico ? (_orig.data||getOggiLocale()) : getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: _orig ? (_orig.acconti||[]) : [], lavori_richiesti: _storico ? (_orig.lavori_richiesti||'Vedi voci preventivo') : 'Vedi voci preventivo', stato: _storico ? _orig.stato : (comeCommessa ? 'todo' : 'preventivo'), era_preventivo: true, data_accettazione: _storico ? (_orig.data_accettazione||null) : (comeCommessa ? getOggiLocale() : null), conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa && !_storico && agendaDB.findIndex(a=>String(a.jobId)===String(nowId))===-1) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; _editingStorico = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(doStampa) { printPreventivo(nowId); return; } if(comeCommessa && !_storico) switchView('board'); else switchView('preventivi'); }
+        function savePreventivo(inviaWA = false, comeCommessa = false, doStampa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = Array.from(document.querySelectorAll('#p-conto-rows tr.voce-row')).map(tr => ({ desc: tr.querySelector('.p-desc')?.value||'', price: (parseFloat(tr.querySelector('.p-price')?.value)||0)*(parseFloat(tr.querySelector('.p-qty')?.value)||1), iva: parseFloat(tr.dataset.iva??22)||0, qty: parseFloat(tr.querySelector('.p-qty')?.value)||1 })).filter(i => i.price > 0 || (i.desc||'').trim() !== ''); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const _orig = exI > -1 ? db[exI] : null; const _storico = _editingStorico && _orig && _orig.stato !== 'preventivo'; const data = { id: nowId, data: _storico ? (_orig.data||getOggiLocale()) : getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, acconti: _orig ? (_orig.acconti||[]) : [], lavori_richiesti: _storico ? (_orig.lavori_richiesti||'Vedi voci preventivo') : 'Vedi voci preventivo', stato: _storico ? _orig.stato : (comeCommessa ? 'todo' : 'preventivo'), era_preventivo: true, data_accettazione: _storico ? (_orig.data_accettazione||null) : (comeCommessa ? getOggiLocale() : null), conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId, assicurativo: !!($('p_assic') && $('p_assic').checked), perito_id: ($('p_assic') && $('p_assic').checked && $('p_perito').value !== '__nuovo') ? ($('p_perito').value || '') : '', n_sinistro: ($('p_assic') && $('p_assic').checked) ? ($('p_sinistro').value || '').trim() : '', inviato_perito: (_orig && _orig.inviato_perito) || null }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa && !_storico && agendaDB.findIndex(a=>String(a.jobId)===String(nowId))===-1) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; _editingStorico = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(doStampa) { printPreventivo(nowId); return; } if(comeCommessa && !_storico) switchView('board'); else switchView('preventivi'); }
         function archiviaPreventivo(id) {
             if (!confirm('Archiviare questo preventivo nello storico senza convertirlo in commessa?')) return;
             const i = db.findIndex(j => String(j.id) === String(id));
@@ -4858,7 +4961,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 return (p.conto||[]).map(v =>
                     `<div style="display:flex; justify-content:space-between; padding:3px 8px; background:#0f172a; border-radius:5px; font-size:0.78rem; margin-bottom:2px;">
                         <span style="color:var(--text);">${v.desc||''}</span>
-                        <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:8px;">€${parseFloat(v.price||0).toFixed(2)}</span>
+                        <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:8px;">€${_totaleRiga(p, v).toFixed(2)}</span>
                     </div>`
                 ).join('');
             }
@@ -4886,6 +4989,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                             <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
                                 <span class="targa-badge" style="background:var(--purple); border:none; font-size:0.68rem; padding:2px 8px;">${p.targa||'NO TARGA'}</span>
                                 <span style="background:rgba(167,139,250,0.15); color:var(--purple); padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:bold; border:1px solid rgba(167,139,250,0.3);">In attesa risposta</span>
+                                ${p.assicurativo ? `<span style="background:rgba(56,189,248,0.12); color:var(--info); padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:bold; border:1px solid rgba(56,189,248,0.35);">🛡️ ${htmlEsc((_peritoById(p.perito_id) && _nomePerito(_peritoById(p.perito_id))) || 'Assicurativo')}${p.n_sinistro ? ' · n. ' + htmlEsc(p.n_sinistro) : ''}</span>` : ''}
+                                ${p.inviato_perito ? `<span style="color:var(--success); font-size:0.68rem; font-weight:bold;">📤 Inviato il ${formattaData(p.inviato_perito.data)}</span>` : ''}
                             </div>
                         </div>
                         <!-- COL 2: Moto + data -->
@@ -4909,6 +5014,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                     <button onclick="accettaPreventivo(${p.id})" style="color:var(--success); width:100%; text-align:left; font-weight:bold;">✅ Converti in Commessa</button>
                                     <button onclick="archiviaPreventivo(${p.id})" style="color:#94a3b8; width:100%; text-align:left;">📁 Archivia in Storico</button>
                                     <button onclick="sendWhatsAppPreventivo(${p.id})" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button>
+                                    ${p.assicurativo ? `<button onclick="openInvioPerito(${p.id})" style="color:var(--info); width:100%; text-align:left; font-weight:bold;">📤 Invia al perito</button>` : ''}
                                     <button onclick="openPreventivoForm(${p.id})" style="color:var(--info); width:100%; text-align:left;">✏️ Modifica</button>
                                     <button onclick="printPreventivo(${p.id})" style="color:var(--text); width:100%; text-align:left;">🖨️ Stampa Preventivo</button>
                                     <button onclick="deleteJob(${p.id})" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina</button>
@@ -5397,8 +5503,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         <table style="width:100%; border-collapse:collapse; margin-top:10px; margin-bottom:10px; font-size:0.95rem; color:white;">
                             ${h.conto.map(c => `
                                 <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-                                    <td style="padding:6px 0;">${c.desc}</td>
-                                    <td style="padding:6px 0; text-align:right; font-weight:bold;">€ ${parseFloat(c.price).toFixed(2)}</td>
+                                    <td style="padding:6px 0;">${c.desc}${(parseFloat(c.qty)||1) > 1 ? ` <span style="opacity:.65; font-weight:400;">×${parseFloat(c.qty)}</span>` : ''}</td>
+                                    <td style="padding:6px 0; text-align:right; font-weight:bold;">€ ${_totaleRiga(h, c).toFixed(2)}</td>
                                 </tr>
                             `).join('')}
                         </table>
@@ -5490,7 +5596,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const j = db.find(x => String(x.id) === String(id)); if(!j) return;
             $('es-header-info').innerHTML = `Cliente: <span style="color:white">${(j.cognome||'').toUpperCase()} ${j.nome||''}</span> | Targa: <span class="targa-badge">${j.targa}</span> | Data: <span style="color:white">${formattaData(j.data)}</span>`;
             $('es-acconti-container').innerHTML=''; (j.acconti||[]).forEach(a=>addAcconto('es-acconti-container','es_acc_val','es_acc_date',calcEditStoricoTotal,a.val,a.date));
-            $('es-conto-rows').innerHTML=''; (j.conto||[]).forEach(c=>addVoce('es-conto-rows','es-desc','es-price',calcEditStoricoTotal,c.desc,c.price)); if(!j.conto||j.conto.length===0) addVoce('es-conto-rows','es-desc','es-price',calcEditStoricoTotal);
+            $('es-conto-rows').innerHTML=''; (j.conto||[]).forEach(c=>addVoce('es-conto-rows','es-desc','es-price',calcEditStoricoTotal,((parseFloat(c.qty)||1) > 1 ? c.desc + ' ×' + parseFloat(c.qty) : c.desc),Number(_totaleRiga(j, c).toFixed(2)))); if(!j.conto||j.conto.length===0) addVoce('es-conto-rows','es-desc','es-price',calcEditStoricoTotal);
             calcEditStoricoTotal(); $('modal-edit-storico').classList.remove('hidden');
         }
 
@@ -5509,7 +5615,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             // Preserva il campo .iva dall'originale se la descrizione combacia
             j.conto = newConto.map((c, i) => {
                 const orig = oldConto[i];
-                return { desc: c.desc, price: c.price, iva: (orig && orig.iva !== undefined) ? orig.iva : 22 };
+                return { desc: c.desc, price: c.price, qty: 1, iva: (orig && orig.iva !== undefined) ? orig.iva : 22 };
             });
             j.totale_lordo = j.conto.reduce((a,b)=>a+b.price, 0);
             saveDB(); closeModal('modal-edit-storico'); 
@@ -5644,6 +5750,451 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // =====================================================================
         function renderPrintHeader(title, dataIta) { return `<div class="p-header"><div><h1 style="margin:0;">${MGM_INFO.nome}</h1><p style="margin:5px 0 0 0; color:#555;">${MGM_INFO.via} | Tel: ${MGM_INFO.tel} | P.IVA: ${MGM_INFO.piva}</p></div></div><div class="p-title-bar"><span>${title}</span><span>Data: ${dataIta}</span></div>`; }
 
+        // =====================================================================
+        // PREVENTIVI ASSICURATIVI: rubrica periti, libretti per targa, invio al perito
+        // =====================================================================
+        let _peritoDaSelezionare = null;
+        let _invio = null;
+
+        // Nei preventivi aperti c.price è il totale di riga; nelle commesse è il prezzo unitario
+        function _totaleRiga(j, c) {
+            const pr = parseFloat(c && c.price) || 0;
+            return j && j.stato === 'preventivo' ? pr : pr * (parseFloat(c && c.qty) || 1);
+        }
+
+        function chiaveTarga(t) { return String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+        function _peritoById(id) { return peritiDB.find(p => String(p.id) === String(id)) || null; }
+        function _nomePerito(p) { return [p.nome, p.compagnia].filter(Boolean).join(' · '); }
+
+        function _popolaSelectPeriti(selId, valore) {
+            const sel = $(selId);
+            if (!sel) return;
+            if (selId === 'p_perito' && _peritoDaSelezionare && _peritoById(_peritoDaSelezionare)) { valore = _peritoDaSelezionare; _peritoDaSelezionare = null; }
+            sel.innerHTML = `<option value="">— Nessun perito —</option>`
+                + peritiDB.map(p => `<option value="${htmlEsc(p.id)}">${htmlEsc(_nomePerito(p))}</option>`).join('')
+                + (selId === 'p_perito' ? `<option value="__nuovo">➕ Aggiungi perito alla rubrica…</option>` : '');
+            sel.value = (valore && _peritoById(valore)) ? String(valore) : '';
+        }
+
+        function onCambioPeritoForm(sel) {
+            if (sel.value === '__nuovo') { sel.value = ''; openPeritiModal(true); }
+        }
+
+        function _setAssicForm(p) {
+            const chk = $('p_assic');
+            if (!chk) return;
+            chk.checked = !!(p && p.assicurativo);
+            $('p_sinistro').value = (p && p.n_sinistro) || '';
+            _popolaSelectPeriti('p_perito', (p && p.perito_id) || '');
+            toggleAssicPrev();
+        }
+
+        function toggleAssicPrev() {
+            const on = $('p_assic') && $('p_assic').checked;
+            const box = $('p-assic-campi');
+            if (box) box.style.display = on ? 'grid' : 'none';
+            if (on) aggiornaLibrettoBox();
+        }
+
+        // ── Rubrica periti ────────────────────────────────────────────────
+        function openPeritiModal(daForm) {
+            if (daForm !== true) _peritoDaSelezionare = null;
+            _resetPeritoForm();
+            $('modal-periti').dataset.daForm = daForm === true ? '1' : '';
+            refreshPeritiList();
+            $('modal-periti').classList.remove('hidden');
+            setTimeout(() => $('per_nome').focus(), 50);
+        }
+
+        function _resetPeritoForm() {
+            ['per_id', 'per_nome', 'per_compagnia', 'per_cell', 'per_email', 'per_note'].forEach(id => { $(id).value = ''; });
+            $('per-form-titolo').textContent = '➕ Nuovo perito';
+            $('per-annulla').style.display = 'none';
+        }
+
+        function salvaPerito() {
+            const id = $('per_id').value || ('per' + genId());
+            const obj = {
+                id,
+                nome: $('per_nome').value.trim(),
+                compagnia: $('per_compagnia').value.trim(),
+                cell: $('per_cell').value.trim(),
+                email: $('per_email').value.trim(),
+                note: $('per_note').value.trim(),
+            };
+            if (!obj.nome) return mostraErrore('Inserisci il nome del perito');
+            if (!obj.email && !obj.cell) return mostraErrore('Inserisci almeno email o cellulare');
+            if (obj.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(obj.email)) return mostraErrore('Email non valida: controlla che sia scritta come nome@dominio.it');
+            if (!_puoSalvare('periti')) return;
+            const nuovo = !$('per_id').value;
+            if (nuovo && $('modal-periti').dataset.daForm === '1') _peritoDaSelezionare = id;
+            database.ref('/periti/' + id).set(obj).then(showCloudCheck).catch(_onSaveError);
+            _resetPeritoForm();
+            mostraToast(nuovo ? 'Perito aggiunto alla rubrica' : 'Perito aggiornato');
+            if (nuovo && $('modal-periti').dataset.daForm === '1') closeModal('modal-periti');
+        }
+
+        function editPerito(id) {
+            const p = _peritoById(id);
+            if (!p) return;
+            $('per_id').value = p.id;
+            $('per_nome').value = p.nome || '';
+            $('per_compagnia').value = p.compagnia || '';
+            $('per_cell').value = p.cell || '';
+            $('per_email').value = p.email || '';
+            $('per_note').value = p.note || '';
+            $('per-form-titolo').textContent = '✏️ Modifica perito';
+            $('per-annulla').style.display = '';
+            $('per_nome').focus();
+        }
+
+        function eliminaPerito(id) {
+            const p = _peritoById(id);
+            if (!p) return;
+            const usati = db.filter(j => j.stato === 'preventivo' && String(j.perito_id) === String(id)).length;
+            const msg = `Eliminare ${p.nome} dalla rubrica?` + (usati ? `\nÈ indicato in ${usati} preventivi aperti: resteranno senza perito.` : '');
+            if (!confirm(msg)) return;
+            if (!_puoSalvare('periti')) return;
+            database.ref('/periti/' + id).remove().then(showCloudCheck).catch(_onSaveError);
+        }
+
+        function refreshPeritiList() {
+            const c = $('periti-list');
+            if (!c) return;
+            if (!peritiDB.length) { c.innerHTML = '<div style="color:var(--muted); text-align:center; padding:18px;">Rubrica vuota: aggiungi il primo perito qui sopra.</div>'; return; }
+            c.innerHTML = peritiDB.map(p => `
+                <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border-bottom:1px solid #334155;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:800; color:white;">${htmlEsc(p.nome)}${p.compagnia ? ` <span style="font-weight:600; color:var(--info); font-size:0.85rem;">· ${htmlEsc(p.compagnia)}</span>` : ''}</div>
+                        <div style="font-size:0.82rem; color:var(--muted); margin-top:2px; overflow-wrap:anywhere;">
+                            ${p.cell ? `📱 ${htmlEsc(p.cell)}` : ''}${p.cell && p.email ? ' &nbsp;·&nbsp; ' : ''}${p.email ? `✉️ ${htmlEsc(p.email)}` : ''}
+                        </div>
+                        ${p.note ? `<div style="font-size:0.78rem; color:#94a3b8; margin-top:2px;">${htmlEsc(p.note)}</div>` : ''}
+                    </div>
+                    <button type="button" onclick="editPerito('${htmlEsc(p.id)}')" style="background:transparent; border:1px solid var(--info); color:var(--info); border-radius:6px; padding:5px 9px; cursor:pointer;">✏️</button>
+                    <button type="button" onclick="eliminaPerito('${htmlEsc(p.id)}')" style="background:transparent; border:1px solid var(--accent); color:var(--accent); border-radius:6px; padding:5px 9px; cursor:pointer;">🗑️</button>
+                </div>`).join('');
+        }
+
+        // ── Libretti (uno per targa) ──────────────────────────────────────
+        function _leggiComeDataURL(file) {
+            return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error || new Error('lettura file non riuscita')); r.readAsDataURL(file); });
+        }
+        function _dataUrlInBlob(dataUrl) {
+            const [testa, b64] = String(dataUrl).split(',');
+            const tipo = (testa.match(/data:([^;]+)/) || [])[1] || 'application/octet-stream';
+            const bin = atob(b64 || '');
+            const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            return new Blob([arr], { type: tipo });
+        }
+        function _nomeFileLibretto(info, targa) {
+            return 'Libretto_' + chiaveTarga(targa || info.targa) + (info.tipo === 'application/pdf' ? '.pdf' : '.jpg');
+        }
+        async function _leggiLibretto(k) {
+            const snap = await database.ref('/libretti/' + k).once('value');
+            const v = snap.val();
+            if (!v || !v.dataUrl) throw new Error('file del libretto non trovato');
+            const info = librettiInfo[k] || { tipo: v.tipo, targa: k };
+            return new File([_dataUrlInBlob(v.dataUrl)], _nomeFileLibretto(info, info.targa), { type: v.tipo || 'application/pdf' });
+        }
+
+        function aggiornaLibrettoBox() {
+            const box = $('p-libretto-box');
+            if (!box) return;
+            const targa = ($('p_targa').value || '').toUpperCase().trim();
+            const info = librettiInfo[chiaveTarga(targa)];
+            const btn = 'border-radius:6px; padding:6px 10px; cursor:pointer; font-size:0.82rem; font-weight:700; background:transparent;';
+            if (!chiaveTarga(targa)) {
+                box.innerHTML = `<span style="color:var(--muted); font-size:0.85rem;">📄 Libretto: inserisci la targa per collegarlo alla moto.</span>`;
+            } else if (info) {
+                box.innerHTML = `<span style="font-size:0.85rem; color:var(--text);">📄 Libretto <b>${htmlEsc(targa)}</b> <span style="color:var(--muted);">· ${info.tipo === 'application/pdf' ? 'PDF' : 'foto'} ${info.kb ? info.kb + ' KB' : ''} · caricato il ${formattaData(info.data)}</span></span>
+                    <span style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button type="button" onclick="apriLibretto('${htmlEsc(targa)}')" style="${btn} border:1px solid var(--info); color:var(--info);">👁️ Apri</button>
+                        <button type="button" onclick="$('p_libretto_file').click()" style="${btn} border:1px solid #94a3b8; color:#cbd5e1;">🔄 Sostituisci</button>
+                        <button type="button" onclick="eliminaLibretto('${htmlEsc(targa)}')" style="${btn} border:1px solid var(--accent); color:var(--accent);">🗑️</button>
+                    </span>`;
+            } else {
+                box.innerHTML = `<span style="font-size:0.85rem; color:var(--muted);">📄 Nessun libretto per la targa <b style="color:var(--text);">${htmlEsc(targa)}</b></span>
+                    <button type="button" onclick="$('p_libretto_file').click()" style="${btn} border:1px solid var(--info); color:var(--info);">📎 Carica libretto (PDF o foto)</button>`;
+            }
+        }
+
+        async function caricaLibretto(input) {
+            const file = input.files && input.files[0];
+            input.value = '';
+            if (!file) return;
+            const targa = ($('p_targa').value || '').toUpperCase().trim();
+            const k = chiaveTarga(targa);
+            if (!k) return mostraErrore('Inserisci prima la targa della moto');
+            if (!_puoSalvare('libretti_info')) return;
+            try {
+                let dataUrl, tipo;
+                const nome = file.name || 'libretto';
+                if (file.type === 'application/pdf' || /\.pdf$/i.test(nome)) {
+                    if (file.size > 7 * 1024 * 1024) return mostraErrore('PDF troppo grande (' + (file.size / 1048576).toFixed(1) + ' MB): il massimo è 7 MB. Prova a scansionarlo con una risoluzione più bassa.');
+                    dataUrl = await _leggiComeDataURL(file);
+                    tipo = 'application/pdf';
+                } else if ((file.type || '').startsWith('image/')) {
+                    dataUrl = await compressImgUsata(file, 2000, 2000, 0.8);
+                    tipo = 'image/jpeg';
+                } else {
+                    return mostraErrore('Formato non supportato: carica un PDF o una foto del libretto');
+                }
+                const info = { targa, nome, tipo, kb: Math.round(dataUrl.length * 0.75 / 1024), data: getOggiLocale() };
+                mostraToast('Caricamento libretto…', '#3b82f6');
+                await database.ref('/').update({ ['libretti/' + k]: { dataUrl, tipo, nome }, ['libretti_info/' + k]: info });
+                showCloudCheck();
+                mostraToast('Libretto salvato per la targa ' + targa);
+                aggiornaLibrettoBox();
+            } catch (e) {
+                mostraErrore('Caricamento del libretto non riuscito: ' + (e && e.message));
+            }
+        }
+
+        function apriLibretto(targa) {
+            const k = chiaveTarga(targa);
+            if (!librettiInfo[k]) return mostraErrore('Nessun libretto salvato per questa targa');
+            const w = window.open('', '_blank');
+            if (w) w.document.write('<p style="font-family:sans-serif; padding:20px;">Apertura del libretto…</p>');
+            _leggiLibretto(k).then(f => {
+                const url = URL.createObjectURL(f);
+                if (w) w.location.href = url; else _scaricaFile(f);
+            }).catch(e => { if (w) w.close(); mostraErrore('Apertura del libretto non riuscita: ' + e.message); });
+        }
+
+        function eliminaLibretto(targa) {
+            const k = chiaveTarga(targa);
+            if (!confirm(`Eliminare il libretto della targa ${targa}?`)) return;
+            if (!_puoSalvare('libretti_info')) return;
+            database.ref('/').update({ ['libretti/' + k]: null, ['libretti_info/' + k]: null }).then(() => { showCloudCheck(); aggiornaLibrettoBox(); }).catch(_onSaveError);
+        }
+
+        // ── PDF del preventivo ────────────────────────────────────────────
+        let _jsPdfPromise = null;
+        function caricaJsPDF() {
+            if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+            if (!_jsPdfPromise) _jsPdfPromise = new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                s.onload = () => (window.jspdf && window.jspdf.jsPDF) ? res(window.jspdf.jsPDF) : rej(new Error('generatore PDF non disponibile'));
+                s.onerror = () => { _jsPdfPromise = null; rej(new Error('impossibile scaricare il generatore PDF, controlla la connessione')); };
+                document.head.appendChild(s);
+            });
+            return _jsPdfPromise;
+        }
+
+        async function creaPdfPreventivo(j) {
+            const jsPDF = await caricaJsPDF();
+            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+            const W = 210, M = 15, R = W - M;
+            const eur = v => (Number(v) || 0).toFixed(2).replace('.', ',') + ' €';
+            let y = 18;
+            const nuovaPaginaSeServe = h => { if (y + h > 280) { doc.addPage(); y = 18; } };
+
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(185, 28, 28);
+            doc.text(MGM_INFO.nome, M, y);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
+            doc.text(`${MGM_INFO.via}  ·  Tel. ${MGM_INFO.tel}  ·  P.IVA ${MGM_INFO.piva}`, M, y + 6);
+            doc.setTextColor(20); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+            doc.text('PREVENTIVO', R, y, { align: 'right' });
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
+            doc.text('Documento non fiscale  ·  ' + formattaData(j.data), R, y + 6, { align: 'right' });
+            y += 12;
+            doc.setDrawColor(200); doc.line(M, y, R, y);
+            y += 8;
+
+            const per = j.perito_id ? _peritoById(j.perito_id) : null;
+            const blocchi = [
+                ['CLIENTE', [`${(j.cognome || '').toUpperCase()} ${j.nome || ''}`.trim(), j.tel ? 'Tel. ' + j.tel : '']],
+                ['VEICOLO', [`${j.marca || ''} ${j.modello || ''}`.trim(), 'Targa ' + (j.targa || 'N/D') + (j.km ? '  ·  ' + j.km + ' km' : '')]],
+            ];
+            if (j.assicurativo) blocchi.push(['SINISTRO', [j.n_sinistro ? 'N. ' + j.n_sinistro : 'N. —', per ? _nomePerito(per) : '']]);
+            const colW = (R - M) / blocchi.length;
+            blocchi.forEach(([titolo, righe], i) => {
+                const x = M + i * colW;
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(110);
+                doc.text(titolo, x, y);
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(20);
+                doc.text(doc.splitTextToSize(righe[0] || '—', colW - 4)[0], x, y + 5.5);
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(70);
+                if (righe[1]) doc.text(doc.splitTextToSize(righe[1], colW - 4)[0], x, y + 10.5);
+            });
+            y += 20;
+
+            const cDesc = M + 2, cQta = 123, cIva = 140, cImp = 168, cTot = R - 2;
+            const intestazione = () => {
+                doc.setFillColor(241, 245, 249); doc.rect(M, y - 5, R - M, 8, 'F');
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(60);
+                doc.text('DESCRIZIONE', cDesc, y); doc.text('QTÀ', cQta, y, { align: 'center' }); doc.text('IVA', cIva, y, { align: 'center' });
+                doc.text('IMPONIBILE', cImp, y, { align: 'right' }); doc.text('TOTALE', cTot, y, { align: 'right' });
+                y += 8;
+            };
+            intestazione();
+            const gruppi = {};
+            (j.conto || []).forEach(c => {
+                const lordo = _totaleRiga(j, c);
+                const iva = parseFloat(c.iva ?? 22) || 0;
+                const imp = iva > 0 ? lordo / (1 + iva / 100) : lordo;
+                if (lordo > 0) { gruppi[iva] = gruppi[iva] || { imp: 0, iva: 0 }; gruppi[iva].imp += imp; gruppi[iva].iva += lordo - imp; }
+                const righe = doc.splitTextToSize(c.desc || '—', 100);
+                const h = righe.length * 4.6 + 2.4;
+                if (y + h > 280) { doc.addPage(); y = 18; intestazione(); }
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(20);
+                doc.text(righe, cDesc, y);
+                doc.setTextColor(70);
+                doc.text(String(c.qty || 1), cQta, y, { align: 'center' });
+                doc.text(iva > 0 ? iva + '%' : 'ES.', cIva, y, { align: 'center' });
+                doc.text(eur(imp), cImp, y, { align: 'right' });
+                doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+                doc.text(eur(lordo), cTot, y, { align: 'right' });
+                y += h;
+                doc.setDrawColor(226, 232, 240); doc.line(M, y - 3.4, R, y - 3.4);
+            });
+
+            const righeTot = Object.keys(gruppi).sort((a, b) => a - b);
+            nuovaPaginaSeServe(14 + righeTot.length * 5.5);
+            y += 4;
+            const xl = 128;
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(70);
+            const totImp = righeTot.reduce((s, r) => s + gruppi[r].imp, 0);
+            doc.text('Imponibile', xl, y); doc.text(eur(totImp), cTot, y, { align: 'right' }); y += 5.5;
+            righeTot.forEach(r => { if (gruppi[r].iva > 0.001) { doc.text('IVA ' + r + '%', xl, y); doc.text(eur(gruppi[r].iva), cTot, y, { align: 'right' }); y += 5.5; } });
+            doc.setDrawColor(150); doc.line(xl, y - 3, R, y - 3);
+            y += 3;
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5); doc.setTextColor(20);
+            doc.text('TOTALE', xl, y); doc.text(eur(j.totale_lordo), cTot, y, { align: 'right' });
+
+            nuovaPaginaSeServe(14);
+            y = Math.max(y + 14, 270);
+            if (y > 285) { doc.addPage(); y = 270; }
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(130);
+            doc.text('Prezzi IVA inclusa. Gli importi sono una stima e possono variare in caso di imprevisti durante la lavorazione.', W / 2, y, { align: 'center' });
+            return doc.output('blob');
+        }
+
+        // ── Invio al perito ───────────────────────────────────────────────
+        function _supportaShareFile() {
+            try { return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] })); }
+            catch (e) { return false; }
+        }
+        function _scaricaFile(f) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(f);
+            a.download = f.name;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+        }
+        function _apriLink(url) { window.location.href = url; }
+
+        function _testoPerito(p, per, conLibretto) {
+            const moto = `${p.marca || ''} ${p.modello || ''}`.trim();
+            const oggetto = `Preventivo ${moto} targa ${p.targa || ''}${p.n_sinistro ? ' - sinistro n. ' + p.n_sinistro : ''}`.replace(/\s+/g, ' ').trim();
+            const testo = `Buongiorno${per && per.nome ? ' ' + per.nome : ''},\n`
+                + `in allegato il preventivo per la moto ${moto} targa ${p.targa || ''} di ${(p.cognome || '').toUpperCase()} ${p.nome || ''}`.replace(/\s+/g, ' ').trim()
+                + (p.n_sinistro ? ` (sinistro n. ${p.n_sinistro})` : '') + '.\n'
+                + `Totale preventivo: ${(parseFloat(p.totale_lordo) || 0).toFixed(2).replace('.', ',')} € IVA inclusa.\n`
+                + (conLibretto ? 'In allegato anche il libretto di circolazione.\n' : '')
+                + `\nCordiali saluti\n${MGM_INFO.nome}\nTel. ${MGM_INFO.tel}`;
+            return { oggetto, testo };
+        }
+
+        async function openInvioPerito(id) {
+            const p = db.find(x => String(x.id) === String(id));
+            if (!p) return mostraErrore('Preventivo non trovato');
+            const token = { id: p.id, files: {}, errori: {}, pronto: false };
+            _invio = token;
+            $('ip-info').innerHTML = `<b style="color:white;">${htmlEsc((p.cognome || '').toUpperCase())} ${htmlEsc(p.nome || '')}</b> · ${htmlEsc(`${p.marca || ''} ${p.modello || ''}`)} · <span class="targa-badge" style="font-size:0.72rem; padding:1px 6px;">${htmlEsc(p.targa || 'N/D')}</span>`
+                + `${p.n_sinistro ? ` · sinistro n. ${htmlEsc(p.n_sinistro)}` : ''} · <b style="color:var(--success);">€ ${(parseFloat(p.totale_lordo) || 0).toFixed(2)}</b>`;
+            _popolaSelectPeriti('ip_perito', p.perito_id || '');
+            aggiornaInvioPerito();
+            $('modal-invio-perito').classList.remove('hidden');
+            const k = chiaveTarga(p.targa);
+            const lavori = [creaPdfPreventivo(p).then(b => {
+                token.files.preventivo = new File([b], `Preventivo_${chiaveTarga(p.targa) || p.id}_${p.data || getOggiLocale()}.pdf`, { type: 'application/pdf' });
+            }).catch(e => { token.errori.preventivo = e.message; })];
+            if (k && librettiInfo[k]) lavori.push(_leggiLibretto(k).then(f => { token.files.libretto = f; }).catch(e => { token.errori.libretto = e.message; }));
+            await Promise.all(lavori);
+            if (_invio !== token) return;
+            token.pronto = true;
+            aggiornaInvioPerito();
+        }
+
+        function aggiornaInvioPerito() {
+            const t = _invio;
+            if (!t) return;
+            const p = db.find(x => String(x.id) === String(t.id));
+            const per = _peritoById($('ip_perito').value);
+            $('ip-contatti').innerHTML = !per
+                ? `<span style="color:var(--warning);">Scegli il perito, oppure aggiungilo dalla 📋 Rubrica Periti.</span>`
+                : `${per.email ? `<div>✉️ <b style="color:white;">${htmlEsc(per.email)}</b> <button type="button" onclick="navigator.clipboard && navigator.clipboard.writeText('${htmlEsc(per.email)}').then(()=>mostraToast('Email copiata'))" style="background:transparent; border:1px solid #475569; color:#cbd5e1; border-radius:6px; padding:2px 8px; cursor:pointer; font-size:0.78rem; margin-left:6px;">Copia</button></div>` : '<div style="color:var(--muted);">✉️ Nessuna email in rubrica</div>'}
+                   ${per.cell ? `<div style="margin-top:4px;">📱 <b style="color:white;">${htmlEsc(per.cell)}</b></div>` : ''}`;
+            const k = chiaveTarga(p && p.targa);
+            const riga = (id, label, file, errore, attesa) => file
+                ? `<label style="display:flex; align-items:center; gap:8px; margin:0 0 6px; color:var(--text); font-size:0.9rem; cursor:pointer;"><input type="checkbox" id="${id}" checked style="width:auto; margin:0;"> ${label} <span style="color:var(--muted); font-size:0.8rem;">(${Math.max(1, Math.round(file.size / 1024))} KB)</span></label>`
+                : `<div style="margin:0 0 6px; font-size:0.9rem; color:${errore ? 'var(--accent)' : 'var(--muted)'};">${errore ? '⚠️ ' + label + ': ' + htmlEsc(errore) : (attesa ? '⏳ ' + label + ': preparazione…' : label)}</div>`;
+            $('ip-allegati').innerHTML =
+                riga('ip_chk_prev', '📄 Preventivo in PDF', t.files.preventivo, t.errori.preventivo, !t.pronto)
+                + (k && librettiInfo[k]
+                    ? riga('ip_chk_lib', '🪪 Libretto ' + htmlEsc(p.targa), t.files.libretto, t.errori.libretto, !t.pronto)
+                    : `<div style="margin:0 0 6px; font-size:0.9rem; color:var(--muted);">🪪 Nessun libretto per questa targa: caricalo da ✏️ Modifica preventivo.</div>`);
+            const share = _supportaShareFile();
+            const btn = $('ip-invia');
+            btn.disabled = !t.pronto;
+            btn.style.opacity = t.pronto ? '1' : '0.5';
+            btn.textContent = !t.pronto ? '⏳ Preparo gli allegati…' : (share ? '📤 Condividi (Mail, WhatsApp…)' : '📧 Scarica allegati e apri email');
+            $('ip-wa').style.display = per && per.cell ? '' : 'none';
+            $('ip-nota').textContent = share
+                ? 'Si apre il menu Condividi del Mac con gli allegati: scegli Mail o WhatsApp. L\'email del perito viene copiata: incollala come destinatario (Cmd+V).'
+                : 'Gli allegati vengono scaricati nella cartella Download e si apre la tua posta con perito, oggetto e testo già pronti: trascina i file nel messaggio.';
+        }
+
+        function _segnaInviato(p, per) {
+            const j = db.find(x => String(x.id) === String(p.id));
+            if (!j) return;
+            j.inviato_perito = { data: getOggiLocale(), perito: per ? _nomePerito(per) : '' };
+            saveDB();
+            if (currentView === 'preventivi') refreshPreventivi();
+        }
+
+        function inviaAlPerito() {
+            const t = _invio;
+            if (!t || !t.pronto) return;
+            const p = db.find(x => String(x.id) === String(t.id));
+            if (!p) return;
+            const per = _peritoById($('ip_perito').value);
+            const files = [];
+            if (t.files.preventivo && $('ip_chk_prev') && $('ip_chk_prev').checked) files.push(t.files.preventivo);
+            if (t.files.libretto && $('ip_chk_lib') && $('ip_chk_lib').checked) files.push(t.files.libretto);
+            if (!files.length) return mostraErrore('Seleziona almeno un allegato');
+            const { oggetto, testo } = _testoPerito(p, per, files.includes(t.files.libretto));
+            if (per && per.email && navigator.clipboard) navigator.clipboard.writeText(per.email).catch(() => {});
+            if (_supportaShareFile()) {
+                navigator.share({ title: oggetto, text: testo, files }).then(() => {
+                    _segnaInviato(p, per);
+                    closeModal('modal-invio-perito');
+                    mostraToast('Inviato: preventivo segnato come inviato al perito');
+                }).catch(e => { if (e && e.name === 'AbortError') return; mostraErrore('Condivisione non riuscita: ' + (e && e.message)); });
+                if (per && per.email) mostraToast('📋 Email del perito copiata: incollala come destinatario', '#3b82f6');
+            } else {
+                files.forEach(f => _scaricaFile(f));
+                const corpo = testo + '\n\n[Allegati da trascinare nel messaggio, li trovi in Download: ' + files.map(f => f.name).join(', ') + ']';
+                const dest = per && per.email ? per.email : '';
+                setTimeout(() => _apriLink('mailto:' + dest + '?subject=' + encodeURIComponent(oggetto) + '&body=' + encodeURIComponent(corpo)), 600);
+                _segnaInviato(p, per);
+                closeModal('modal-invio-perito');
+            }
+        }
+
+        function waPerito() {
+            const t = _invio;
+            const per = _peritoById($('ip_perito').value);
+            const p = t && db.find(x => String(x.id) === String(t.id));
+            if (!p || !per || !per.cell) return;
+            const { testo } = _testoPerito(p, per, false);
+            window.open(`https://wa.me/${formatPhoneForWa(per.cell)}?text=${encodeURIComponent(testo + '\n(Il PDF del preventivo te lo invio a parte.)')}`, '_blank');
+        }
+
         function printPreventivo(id) { 
             const j = db.find(x => String(x.id) === String(id)); if(!j) return; 
             const pA = $('print-area'); 
@@ -5672,7 +6223,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         </tr>
                     </thead>
                     <tbody>
-                        ${(j.conto||[]).map(c => { const ivaR = parseFloat(c.iva??22)||0; const lordo = parseFloat(c.price)||0; const imp = ivaR>0 ? lordo/(1+ivaR/100) : lordo; return `
+                        ${(j.conto||[]).map(c => { const ivaR = parseFloat(c.iva??22)||0; const lordo = _totaleRiga(j, c); const imp = ivaR>0 ? lordo/(1+ivaR/100) : lordo; return `
                         <tr>
                             <td style="padding:10px 12px; border-bottom: 1px solid #f1f5f9; color:#0f172a;">${c.desc}</td>
                             <td style="text-align:right; padding:10px 12px; border-bottom: 1px solid #f1f5f9; color:#475569;">${imp.toFixed(2)} €</td>
@@ -5684,7 +6235,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 <div style="display:flex; justify-content:flex-end; gap:16px; align-items:flex-start;">
                     <div style="flex:1; max-width:360px; background-color:#f8fafc !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; padding:12px 16px; border-radius:8px; border:1px solid #e2e8f0; font-size:0.9rem; line-height:2;">
                         <div style="font-size:0.72rem; color:#64748b; font-weight:700; letter-spacing:.05em; margin-bottom:4px;">RIEPILOGO IVA</div>
-                        ${(() => { const g = {}; (j.conto||[]).forEach(c => { const r = parseFloat(c.iva??22)||0; const lo = parseFloat(c.price)||0; if(lo<=0) return; const im = r>0?lo/(1+r/100):lo; if(!g[r]) g[r]={imp:0,iva:0}; g[r].imp+=im; g[r].iva+=lo-im; }); const totImp = Object.values(g).reduce((s,x)=>s+x.imp,0); let h = `<div style="display:flex;justify-content:space-between;"><span>Imponibile totale:</span><b>${totImp.toFixed(2)} €</b></div>`; Object.keys(g).sort((a,b)=>a-b).forEach(r=>{ if(g[r].iva>0.001) h+=`<div style="display:flex;justify-content:space-between;"><span>IVA ${r}%:</span><span style="color:#b45309;">${g[r].iva.toFixed(2)} €</span></div>`; }); return h; })()}
+                        ${(() => { const g = {}; (j.conto||[]).forEach(c => { const r = parseFloat(c.iva??22)||0; const lo = _totaleRiga(j, c); if(lo<=0) return; const im = r>0?lo/(1+r/100):lo; if(!g[r]) g[r]={imp:0,iva:0}; g[r].imp+=im; g[r].iva+=lo-im; }); const totImp = Object.values(g).reduce((s,x)=>s+x.imp,0); let h = `<div style="display:flex;justify-content:space-between;"><span>Imponibile totale:</span><b>${totImp.toFixed(2)} €</b></div>`; Object.keys(g).sort((a,b)=>a-b).forEach(r=>{ if(g[r].iva>0.001) h+=`<div style="display:flex;justify-content:space-between;"><span>IVA ${r}%:</span><span style="color:#b45309;">${g[r].iva.toFixed(2)} €</span></div>`; }); return h; })()}
                     </div>
                     <div style="width:280px; background-color:#f8fafc !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; padding:15px 20px; border-radius:8px; border:1px solid #e2e8f0;">
                         <h2 style="margin:0; display:flex; justify-content:space-between; font-size:1.4rem; color:#0f172a;">
@@ -5700,7 +6251,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             } 
         }
         function printJobSheet(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("SCHEDA ACCETTAZIONE OFFICINA", formattaData(j.data || getOggiLocale())) + `<div class="p-grid"><div class="p-box"><h4>Dati Veicolo</h4><p>Targa: <b style="font-size:1.2em;">${j.targa||'N/D'}</b></p><p>Moto: <b>${j.marca||''} ${j.modello||''}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div><div class="p-box"><h4>Dati Cliente</h4><p>Nominativo: <b>${(j.cognome||'').toUpperCase()} ${j.nome||''}</b></p><p>Telefono: <b>${j.tel||''}</b></p></div></div><div class="p-box" style="margin-bottom:20px;"><h4>Note e Lavori Richiesti</h4><div style="min-height:100px; white-space:pre-wrap; font-size:11pt;">${j.lavori_richiesti||''}</div></div><div class="p-box"><h4>Appunti Meccanico</h4><br><hr style="border:0; border-bottom:1px solid #ccc; margin-bottom:20px;"><hr style="border:0; border-bottom:1px solid #ccc; margin-bottom:20px;"><hr style="border:0; border-bottom:1px solid #ccc;"></div><div class="p-signature"><div>Firma Cliente<br><br>___________________________</div><div>Firma Officina<br><br>___________________________</div></div>`; setTimeout(()=>window.print(), 100); } }
-        function printInvoice(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const tA = (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); const l = parseFloat(j.totale_lordo)||0; const dP = l - tA; let sH = dP > 0.01 ? `<h2 style="display:flex; justify-content:space-between; margin-top:10px;"><span>DA PAGARE:</span> <span>${dP.toFixed(2)} €</span></h2>` : `<h2 style="display:flex; justify-content:space-between; margin-top:10px; color:green;"><span>SALDATO:</span> <span>${l.toFixed(2)} €</span></h2>`; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("RICEVUTA INTERVENTO / MEMORANDUM", formattaData(j.data || getOggiLocale())) + `<div class="p-grid"><div class="p-box"><h4>Intestatario</h4><p><b>${(j.cognome||'').toUpperCase()} ${j.nome||''}</b></p></div><div class="p-box"><h4>Riferimento Veicolo</h4><p>Moto: <b>${j.marca||''} ${j.modello||''}</b></p><p>Targa: <b>${j.targa||'N/D'}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div></div><table class="p-table"><thead><tr><th>Descrizione Voci</th><th style="text-align:right; width:150px;">Importo</th></tr></thead><tbody>${(j.conto||[]).map(c=>`<tr><td>${c.desc}</td><td style="text-align:right;">${(parseFloat(c.price)||0).toFixed(2)} €</td></tr>`).join('')}</tbody></table><div class="p-totals"><p style="display:flex; justify-content:space-between;"><span>Intervento Lordo:</span> <span>${l.toFixed(2)} €</span></p>${(j.acconti||[]).map(a=>`<p style="display:flex; justify-content:space-between;"><span>Acconto (${formattaData(a.date)}):</span> <span>- ${(parseFloat(a.val)||0).toFixed(2)} €</span></p>`).join('')}${sH}</div><div style="text-align:center; margin-top:50px; font-size:9pt; color:#666;">I lavori eseguiti sono garantiti a norma di legge.</div>`; setTimeout(()=>window.print(), 100); } }
+        function printInvoice(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const tA = (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); const l = parseFloat(j.totale_lordo)||0; const dP = l - tA; let sH = dP > 0.01 ? `<h2 style="display:flex; justify-content:space-between; margin-top:10px;"><span>DA PAGARE:</span> <span>${dP.toFixed(2)} €</span></h2>` : `<h2 style="display:flex; justify-content:space-between; margin-top:10px; color:green;"><span>SALDATO:</span> <span>${l.toFixed(2)} €</span></h2>`; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("RICEVUTA INTERVENTO / MEMORANDUM", formattaData(j.data || getOggiLocale())) + `<div class="p-grid"><div class="p-box"><h4>Intestatario</h4><p><b>${(j.cognome||'').toUpperCase()} ${j.nome||''}</b></p></div><div class="p-box"><h4>Riferimento Veicolo</h4><p>Moto: <b>${j.marca||''} ${j.modello||''}</b></p><p>Targa: <b>${j.targa||'N/D'}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div></div><table class="p-table"><thead><tr><th>Descrizione Voci</th><th style="text-align:right; width:150px;">Importo</th></tr></thead><tbody>${(j.conto||[]).map(c=>`<tr><td>${c.desc}${(parseFloat(c.qty)||1) > 1 ? ` <span style="opacity:.65; font-weight:400;">×${parseFloat(c.qty)}</span>` : ''}</td><td style="text-align:right;">${_totaleRiga(j, c).toFixed(2)} €</td></tr>`).join('')}</tbody></table><div class="p-totals"><p style="display:flex; justify-content:space-between;"><span>Intervento Lordo:</span> <span>${l.toFixed(2)} €</span></p>${(j.acconti||[]).map(a=>`<p style="display:flex; justify-content:space-between;"><span>Acconto (${formattaData(a.date)}):</span> <span>- ${(parseFloat(a.val)||0).toFixed(2)} €</span></p>`).join('')}${sH}</div><div style="text-align:center; margin-top:50px; font-size:9pt; color:#666;">I lavori eseguiti sono garantiti a norma di legge.</div>`; setTimeout(()=>window.print(), 100); } }
 
         function printGlobalLedger() {
             const sorted = [...ledgerDB].sort((a,b) => { const cA = a.collab || 'INTERNO', cB = b.collab || 'INTERNO'; if(cA !== cB) return cA.localeCompare(cB); if(a.cat !== b.cat) return catOrder.indexOf(a.cat || 'officina') - catOrder.indexOf(b.cat || 'officina'); return new Date(b.data) - new Date(a.data); });
