@@ -939,6 +939,7 @@
                                 <select id="p_perito" onchange="onCambioPeritoForm(this)" style="margin:0;"></select>
                                 <button type="button" class="btn btn-dark w-auto" onclick="openPeritiModal(true)" title="Rubrica periti" style="border:1px solid var(--info); color:var(--info); padding:8px 12px;">📋</button>
                             </div>
+                            <div id="p-perito-contatti" style="font-size:0.85rem; margin-top:6px; overflow-wrap:anywhere;"></div>
                         </div>
                         <div>
                             <label style="margin-bottom:4px;">N° sinistro</label>
@@ -5774,10 +5775,21 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 + peritiDB.map(p => `<option value="${htmlEsc(p.id)}">${htmlEsc(_nomePerito(p))}</option>`).join('')
                 + (selId === 'p_perito' ? `<option value="__nuovo">➕ Aggiungi perito alla rubrica…</option>` : '');
             sel.value = (valore && _peritoById(valore)) ? String(valore) : '';
+            if (selId === 'p_perito') _mostraContattiPerito();
         }
 
         function onCambioPeritoForm(sel) {
             if (sel.value === '__nuovo') { sel.value = ''; openPeritiModal(true); }
+            _mostraContattiPerito();
+        }
+
+        function _mostraContattiPerito() {
+            const box = $('p-perito-contatti'), sel = $('p_perito');
+            if (!box || !sel) return;
+            const per = _peritoById(sel.value);
+            box.innerHTML = !per ? ''
+                : (per.email ? `✉️ <b style="color:white;">${htmlEsc(per.email)}</b>` : `<span style="color:var(--warning);">✉️ Email non presente in rubrica</span>`)
+                  + (per.cell ? ` <span style="color:var(--muted);">&nbsp;·&nbsp; 📱 ${htmlEsc(per.cell)}</span>` : '');
         }
 
         function _setAssicForm(p) {
