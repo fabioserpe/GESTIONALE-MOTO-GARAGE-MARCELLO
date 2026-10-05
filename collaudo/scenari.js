@@ -681,6 +681,32 @@
     switchView('board');
   });
 
+  await passo('Svuotare il modulo ordine', async () => {
+    const val = id => document.getElementById(id).value;
+    const vuoto = () => ['ord_job', 'ord_desc', 'ord_fornitore', 'ord_num_ordine', 'ord_data_consegna', 'ord_cliente', 'ord_tel_cliente', 'ord_prezzo_cliente'].every(id => val(id) === '')
+      && document.getElementById('ord-job-elenco').textContent.trim() === '' && document.getElementById('ord-job-info').textContent.trim() === '';
+    const aperto = () => document.getElementById('ord-form-container').style.display !== 'none';
+    ordinaRicambioPerJob(1701);
+    campo('ord_fornitore', 'gipa'); campo('ord_desc', 'leva freno'); addOrdine();
+    ok(aperto() && val('ord_job') === '1701' && document.getElementById('ord-job-elenco').textContent.includes('KT89000'), 'Dopo un ordine il modulo è ancora compilato sulla moto');
+    toggleOrdForm();
+    ok(!aperto() && document.getElementById('ord-form-toggle-btn').textContent.includes('Nuovo Ordine'), '"Chiudi Form" chiude il modulo');
+    toggleOrdForm();
+    ok(aperto() && vuoto(), 'Riaprendo con "Nuovo Ordine" il modulo è vuoto (prima restava compilato)');
+    ordinaRicambioPerJob(1701); campo('ord_fornitore', 'gipa'); campo('ord_desc', 'specchio');
+    svuotaModuloOrdine();
+    ok(aperto() && vuoto(), 'Pulsante 🧹: svuota il modulo e lo lascia aperto');
+    const n = nScr();
+    svuotaModuloOrdine();
+    ok(nScr() === n, 'Svuotare non salva e non cancella niente');
+    const o = Object.values(fb.leggi('ordini') || {}).find(x => x.desc === 'LEVA FRENO');
+    editOrdine(o.id);
+    ok(document.getElementById('btn-svuota-ordine').classList.contains('hidden') && !document.getElementById('btn-cancel-ordine').classList.contains('hidden'), 'In modifica al posto di 🧹 c\'è ❌ (annulla modifica)');
+    cancelEditOrdine();
+    ok(!document.getElementById('btn-svuota-ordine').classList.contains('hidden') && !aperto(), 'Annullando la modifica torna 🧹 e il modulo si chiude');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);

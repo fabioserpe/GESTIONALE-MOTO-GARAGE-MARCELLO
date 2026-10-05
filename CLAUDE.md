@@ -100,3 +100,4 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | v147 | Ordina ricambio dagli appuntamenti in Agenda; confronto consegna prevista / data appuntamento |
 | v148 | Ricambio ordinato per una moto → riga nel suo conto (prezzo al cliente nell'ordine, preso dal magazzino se il codice esiste) |
 | v149 | Più ricambi di fila: il modulo ordine resta aperto sulla stessa moto, con l'elenco dei ricambi già inseriti |
+| v150 | Modulo ordine: "Chiudi Form" lo svuota, pulsante 🧹 per svuotarlo senza chiuderlo (`svuotaModuloOrdine`) |
