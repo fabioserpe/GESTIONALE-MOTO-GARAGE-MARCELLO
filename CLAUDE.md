@@ -23,6 +23,8 @@ Fabio scrive in italiano e non è uno sviluppatore: rispondi in italiano semplic
 5. Il push su `main` pubblica il sito (GitHub Actions copia solo index.html, sw.js, manifest, icone, README nel branch `gh-pages`; non toccare `gh-pages`). Verifica che sia online:
    `curl -s https://fabioserpe.github.io/GESTIONALE-MOTO-GARAGE-MARCELLO/sw.js | head -1` deve mostrare la nuova versione (di solito 40 s).
 
+Se la pubblicazione fallisce per un guasto di GitHub (controlla https://www.githubstatus.com, voce Actions/Pages) non riparte da sola: quando il servizio torna operativo, ricarica una modifica a un file pubblicato (basta alzare la versione in `sw.js`). Stato delle esecuzioni senza login: `curl -s https://api.github.com/repos/fabioserpe/GESTIONALE-MOTO-GARAGE-MARCELLO/actions/runs?per_page=3`.
+
 In modalità automatica un push su `main` (= rilascio in produzione) può essere bloccato se Fabio non l'ha chiesto esplicitamente: in quel caso chiediglielo.
 
 ## Collaudo (`collaudo/`)
@@ -93,3 +95,4 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | v143 | Incidentate come l'Anagrafica, ricerca, Preventivo apre quello esistente; fix "undefined" |
 | v144 | Magazzino: "Riordina sotto scorta" in un clic; regola sotto scorta unificata (prima il riquadro usava "≤ 3 pezzi") |
 | v145 | Ordini ricambi collegati alla moto, indicazione "Attesa ricambi" sulle schede; fix: modificare un ordine non lo rimanda più in "Da ordinare" |
+| v146 | Solo ripubblicazione: la pubblicazione di v144–v145 era fallita per il guasto GitHub Actions del 5/10 sera |
