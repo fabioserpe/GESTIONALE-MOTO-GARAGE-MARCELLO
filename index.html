@@ -2645,6 +2645,7 @@
 
         const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Stats', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto' };
         function switchView(viewId, el) {
+            if (viewId !== 'nuova') _pendingSpecialCat = null;
             closeSidebar();
             const ts = $('topbar-section'); if (ts) ts.textContent = _viewLabels[viewId] || '';
             if (viewId === 'magazzino') {
@@ -3772,6 +3773,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const wasSpecial = j.stato === 'special';
             j.stato = newStatus;
 
+            // Entra nei Lavori Lunghi: categoria pulita e via dall'agenda (come lo spostamento dall'agenda)
+            if (newStatus === 'special' && !wasSpecial) {
+                delete j.special_cat;
+                agendaDB = agendaDB.filter(a => String(a.jobId) !== String(j.id));
+            }
+
             // Se esce dai Lavori Lunghi: pulisce special_cat e aggiunge in agenda
             if (wasSpecial && newStatus !== 'special') {
                 delete j.special_cat;
@@ -3804,7 +3811,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (currentView === 'board') refreshBoard();
             if (currentView === 'specials') refreshSpecials();
         }
-        let _pendingSpecialCat = null;
+        var _pendingSpecialCat = null;
         function saveJob(stato) { 
             const idField = $('f_id').value; 
             const nowId = idField ? parseInt(idField) : genId();
@@ -3854,6 +3861,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             
             if (finalStato === 'special' && _pendingSpecialCat) { data.special_cat = _pendingSpecialCat; _pendingSpecialCat = null; }
             exIdx > -1 ? db[exIdx] = { ...db[exIdx], ...data } : db.push(data);
+            // "Salva in Lavori Lunghi" su un'incidentata la porta nei Lavori Lunghi ("Salva come Incidentata" imposta data.special_cat)
+            if (finalStato === 'special' && !data.special_cat && exIdx > -1 && db[exIdx].special_cat === 'incidentate') delete db[exIdx].special_cat;
+            _pendingSpecialCat = null;
             
             const appIdx = agendaDB.findIndex(a => String(a.jobId) === String(nowId)); 
             if (appIdx > -1) { 
@@ -4120,6 +4130,18 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             mostraToast('Nuovo preventivo per la stessa moto: inserisci le voci e salva', '#8b5cf6');
         }
 
+        function spostaInLavoriLunghi(id) {
+            const j = db.find(x => String(x.id) === String(id));
+            if (!j) return;
+            saveSnapshot();
+            j.stato = 'special';
+            delete j.special_cat;
+            agendaDB = agendaDB.filter(a => String(a.jobId) !== String(j.id));
+            saveDBAgenda();
+            if (currentView === 'incidentate') refreshIncidentate();
+            mostraToast(`🕰️ ${j.targa || 'La moto'} spostata nei Lavori Lunghi`);
+        }
+
         function refreshIncidentate() {
             chiudiTuttiMenuBoard();
             const c = $('incidentate-results');
@@ -4188,6 +4210,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                 <button onclick="editJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">✏️ Modifica scheda</button>
                     <button onclick="ordinaRicambioPerJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#f59e0b; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">📦 Ordina ricambio</button>
                                 <button onclick="nuovoPreventivoFromIncidentata(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--purple); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">➕ Nuovo preventivo</button>
+                                <button onclick="spostaInLavoriLunghi(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#d8b4fe; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">🕰️ Sposta in Lavori Lunghi</button>
                                 <button onclick="printJobSheet(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">🖨️ Stampa scheda</button>
                                 <div style="border-top:1px solid #334155; margin:4px 0;"></div>
                                 <button onclick="deleteJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--accent); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;">🗑️ Elimina</button>

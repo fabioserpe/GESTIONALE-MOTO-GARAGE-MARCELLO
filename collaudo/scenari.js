@@ -707,6 +707,42 @@
     switchView('board');
   });
 
+  await passo('Spostare in Lavori Lunghi dalla bacheca', async () => {
+    const tra = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    fb.scritturaRemota({
+      'db/-Nll1': { id: 1801, data: oggi, cognome: 'LUNGO', nome: 'ADA', targa: 'LL18010', marca: 'GUZZI', modello: 'V7', stato: 'doing', lavori_richiesti: 'RESTAURO', clientId: 'c-l1' },
+      'db/-Nll2': { id: 1802, data: oggi, cognome: 'LUNGO', nome: 'BRUNO', targa: 'LL18020', marca: 'LAVERDA', modello: '750', stato: 'todo', lavori_richiesti: 'MOTORE', clientId: 'c-l2' },
+      'db/-Nll3': { id: 1803, data: oggi, cognome: 'LUNGO', nome: 'CARLA', targa: 'LL18030', marca: 'BMW', modello: 'R80', stato: 'special', special_cat: 'incidentate', lavori_richiesti: 'SINISTRO', clientId: 'c-l3' },
+      'db/-Nll4': { id: 1804, data: oggi, cognome: 'LUNGO', nome: 'DINO', targa: 'LL18040', marca: 'MV', modello: 'F3', stato: 'special', special_cat: 'incidentate', lavori_richiesti: 'CADUTA', clientId: 'c-l4' },
+      'agenda/-Nll2': { id: 2802, tipo: 'officina', jobId: 1802, data: oggi, ora: '11:00', cliente: 'LUNGO BRUNO', moto: 'LAVERDA 750 - LL18020' }
+    }, false);
+    const st = id => { const j = db.find(x => String(x.id) === String(id)); return j.stato + '/' + (j.special_cat || '-'); };
+    const inLunghi = t => { switchView('specials'); return document.getElementById('view-specials').textContent.includes(t); };
+    // il caso che faceva "sparire" la moto: "Nuova Scheda" dalle Incidentate, poi altro, poi Modifica → Salva in Lavori Lunghi
+    switchView('incidentate'); _pendingSpecialCat = 'incidentate'; switchView('nuova');
+    switchView('board');
+    editJob(1801); saveJob('special');
+    ok(st(1801) === 'special/-' && inLunghi('LL18010'), 'Modifica scheda → "Salva in Lavori Lunghi" dopo "Nuova Scheda" delle Incidentate: va nei Lavori Lunghi (prima finiva tra le Incidentate)');
+    switchView('board');
+    moveStatus(1802, 'special');
+    ok(st(1802) === 'special/-' && inLunghi('LL18020'), 'Menu ⋯ → Sposta in Lavori Lunghi: la moto compare nei Lavori Lunghi');
+    ok(!Object.values(fb.nodo('agenda') || {}).some(a => String(a.jobId) === '1802'), 'Spostata dalla bacheca: tolta dall\'agenda come quando si sposta dall\'agenda');
+    editJob(1803); saveJob('special');
+    ok(st(1803) === 'special/-' && inLunghi('LL18030'), 'Incidentata → Modifica → "Salva in Lavori Lunghi": passa nei Lavori Lunghi');
+    switchView('incidentate'); await attendi(50);
+    ok(document.getElementById('view-incidentate').innerHTML.includes('spostaInLavoriLunghi(1804)'), 'Incidentate: voce "Sposta in Lavori Lunghi" nel menu ⋯');
+    spostaInLavoriLunghi(1804);
+    ok(st(1804) === 'special/-' && inLunghi('LL18040'), '"Sposta in Lavori Lunghi" dalle Incidentate funziona');
+    switchView('incidentate'); _pendingSpecialCat = 'incidentate'; switchView('nuova');
+    campo('f_cognome', 'NUOVA'); campo('f_nome', 'INCIDENTATA'); campo('f_targa', 'NI00001'); campo('f_data', oggi);
+    saveJob('special');
+    const ni = db.find(j => j.targa === 'NI00001');
+    ok(ni && ni.stato === 'special' && ni.special_cat === 'incidentate', '"Nuova Scheda" dalle Incidentate salvata come Lavoro Lungo resta un\'incidentata');
+    editJob(1804); _pendingSpecialCat = 'incidentate'; saveJob('special');
+    ok(st(1804) === 'special/incidentate', '"Salva come Incidentata" funziona come prima');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
