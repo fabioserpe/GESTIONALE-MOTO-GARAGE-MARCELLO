@@ -743,6 +743,74 @@
     switchView('board');
   });
 
+  await passo('Pulsanti delle righe dei preventivi', async () => {
+    const prev = (id, cognome, extra) => Object.assign({ id, data: oggi, cognome, nome: 'TEST', tel: '3471110000', marca: 'HONDA', modello: 'SH 150', targa: 'PV' + id, stato: 'preventivo', era_preventivo: true, lavori_richiesti: 'Vedi voci preventivo', conto: [{ desc: 'CARENA', price: 200, qty: 1, iva: 22 }, { desc: 'FRECCIA', price: 60, qty: 2, iva: 22 }], totale_lordo: 260, clientId: 'c-' + id }, extra || {});
+    fb.scritturaRemota({
+      'db/-Npv1': prev(1901, 'AAPRIMO'), 'db/-Npv2': prev(1902, 'ABSECONDO'), 'db/-Npv3': prev(1903, 'ACTERZO'),
+      'db/-Npv4': prev(1904, 'ADQUARTO', { stato: 'archived', data_accettazione: oggi })
+    }, false);
+    const aperti = [], stampe = [];
+    const origOpen = window.open, origPrint = window.print;
+    window.open = u => { aperti.push(String(u)); return null; };
+    window.print = () => { stampe.push(1); };
+    const err0 = window.__errori.length;
+    try {
+      switchView('preventivi'); setPrevTab('aperti'); await attendi(80);
+      // il menu aperto non deve essere coperto dalle righe sotto
+      const righe = [...document.querySelectorAll('#preventivi-results .prev-card-row')];
+      const riga2 = righe.find(r => r.textContent.includes('ABSECONDO'));
+      const btnAz = riga2.querySelector('.dropdown > button');
+      toggleDropdown(btnAz); await attendi(30);
+      const voci = [...riga2.querySelectorAll('.dropdown-content button')];
+      const coperte = voci.filter(b => { const r = b.getBoundingClientRect(); if (r.bottom > window.innerHeight || r.top < 0) return false; const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !(el && (el === b || b.contains(el))); }).map(b => b.textContent.trim());
+      ok(voci.length >= 6 && coperte.length === 0, 'Menu Azioni aperto: tutte le voci cliccabili, nessuna coperta dalle righe sotto' + (coperte.length ? ' → coperte: ' + coperte.join(', ') : ''));
+      toggleDropdown(btnAz);
+
+      // ✅ Converti in Commessa
+      accettaPreventivo(1901);
+      ok(!document.getElementById('modal-accetta-prev').classList.contains('hidden') && document.getElementById('ap-summary').textContent.includes('AAPRIMO'), 'Converti in Commessa: si apre la finestra di conferma (prima si bloccava)');
+      ok(document.getElementById('ap_lavori').value === 'CARENA / FRECCIA' && document.getElementById('ap_wa').checked, 'Finestra: lavori precompilati dalle voci, WhatsApp già spuntato');
+      confermaAccettaPreventivo(); await attendi(50);
+      let r = recordDi('db', 1901);
+      ok(r.stato === 'todo' && r.data === oggi && r.data_accettazione === oggi && r.totale_lordo === 260, 'Conferma: diventa appuntamento di oggi, totale 260 € invariato');
+      ok(r.conto[1].price === 30 && r.conto[1].qty === 2, 'Le voci passano al prezzo unitario (FRECCIA ×2: 60 € di riga → 30 € l\'una)');
+      ok(Object.values(fb.nodo('agenda') || {}).some(a => String(a.jobId) === '1901'), 'Conferma: appuntamento creato in agenda');
+      ok(aperti.some(u => u.includes('wa.me/')), 'Conferma: parte il WhatsApp di accettazione al cliente');
+      ok(document.getElementById('modal-accetta-prev').classList.contains('hidden'), 'Conferma: la finestra si chiude');
+      switchView('board'); await attendi(350);
+      ok(document.getElementById('view-board').textContent.includes('PV1901'), 'La commessa compare in bacheca tra gli appuntamenti di oggi');
+
+      // 📁 Archivia in Storico
+      archiviaPreventivo(1902);
+      ok(recordDi('db', 1902).stato === 'archived', 'Archivia in Storico: preventivo nello storico');
+      // 📲 Invia WhatsApp
+      aperti.length = 0; sendWhatsAppPreventivo(1903);
+      ok(aperti.length === 1 && aperti[0].includes('wa.me/39') && decodeURIComponent(aperti[0]).includes('CARENA'), 'Invia WhatsApp: si apre WhatsApp con il preventivo');
+      // 🖨️ Stampa Preventivo
+      printPreventivo(1903); await attendi(150);
+      ok(stampe.length === 1 && document.getElementById('print-area').textContent.includes('ACTERZO') && document.getElementById('print-area').textContent.includes('260.00'), 'Stampa Preventivo: pagina di stampa con cliente e totale');
+      // ✏️ Modifica
+      openPreventivoForm(1903);
+      ok(currentView === 'crea-prev' && document.getElementById('p_id').value === '1903', 'Modifica: si apre il preventivo');
+      switchView('preventivi');
+
+      // Storico
+      setPrevTab('storico'); await attendi(50);
+      const st = document.getElementById('preventivi-results').innerHTML;
+      ok(st.includes('convertiStoricoInCommessa(1904)') && st.includes("openPreventivoForm(1904, true)"), 'Storico: pulsanti presenti');
+      openPreventivoForm(1904, true); savePreventivo(false, false);
+      ok(recordDi('db', 1904).stato === 'archived', 'Storico → Modifica Voci: salvando resta nello storico');
+      convertiStoricoInCommessa(1904);
+      ok(recordDi('db', 1904).stato === 'todo', 'Storico → Converti in Commessa: diventa commessa');
+      // 🗑️ Elimina
+      deleteJob(1903);
+      ok(!recordDi('db', 1903), 'Elimina: preventivo eliminato');
+      ok(window.__errori.length === err0, 'Nessun errore JavaScript usando i pulsanti' + (window.__errori.length > err0 ? ': ' + window.__errori.slice(err0).join(' | ') : ''));
+    } finally { window.open = origOpen; window.print = origPrint; }
+    setPrevTab('aperti');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);

@@ -44,6 +44,7 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 - **Salvataggi**: ogni `save…()` comincia con `_puoSalvare('sezione', …)`, che blocca se manca la connessione o se la sezione non è ancora arrivata dal cloud (pannello `#offline-banner`, gestito da `_aggiornaOverlayCloud`). Ogni listener chiama `_segnaCaricato('sezione')`. Una funzione di salvataggio nuova deve rispettare entrambe le cose.
 - `db` e `agenda` si salvano **per singola scheda**: `_leggiSezione` ricorda le chiavi del cloud, `_salvaSezioni` scrive solo le schede cambiate/nuove/eliminate in un unico `update`. Le altre sezioni riscrivono l'intera sezione.
 - Annulla: `saveSnapshot()` prima di una modifica, `eseguiUndo()`.
+- Finestre: `openModal(id)` / `closeModal(id)` (classe `hidden`). Per controllare che nessun pulsante chiami funzioni inesistenti: confronta i nomi negli `onclick` con le `function` definite.
 - Utilità: `$`, `htmlEsc` (usarlo su ogni testo inserito dall'utente dentro innerHTML), `genId` (numero), `genClientId`, `formattaData`, `getOggiLocale`, `mostraToast`/`mostraErrore`, `chiaveTarga` (targa → solo A-Z0-9).
 
 ### Sezioni → funzioni principali
@@ -102,3 +103,4 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | v149 | Più ricambi di fila: il modulo ordine resta aperto sulla stessa moto, con l'elenco dei ricambi già inseriti |
 | v150 | Modulo ordine: "Chiudi Form" lo svuota, pulsante 🧹 per svuotarlo senza chiuderlo (`svuotaModuloOrdine`) |
 | v151 | Fix: moto spostate nei Lavori Lunghi che finivano tra le Incidentate (promemoria "incidentata" rimasto attivo); "Sposta in Lavori Lunghi" nelle Incidentate |
+| v152 | Fix: "Converti in Commessa" dalle righe dei preventivi aperti non apriva la conferma dal 23/09 (v53): chiamava `openModal`, che non esisteva |

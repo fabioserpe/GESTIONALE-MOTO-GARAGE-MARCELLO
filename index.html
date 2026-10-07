@@ -2592,6 +2592,7 @@
         document.addEventListener('keydown', function(e) { if (e.key === 'Enter') { const el = document.activeElement; if (el.tagName === 'INPUT' && el.type !== 'hidden') { e.preventDefault(); const c = el.closest('.modal:not(.hidden)') || el.closest('main > div:not(.hidden)'); if (c) { const foc = Array.from(c.querySelectorAll('input:not([type="hidden"]), select, button:not([tabindex="-1"])')); const i = foc.indexOf(el); if (i > -1 && i < foc.length - 1) foc[i + 1].focus(); } } } });
         function toggleDropdown(btn) { var tds = document.querySelectorAll('.dropdown.active'); tds.forEach(function(dd) { if (dd !== btn.parentElement) dd.classList.remove('active'); }); btn.parentElement.classList.toggle('active'); }
         window.onclick = function(event) { if (!event.target.matches('.btn-outline-info') && !event.target.matches('.dropdown *')) { var dds = document.getElementsByClassName("dropdown"); for (var i = 0; i < dds.length; i++) { if (dds[i].classList.contains('active')) dds[i].classList.remove('active'); } } }
+        function openModal(id) { const m = $(id); if (m) m.classList.remove('hidden'); }
         function closeModal(id) { const m = $(id); if (m) m.classList.add('hidden'); }
 
         function toggleSidebar() {
