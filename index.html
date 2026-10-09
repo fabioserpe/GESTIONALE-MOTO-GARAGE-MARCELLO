@@ -590,11 +590,7 @@
             <!-- HEADER -->
             <div class="flex-between mb-15" style="flex-shrink:0;">
                 <h2 style="color:#fca5a5; margin:0;">📦 Gestione Ordini Ricambi</h2>
-                <div class="flex-row" style="gap:8px;">
-                    <div id="ord-stats-todo" style="background:rgba(239,68,68,0.1); border:1px solid var(--accent); color:var(--accent); padding:6px 14px; border-radius:8px; font-size:0.8rem; font-weight:bold;"></div>
-                    <div id="ord-stats-doing" style="background:rgba(59,130,246,0.1); border:1px solid var(--info); color:var(--info); padding:6px 14px; border-radius:8px; font-size:0.8rem; font-weight:bold;"></div>
-                    <div id="ord-stats-done" style="background:rgba(34,197,94,0.1); border:1px solid var(--success); color:var(--success); padding:6px 14px; border-radius:8px; font-size:0.8rem; font-weight:bold;"></div>
-                </div>
+                <input type="search" id="ord-cerca" placeholder="🔍 Cerca ricambio, cliente, targa, fornitore..." oninput="refreshOrdini()" aria-label="Cerca negli ordini" style="max-width:380px; margin:0; background:var(--card); border:2px solid rgba(252,165,165,0.5);">
             </div>
 
             <!-- FORM INSERIMENTO -->
@@ -669,27 +665,11 @@
             </div>
             </div><!-- /ord-form-container -->
 
-            <!-- FILTRO FORNITORI -->
-            <div id="ord-filter-bar" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; flex-shrink:0; align-items:center;"></div>
-
-            <!-- KANBAN -->
-            <div class="board" style="flex-grow:1;">
-                <div class="col">
-                    <div class="col-title" style="color:var(--accent);">🔴 DA ORDINARE</div>
-                    <div id="ord-col-total-todo" style="font-size:0.72rem; text-align:right; min-height:14px; margin-bottom:4px; padding-right:2px;"></div>
-                    <div class="col-list" id="list-ord-todo"></div>
-                </div>
-                <div class="col">
-                    <div class="col-title" style="color:var(--info);">🔵 ORDINATI — IN ATTESA</div>
-                    <div id="ord-col-total-doing" style="font-size:0.72rem; text-align:right; min-height:14px; margin-bottom:4px; padding-right:2px;"></div>
-                    <div class="col-list" id="list-ord-doing"></div>
-                </div>
-                <div class="col">
-                    <div class="col-title" style="color:var(--success);">🟢 ARRIVATI — DA CONSEGNARE</div>
-                    <div id="ord-col-total-done" style="font-size:0.72rem; text-align:right; min-height:14px; margin-bottom:4px; padding-right:2px;"></div>
-                    <div class="col-list" id="list-ord-done"></div>
-                </div>
-            </div>
+            <!-- SCHEDE PER STATO + ELENCO -->
+            <div id="ord-tabs" role="tablist" aria-label="Stato degli ordini" style="display:flex; gap:2px; flex-wrap:wrap; border-bottom:1px solid #334155; margin-bottom:10px; flex-shrink:0;"></div>
+            <div id="ord-filter-bar" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; flex-shrink:0; align-items:center;"></div>
+            <div id="ord-lista" style="flex-grow:1;"></div>
+        </div>
         </div>
 
         <div id="view-ledger" class="view hidden">
@@ -2199,6 +2179,7 @@
                 if (needsSaveChiusura || needsCleanSpecialCat || _needsClientIdSave || _needsContoUnit) { _dbMigrateGuard = true; saveDB(); }
                 }
                 updateDatalist();
+                _consegnaOrdiniMotoChiuse();
                 const v = currentView;
                 if (v === 'nuova' || v === 'crea-prev') { /* form aperto, nessun refresh */ }
                 else if (v === 'board') _dRefreshBoard();
@@ -2228,6 +2209,7 @@
             database.ref('/ordini').on('value', (snap) => {
                 _segnaCaricato('ordini');
                 ordiniDB = snap.val() ? Object.values(snap.val()) : [];
+                _consegnaOrdiniMotoChiuse();
                 if (currentView === 'ordini') refreshOrdini();
                 else if (currentView === 'board') _dRefreshBoard();
                 else if (currentView === 'specials') refreshSpecials();
@@ -3183,10 +3165,16 @@
         function moveOrdine(id, s) {
             const o = ordiniDB.find(x => String(x.id) === String(id));
             if (!o) return;
+            const oggi = getOggiLocale();
+            if (s === 'doing' && o.stato === 'todo' && !o.data_ordinato) o.data_ordinato = oggi;
+            if (s === 'done' && o.stato === 'doing') o.data_arrivo = oggi;
+            if (s === 'todo') delete o.data_ordinato;
+            if (s === 'doing') delete o.data_arrivo;
+            if (s !== 'consegnato') { delete o.data_consegnato; delete o.consegnato_auto; }
             o.stato = s;
             saveOrdini();
             if (s === 'done' && o.jobId != null && o.jobId !== '') {
-                const restano = _ordiniDelJob(o.jobId).filter(x => x.stato !== 'done').length;
+                const restano = _ordiniDelJob(o.jobId).filter(_ordineInAttesa).length;
                 mostraToast(`📦 Ricambio per ${o.targa || o.cliente || 'la moto'} arrivato` + (restano ? ` · ne mancano ancora ${restano}` : ' · tutti i ricambi arrivati'));
             }
         }
@@ -3233,8 +3221,8 @@
         function _badgeRicambi(jobId, dataAppuntamento) {
             const ord = _ordiniDelJob(jobId);
             if (!ord.length) return '';
-            const attesa = ord.filter(o => o.stato !== 'done');
-            const elenco = htmlEsc((attesa.length ? attesa : ord).map(o => (o.qta > 1 ? o.qta + '× ' : '') + (o.desc || '') + (o.data_consegna && o.stato !== 'done' ? ' (previsto ' + formattaData(o.data_consegna) + ')' : '')).join(', '));
+            const attesa = ord.filter(_ordineInAttesa);
+            const elenco = htmlEsc((attesa.length ? attesa : ord).map(o => (o.qta > 1 ? o.qta + '× ' : '') + (o.desc || '') + (o.data_consegna && _ordineInAttesa(o) ? ' (previsto ' + formattaData(o.data_consegna) + ')' : '')).join(', '));
             const pill = (bg, col, bd, txt) => `<div style="margin-top:5px;"><span title="${elenco}" style="background:${bg}; color:${col}; border:1px solid ${bd}; padding:2px 9px; border-radius:20px; font-size:0.72rem; font-weight:bold; display:inline-block;">${txt}</span></div>`;
             if (!attesa.length) return pill('rgba(34,197,94,0.14)', '#22c55e', 'rgba(34,197,94,0.35)', '📦 Ricambi arrivati');
             const previste = attesa.map(o => o.data_consegna).filter(Boolean).sort();
@@ -3332,7 +3320,7 @@
             if (!el) return;
             const ord = j ? _ordiniDelJob(j.id) : [];
             if (!ord.length) { el.innerHTML = ''; return; }
-            const st = { todo: ['da ordinare', 'var(--accent)'], doing: ['ordinato', 'var(--info)'], done: ['arrivato', 'var(--success)'] };
+            const st = { todo: ['da ordinare', 'var(--accent)'], doing: ['ordinato', 'var(--info)'], done: ['arrivato', 'var(--success)'], consegnato: ['consegnato', 'var(--muted)'] };
             el.innerHTML = `<div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding-top:8px; border-top:1px dashed #334155; font-size:0.8rem;">
                 <span style="color:var(--muted); font-weight:bold;">📋 Ricambi per ${htmlEsc(j.targa || 'questa moto')} (${ord.length}):</span>
                 ${ord.map(o => { const [lbl, col] = st[o.stato] || ['', 'var(--muted)']; return `<span style="background:#0f172a; border:1px solid #334155; border-radius:14px; padding:2px 9px; color:var(--text);">${o.qta > 1 ? o.qta + '× ' : ''}${htmlEsc(o.desc || '')}${o.prezzo_cliente > 0 ? ` <b style="color:#f59e0b;">€${Number(o.prezzo_cliente).toFixed(2)}</b>` : ''} <span style="color:${col}; font-size:0.72rem; font-weight:bold;">${lbl}</span></span>`; }).join('')}
@@ -3395,134 +3383,213 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             window.open(`https://wa.me/${tel}?text=${encodeURIComponent(txt)}`, '_blank');
         }
 
-        function refreshOrdini() {
-            const ls  = { todo: $('list-ord-todo'), doing: $('list-ord-doing'), done: $('list-ord-done') };
-            const cnt = { todo: 0, doing: 0, done: 0 };
-            const totals = { todo: 0, doing: 0, done: 0 };
-            Object.values(ls).forEach(l => { if (l) l.innerHTML = ''; });
-            const col = { todo: 'var(--accent)', doing: 'var(--info)', done: 'var(--success)' };
+        // ── ORDINI RICAMBI: elenco a righe con schede per stato ─────────────────
+        // stati: todo (da ordinare) → doing (ordinato) → done (arrivato) → consegnato (storico)
+        let currentOrdTab = 'todo';
+        const _ORD_TAB = {
+            todo:       { lbl: '🔴 Da ordinare', col: '#f87171' },
+            doing:      { lbl: '🔵 Ordinati',    col: '#60a5fa' },
+            done:       { lbl: '🟢 Arrivati',    col: '#4ade80' },
+            consegnato: { lbl: '📁 Storico',     col: '#94a3b8' }
+        };
+        function _ordineInAttesa(o) { return !!o && (o.stato === 'todo' || o.stato === 'doing'); }
+        function _eur(v) { return '€ ' + (Number(v) || 0).toFixed(2).replace('.', ','); }
+        function setOrdTab(t) { currentOrdTab = t; currentOrdFilter = 'all'; refreshOrdini(); }
 
+        function consegnaOrdine(id) {
+            const o = ordiniDB.find(x => String(x.id) === String(id));
+            if (!o) return;
+            o.stato = 'consegnato';
+            o.data_consegnato = getOggiLocale();
+            saveOrdini();
+            mostraToast(`✅ ${o.desc} consegnato: spostato nello Storico`);
+        }
+        function segnaTuttiConsegnati() {
+            const lst = _ordiniVisibili().filter(o => o.stato === 'done');
+            if (!lst.length) return;
+            if (!confirm(`Segnare come consegnati/montati ${lst.length} ricambi arrivati? Andranno nello Storico.`)) return;
+            const oggi = getOggiLocale();
+            lst.forEach(o => { o.stato = 'consegnato'; o.data_consegnato = oggi; });
+            saveOrdini();
+            mostraToast(`✅ ${lst.length} ricambi spostati nello Storico`);
+        }
+        function _ordiniFornitore(enc) {
+            const f = safeDecode(enc);
+            return ordiniDB.filter(o => o && o.stato === 'todo' && (o.fornitore || '') === f);
+        }
+        function segnaOrdinatiFornitore(enc) {
+            const f = safeDecode(enc), lst = _ordiniFornitore(enc);
+            if (!lst.length) return;
+            if (!confirm(`Segnare come ordinati ${lst.length} ricambi ${f ? 'di ' + f : 'senza fornitore'}?`)) return;
+            const oggi = getOggiLocale();
+            lst.forEach(o => { o.stato = 'doing'; if (!o.data_ordinato) o.data_ordinato = oggi; });
+            saveOrdini();
+            mostraToast(`🛒 ${lst.length} ricambi segnati come ordinati`);
+        }
+        function copiaElencoFornitore(enc) {
+            const f = safeDecode(enc), lst = _ordiniFornitore(enc);
+            if (!lst.length) return;
+            const txt = `Ordine ricambi ${MGM_INFO.nome}${f ? ' - ' + f : ''}\n`
+                + lst.map(o => `• ${o.qta || 1} × ${o.desc}${o.sku ? ' (cod. ' + o.sku + ')' : ''}${o.moto ? ' — per ' + o.moto : ''}`).join('\n');
+            const fatto = () => mostraToast('📋 Elenco copiato: incollalo su WhatsApp o nella mail al fornitore');
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(fatto).catch(() => window.prompt('Copia l\'elenco:', txt));
+            else window.prompt('Copia l\'elenco:', txt);
+        }
+        // Arrivati collegati a una moto pronta o archiviata → Storico (lo fa da solo)
+        function _consegnaOrdiniMotoChiuse() {
+            if (!_cloud.connesso || !_cloud.caricati.has('ordini') || !_cloud.caricati.has('db')) return;
+            const chiuse = new Set(db.filter(j => j.stato === 'done' || j.stato === 'archived').map(j => String(j.id)));
+            let n = 0;
+            ordiniDB.forEach(o => {
+                if (o && o.stato === 'done' && o.jobId != null && o.jobId !== '' && chiuse.has(String(o.jobId))) {
+                    o.stato = 'consegnato';
+                    o.data_consegnato = getOggiLocale();
+                    o.consegnato_auto = true;
+                    n++;
+                }
+            });
+            if (n) saveOrdini();
+        }
+
+        function _ordiniVisibili() {
+            const termini = (($('ord-cerca') || {}).value || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+            return ordiniDB.filter(o => o && o.stato === currentOrdTab)
+                .filter(o => currentOrdFilter === 'all' || (o.fornitore || '') === currentOrdFilter)
+                .filter(o => {
+                    if (!termini.length) return true;
+                    const t = `${o.desc || ''} ${o.sku || ''} ${o.cliente || ''} ${o.tel_cliente || ''} ${o.targa || ''} ${o.moto || ''} ${o.fornitore || ''} ${o.num_ordine || ''} ${o.note || ''}`.toLowerCase();
+                    return termini.every(x => t.includes(x));
+                });
+        }
+
+        function _rigaOrdine(o) {
+            const oggi = getOggiLocale();
+            const ic = 'background:transparent; border:1px solid #475569; color:#cbd5e1; border-radius:6px; padding:5px 8px; cursor:pointer; font-size:0.85rem; width:auto; min-height:32px;';
+            const pr = (bg, col) => `background:${bg}; color:${col}; border:none; border-radius:7px; padding:7px 12px; cursor:pointer; font-weight:800; font-size:0.82rem; white-space:nowrap; width:auto; min-height:34px;`;
+            // ricambio
+            const ricambio = `<div style="font-weight:800; color:white;">${htmlEsc(o.desc || '')}</div>`
+                + (o.sku || o.note ? `<div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${o.sku ? `<span style="font-family:monospace;">${htmlEsc(o.sku)}</span>` : ''}${o.sku && o.note ? ' · ' : ''}${htmlEsc(o.note || '')}</div>` : '');
+            // moto / cliente
+            const j = (o.jobId != null && o.jobId !== '') ? db.find(x => String(x.id) === String(o.jobId)) : null;
+            let moto = '';
+            if (o.jobId != null && o.jobId !== '') {
+                moto = `<div>${j ? `<span class="targa-badge" onclick="previewJob('${htmlEsc(o.jobId)}')" title="Apri la scheda della moto" style="font-size:0.7rem; padding:1px 6px; cursor:pointer;">${htmlEsc(o.targa || 'N/D')}</span>` : `<span style="font-family:monospace; color:var(--muted);">${htmlEsc(o.targa || '')}</span>`} <span style="color:#fbbf24; font-weight:700;">${htmlEsc(o.moto || '')}</span></div>`;
+                const a = (j && j.stato === 'todo' && _ordineInAttesa(o)) ? _appuntamentoDelJob(j.id) : null;
+                if (a) {
+                    const tardi = o.data_consegna && o.data_consegna > a.data;
+                    moto += `<div style="font-size:0.74rem; font-weight:700; color:${tardi ? '#f87171' : 'var(--info)'};">📅 Appuntamento ${formattaData(a.data)} (${_quando(a.data)})${tardi ? ' · ⚠️ il ricambio arriva dopo' : ''}</div>`;
+                }
+            }
+            moto += (o.cliente || o.rif) ? `<div style="font-size:0.8rem; color:#93c5fd;">👤 ${htmlEsc(o.cliente || o.rif)}${o.tel_cliente ? ` · ${htmlEsc(o.tel_cliente)}` : ''}</div>` : (moto ? '' : `<span style="color:var(--muted); font-size:0.8rem;">— per il banco —</span>`);
+            // fornitore
+            const forn = `<div style="font-weight:700; color:#fca5a5;">${htmlEsc(o.fornitore || '—')}</div>${o.num_ordine ? `<div style="font-size:0.74rem; color:var(--muted);">N° ${htmlEsc(o.num_ordine)}</div>` : ''}`;
+            // date
+            let date = '';
+            if (o.stato === 'todo') {
+                const g = o.data ? -_giorniDaOggi(o.data) : 0;
+                date = `<div style="font-size:0.8rem; color:var(--muted);">inserito ${formattaData(o.data)}</div>${g > 30 ? `<div style="font-size:0.74rem; color:#fbbf24; font-weight:700;">⏳ da ${g > 60 ? Math.round(g / 30) + ' mesi' : g + ' giorni'}</div>` : ''}`;
+            } else if (o.stato === 'doing') {
+                if (o.data_consegna) {
+                    const [bg, col, txt] = o.data_consegna < oggi ? ['rgba(239,68,68,0.18)', '#f87171', '⚠️ in ritardo dal ' + formattaData(o.data_consegna)]
+                        : o.data_consegna === oggi ? ['rgba(245,158,11,0.18)', '#fbbf24', '🔔 arriva oggi']
+                        : ['rgba(100,116,139,0.15)', '#cbd5e1', '📅 arriva ' + formattaData(o.data_consegna)];
+                    date = `<span style="background:${bg}; color:${col}; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; white-space:nowrap;">${txt}</span>`;
+                } else date = `<span style="font-size:0.78rem; color:var(--muted);">consegna non indicata</span>`;
+                if (o.data_ordinato) date += `<div style="font-size:0.72rem; color:var(--muted); margin-top:3px;">ordinato il ${formattaData(o.data_ordinato)}</div>`;
+            } else if (o.stato === 'done') {
+                date = `<div style="font-size:0.8rem; color:#4ade80;">${o.data_arrivo ? 'arrivato il ' + formattaData(o.data_arrivo) : 'arrivato'}</div>`;
+            } else {
+                date = `<div style="font-size:0.8rem; color:var(--muted);">${o.consegnato_auto ? 'chiuso con la moto' : 'consegnato'} il ${formattaData(o.data_consegnato)}</div>`;
+            }
+            // prezzi
+            const prezzi = (o.prezzo > 0 || o.prezzo_cliente > 0)
+                ? `${o.prezzo > 0 ? `<div style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">acquisto <b style="color:#cbd5e1;">${_eur(o.prezzo)}</b></div>` : ''}${o.prezzo_cliente > 0 ? `<div style="font-size:0.8rem; color:var(--muted); white-space:nowrap;">cliente <b style="color:#fbbf24;">${_eur(o.prezzo_cliente)}</b></div>` : ''}`
+                : '<span style="color:#475569;">—</span>';
+            // azioni
+            let azioni = '';
+            if (o.stato === 'todo') azioni = `<button type="button" onclick="moveOrdine(${o.id}, 'doing')" style="${pr('#2563eb', 'white')}">🛒 Ordinato</button>`;
+            else if (o.stato === 'doing') azioni = `<button type="button" onclick="moveOrdine(${o.id}, 'done')" style="${pr('#16a34a', 'white')}">📦 Arrivato</button>`;
+            else if (o.stato === 'done') azioni = `<button type="button" onclick="consegnaOrdine(${o.id})" style="${pr('#334155', '#4ade80')} border:1px solid #16a34a;">✅ Consegnato</button>`
+                + (o.tel_cliente ? ` <button type="button" onclick="waOrdineArrivato(${o.id})" title="Avvisa il cliente su WhatsApp" aria-label="Avvisa il cliente su WhatsApp" style="${ic} border-color:#25d366; color:#25d366;">📲</button>` : '');
+            const indietro = { doing: 'todo', done: 'doing', consegnato: 'done' }[o.stato];
+            if (indietro) azioni += ` <button type="button" onclick="moveOrdine(${o.id}, '${indietro}')" title="Riporta al passo precedente" aria-label="Riporta al passo precedente" style="${ic}">⬅️</button>`;
+            azioni += ` <button type="button" onclick="editOrdine(${o.id})" title="Modifica" aria-label="Modifica" style="${ic} border-color:#b45309;">✏️</button>`
+                + ` <button type="button" onclick="deleteOrdine(${o.id})" title="Elimina" aria-label="Elimina" style="${ic} border-color:rgba(239,68,68,0.45);">🗑️</button>`;
+            const td = 'padding:9px 10px; border-bottom:1px solid #334155; vertical-align:top;';
+            return `<tr class="ord-riga">
+                <td style="${td} text-align:center; font-weight:900; color:white; font-size:1rem;">${o.qta || 1}×</td>
+                <td style="${td} min-width:180px;">${ricambio}</td>
+                <td style="${td} min-width:200px;">${moto}</td>
+                <td style="${td}">${forn}</td>
+                <td style="${td}">${date}</td>
+                <td style="${td} text-align:right;">${prezzi}</td>
+                <td style="${td} text-align:right; white-space:nowrap;">${azioni}</td>
+            </tr>`;
+        }
+
+        function refreshOrdini() {
             updateOrdiniDatalist();
             popolaSelectJobOrdine($('ord_job') ? $('ord_job').value : '');
+            const cnt = { todo: 0, doing: 0, done: 0, consegnato: 0 };
+            ordiniDB.forEach(o => { if (o && cnt[o.stato] !== undefined) cnt[o.stato]++; });
+            const tabs = $('ord-tabs');
+            if (tabs) tabs.innerHTML = Object.entries(_ORD_TAB).map(([k, t]) => {
+                const on = currentOrdTab === k;
+                return `<button type="button" role="tab" aria-selected="${on}" onclick="setOrdTab('${k}')" style="background:transparent; border:none; border-bottom:3px solid ${on ? t.col : 'transparent'}; color:${on ? 'white' : 'var(--muted)'}; padding:9px 14px; font-size:0.92rem; font-weight:800; cursor:pointer; width:auto; min-height:44px;">${t.lbl} <span style="background:${on ? t.col : '#334155'}; color:${on ? '#0f172a' : 'white'}; border-radius:12px; padding:1px 8px; font-size:0.78rem; margin-left:4px;">${cnt[k]}</span></button>`;
+            }).join('');
 
-            // Aggiorna pill filtro fornitori
+            // filtro fornitori (solo quelli presenti nella scheda aperta)
+            const nelTab = ordiniDB.filter(o => o && o.stato === currentOrdTab);
+            const forniList = [...new Set(nelTab.map(o => o.fornitore).filter(Boolean))].sort();
+            if (currentOrdFilter !== 'all' && !forniList.includes(currentOrdFilter)) currentOrdFilter = 'all';
             const filterBar = $('ord-filter-bar');
-            if (filterBar) {
-                const forniList = [...new Set(ordiniDB.map(o => o.fornitore).filter(Boolean))].sort();
-                const pills = ['all', ...forniList];
-                filterBar.innerHTML = '<span style="font-size:0.75rem; color:var(--muted); margin-right:2px;">Fornitore:</span>' +
-                    pills.map(f => {
-                        const lbl = f === 'all' ? 'Tutti' : f;
-                        const active = currentOrdFilter === f;
-                        return `<button onclick="setOrdFilter('${f.replace(/'/g,"\'")}')` +
-                            `" style="padding:3px 11px; border-radius:20px; border:1px solid ${active ? '#fca5a5' : 'rgba(252,165,165,0.25)'}; background:${active ? 'rgba(252,165,165,0.18)' : 'transparent'}; color:${active ? '#fca5a5' : 'var(--muted)'}; font-size:0.73rem; cursor:pointer; font-weight:${active ? 'bold' : 'normal'}; transition:all 0.15s;">${lbl}</button>`;
-                    }).join('');
+            if (filterBar) filterBar.innerHTML = (currentOrdTab === 'todo' || forniList.length < 2) ? '' :
+                '<span style="font-size:0.75rem; color:var(--muted); margin-right:2px;">Fornitore:</span>' + ['all', ...forniList].map(f => {
+                    const active = currentOrdFilter === f;
+                    return `<button type="button" onclick="setOrdFilter(safeDecode('${safeEncode(f)}'))" style="padding:3px 11px; border-radius:20px; border:1px solid ${active ? '#fca5a5' : 'rgba(252,165,165,0.25)'}; background:${active ? 'rgba(252,165,165,0.18)' : 'transparent'}; color:${active ? '#fca5a5' : 'var(--muted)'}; font-size:0.73rem; cursor:pointer; font-weight:${active ? 'bold' : 'normal'}; width:auto;">${f === 'all' ? 'Tutti' : htmlEsc(f)}</button>`;
+                }).join('');
+
+            const lista = $('ord-lista');
+            if (!lista) return;
+            let rows = _ordiniVisibili();
+            if (!rows.length) {
+                const vuoto = { todo: 'Nessun ricambio da ordinare.', doing: 'Nessun ordine in attesa.', done: 'Nessun ricambio arrivato da consegnare.', consegnato: 'Lo storico è vuoto.' }[currentOrdTab];
+                lista.innerHTML = `<div style="color:var(--muted); text-align:center; padding:40px 20px;">${(($('ord-cerca') || {}).value || '').trim() ? 'Nessun ordine corrisponde alla ricerca.' : vuoto}</div>`;
+                return;
             }
+            const appDi = o => { const j = (o.jobId != null && o.jobId !== '') ? db.find(x => String(x.id) === String(o.jobId)) : null; const a = (j && j.stato === 'todo') ? _appuntamentoDelJob(j.id) : null; return a ? a.data : '9999-99-99'; };
+            if (currentOrdTab === 'todo') rows.sort((a, b) => appDi(a).localeCompare(appDi(b)) || String(a.data || '').localeCompare(String(b.data || '')));
+            else if (currentOrdTab === 'doing') rows.sort((a, b) => String(a.data_consegna || '9999').localeCompare(String(b.data_consegna || '9999')));
+            else if (currentOrdTab === 'done') rows.sort((a, b) => String(b.data_arrivo || b.data || '').localeCompare(String(a.data_arrivo || a.data || '')));
+            else rows = rows.sort((a, b) => String(b.data_consegnato || '').localeCompare(String(a.data_consegnato || ''))).slice(0, 200);
 
-            // Filtra per fornitore selezionato
-            const source = currentOrdFilter === 'all' ? ordiniDB : ordiniDB.filter(o => (o.fornitore || '') === currentOrdFilter);
-
-            // Ordina: prima gli urgenti (consegna più vicina), poi per data inserimento
-            const sorted = [...source].sort((a, b) => {
-                if (a.data_consegna && b.data_consegna) return a.data_consegna.localeCompare(b.data_consegna);
-                if (a.data_consegna) return -1;
-                if (b.data_consegna) return 1;
-                return 0;
-            });
-
-            sorted.forEach(o => {
-                if (!ls[o.stato]) return;
-                cnt[o.stato]++;
-                if (o.prezzo > 0) totals[o.stato] += o.prezzo * (o.qta || 1);
-
-                const oggi = getOggiLocale();
-                const dTra2 = (() => { const d = new Date(); d.setDate(d.getDate() + 2); return d.toISOString().split('T')[0]; })();
-                const isScaduto   = o.data_consegna && o.stato === 'doing' && o.data_consegna < oggi;
-                const isOggi      = o.data_consegna && o.data_consegna === oggi;
-                const isImminente = o.data_consegna && !isScaduto && !isOggi && o.data_consegna <= dTra2;
-
-                // Badge consegna con semaforo colorato
-                let consegnaBadge = '';
-                if (o.data_consegna) {
-                    let bg, tc, icon, label;
-                    if (isScaduto)      { bg='rgba(239,68,68,0.18)';   tc='var(--accent)';   icon='⚠️'; label='In ritardo! '+formattaData(o.data_consegna); }
-                    else if (isOggi)    { bg='rgba(245,158,11,0.18)';  tc='var(--warning)';  icon='🔔'; label='Oggi!'; }
-                    else if (isImminente){ bg='rgba(251,191,36,0.12)'; tc='#fbbf24';         icon='📅'; label=formattaData(o.data_consegna); }
-                    else                { bg='rgba(100,116,139,0.12)'; tc='var(--muted)';    icon='📅'; label=formattaData(o.data_consegna); }
-                    consegnaBadge = `<span style="background:${bg}; color:${tc}; padding:2px 7px; border-radius:12px; font-size:0.68rem; font-weight:bold; white-space:nowrap;">${icon} ${label}</span>`;
-                }
-
-                // Bottoni azione principali
-                let actionBtns = '';
-                if (o.stato === 'todo') {
-                    actionBtns = `<button class="btn btn-info" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="moveOrdine(${o.id}, 'doing')">🛒 Segna Ordinato</button>`;
-                } else if (o.stato === 'doing') {
-                    actionBtns = `<button class="btn btn-success" style="flex:1; padding:5px 8px; font-size:0.78rem;" onclick="moveOrdine(${o.id}, 'done')">📦 Arrivato!</button>
-                        <button class="btn btn-dark" style="padding:5px 7px;" onclick="moveOrdine(${o.id}, 'todo')" title="Riporta in Da Ordinare">⬅️</button>`;
-                } else {
-                    actionBtns = `${o.tel_cliente ? `<button class="btn btn-wa" style="flex:1; padding:6px 8px; font-size:0.78rem; font-weight:bold;" onclick="waOrdineArrivato(${o.id})">📦 Avvisa Arrivo</button>` : '<button class="btn btn-dark" style="flex:1; padding:5px 8px; font-size:0.72rem; opacity:0.4; cursor:default;">📲 Aggiungi tel.</button>'}
-                        <button class="btn btn-dark" style="padding:5px 7px;" onclick="moveOrdine(${o.id}, 'doing')" title="Riporta in Attesa">⬅️</button>`;
-                }
-
-                const c = document.createElement('div');
-                c.className = 'card-compact';
-                c.style.borderLeftColor = isScaduto ? 'var(--accent)' : col[o.stato];
-                c.style.padding = '8px 10px';
-                c.style.marginBottom = '6px';
-                c.style.gap = '4px';
-
-                c.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
-                            <span style="background:transparent; border:1px solid ${col[o.stato]}; color:${col[o.stato]}; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold;">×${o.qta}</span>
-                            ${o.sku ? `<span style="background:#1e293b; color:var(--muted); padding:1px 5px; border-radius:4px; font-size:0.68rem; font-family:monospace;">${o.sku}</span>` : ''}
-                            ${o.fornitore ? `<span style="color:#fca5a5; font-size:0.7rem; font-weight:bold;">🏭 ${o.fornitore}</span>` : ''}
-                            ${o.prezzo > 0 ? `<span style="color:var(--success); font-size:0.7rem; font-weight:bold;" title="Prezzo d'acquisto">€${o.prezzo.toFixed(2)}</span>` : ''}
-                            ${o.prezzo_cliente > 0 ? `<span style="color:#f59e0b; font-size:0.7rem; font-weight:bold;" title="Prezzo al cliente (nel conto)">→ €${Number(o.prezzo_cliente).toFixed(2)}</span>` : ''}
-                        </div>
-                        <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
-                            ${consegnaBadge}
-                            <small style="color:var(--muted); font-size:0.68rem;">${formattaData(o.data)}</small>
-                        </div>
-                    </div>
-                    <div style="font-size:0.85rem; font-weight:bold; color:white; line-height:1.25; margin:2px 0;">${o.desc}</div>
-                    ${(o.cliente || o.rif) ? `<div style="font-size:0.75rem; color:var(--info);">👤 ${o.cliente || o.rif}${o.tel_cliente ? ` · 📞 ${o.tel_cliente}` : ''}</div>` : ''}
-                    ${(o.jobId != null && o.jobId !== '') ? (db.some(j => String(j.id) === String(o.jobId))
-                        ? `<div onclick="previewJob('${htmlEsc(o.jobId)}')" title="Apri la scheda della moto" style="font-size:0.75rem; color:#f59e0b; cursor:pointer; font-weight:bold;">🏍️ Per la moto <span class="targa-badge" style="font-size:0.68rem; padding:1px 5px;">${htmlEsc(o.targa || 'N/D')}</span> ${htmlEsc(o.moto || '')}</div>${(() => {
-                            const j = db.find(x => String(x.id) === String(o.jobId));
-                            const a = (j && j.stato === 'todo' && o.stato !== 'done') ? _appuntamentoDelJob(j.id) : null;
-                            if (!a) return '';
-                            const tardi = o.data_consegna && o.data_consegna > a.data;
-                            return `<div style="font-size:0.72rem; font-weight:bold; color:${tardi ? '#f87171' : 'var(--info)'};">📅 Appuntamento ${formattaData(a.data)} (${_quando(a.data)})${tardi ? ' · ⚠️ il ricambio arriva dopo' : ''}</div>`;
-                        })()}`
-                        : `<div style="font-size:0.75rem; color:var(--muted);">🏍️ Per la moto ${htmlEsc(o.targa || '')} ${htmlEsc(o.moto || '')} (scheda chiusa o eliminata)</div>`) : ''}
-                    ${(o.num_ordine || o.note) ? `<div style="font-size:0.7rem; color:var(--muted);">${o.num_ordine ? `N° ${o.num_ordine}` : ''}${o.num_ordine && o.note ? ' · ' : ''}${o.note || ''}</div>` : ''}
-                    <div style="display:flex; gap:4px; margin-top:5px;">
-                        ${actionBtns}
-                        <button class="btn-icon" style="background:transparent; border:1px solid var(--warning); color:var(--warning); padding:5px 8px; border-radius:6px; cursor:pointer;" onclick="editOrdine(${o.id})" title="Modifica">✏️</button>
-                        <button class="btn-icon" style="background:transparent; border:1px solid rgba(239,68,68,0.3); color:var(--accent); padding:5px 8px; border-radius:6px; cursor:pointer;" onclick="deleteOrdine(${o.id})" title="Elimina">🗑️</button>
-                    </div>`;
-
-                ls[o.stato].appendChild(c);
-            });
-
-            // Aggiorna contatori header
-            if ($('ord-stats-todo')) $('ord-stats-todo').innerText = `🔴 Da Ordinare: ${cnt.todo}`;
-            if ($('ord-stats-doing')) $('ord-stats-doing').innerText = `🔵 In Attesa: ${cnt.doing}`;
-            if ($('ord-stats-done')) $('ord-stats-done').innerText = `🟢 Arrivati: ${cnt.done}`;
-
-            // Totali valore per colonna
-            ['todo','doing','done'].forEach(s => {
-                const tel = $(`ord-col-total-${s}`);
-                if (tel) tel.innerHTML = totals[s] > 0 ? `<span style="color:var(--success); font-weight:bold;">€ ${totals[s].toFixed(2)}</span>` : '';
-            });
-
-            // Mostra messaggio se vuoto
-            Object.entries(ls).forEach(([stato, el]) => {
-                if (el && cnt[stato] === 0) {
-                    el.innerHTML = `<div style="color:var(--muted); text-align:center; padding:20px; font-size:0.85rem;">Nessun ordine</div>`;
-                }
-            });
+            const th = 'text-align:left; padding:8px 10px; font-size:0.7rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #475569; white-space:nowrap;';
+            const intest = `<thead><tr style="background:#1e293b;">
+                <th style="${th} text-align:center; width:50px;">QTÀ</th><th style="${th}">RICAMBIO</th><th style="${th}">MOTO / CLIENTE</th><th style="${th}">FORNITORE</th>
+                <th style="${th}">${{ todo: 'INSERITO', doing: 'CONSEGNA', done: 'ARRIVATO', consegnato: 'CHIUSO' }[currentOrdTab]}</th><th style="${th} text-align:right;">PREZZI</th><th style="${th}"></th></tr></thead>`;
+            let corpo = '';
+            if (currentOrdTab === 'todo') {
+                const gruppi = {};
+                rows.forEach(o => { const k = o.fornitore || ''; (gruppi[k] = gruppi[k] || []).push(o); });
+                Object.keys(gruppi).sort((a, b) => (a === '') - (b === '') || a.localeCompare(b)).forEach(f => {
+                    const enc = safeEncode(f);
+                    const bt = 'border-radius:7px; padding:5px 10px; cursor:pointer; font-size:0.78rem; font-weight:700; width:auto; min-height:32px;';
+                    corpo += `<tr><td colspan="7" style="padding:12px 10px 6px; background:#0f172a; border-bottom:1px solid #334155;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-weight:900; color:#fca5a5; font-size:0.95rem;">🏭 ${f ? htmlEsc(f) : 'Senza fornitore'}</span>
+                            <span style="color:var(--muted); font-size:0.8rem;">(${gruppi[f].length})</span>
+                            <span style="flex:1;"></span>
+                            ${f ? `<button type="button" onclick="copiaElencoFornitore('${enc}')" title="Copia l'elenco da mandare al fornitore" style="${bt} background:transparent; border:1px solid #475569; color:#cbd5e1;">📋 Copia elenco</button>` : ''}
+                            <button type="button" onclick="segnaOrdinatiFornitore('${enc}')" style="${bt} background:#1d4ed8; border:none; color:white;">🛒 Segna tutti ordinati</button>
+                        </div></td></tr>` + gruppi[f].map(_rigaOrdine).join('');
+                });
+            } else {
+                corpo = rows.map(_rigaOrdine).join('');
+            }
+            const sopra = currentOrdTab === 'done'
+                ? `<div style="display:flex; justify-content:flex-end; margin-bottom:8px;"><button type="button" onclick="segnaTuttiConsegnati()" style="background:transparent; border:1px solid #16a34a; color:#4ade80; border-radius:7px; padding:6px 12px; cursor:pointer; font-size:0.8rem; font-weight:700; width:auto;">✅ Segna tutti consegnati (${rows.length})</button></div>`
+                : currentOrdTab === 'consegnato' ? `<div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">Ultimi ${rows.length} ricambi consegnati o montati. ⬅️ li riporta tra gli arrivati.</div>` : '';
+            lista.innerHTML = sopra + `<div style="overflow-x:auto; border:1px solid #334155; border-radius:10px;"><table style="width:100%; border-collapse:collapse; font-size:0.88rem; background:var(--card);">${intest}<tbody>${corpo}</tbody></table></div>`;
         }
 
         // =====================================================================
