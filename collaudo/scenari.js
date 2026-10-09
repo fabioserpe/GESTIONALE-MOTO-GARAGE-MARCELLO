@@ -831,13 +831,16 @@
     ok(/Da ordinare 4/.test(tabs()) && /Ordinati 1/.test(tabs()) && /Arrivati 2/.test(tabs()) && /Storico \d+/.test(tabs()), 'Schede con il numero di ricambi per stato (' + tabs() + ')');
     ok(document.querySelectorAll('#ord-lista .ord-riga button').length > 0 && [...document.querySelectorAll('#ord-lista .ord-riga button')].every(b => b.getBoundingClientRect().width < 200), 'Pulsanti della riga di misura normale (prima la freccia occupava tutta la riga)');
     const t = testo();
-    ok(t.indexOf('LARSSON') < t.indexOf('PARTS EUROPE') && t.indexOf('PARTS EUROPE') < t.indexOf('SENZA FORNITORE'), 'Da ordinare diviso per fornitore, "Senza fornitore" in fondo');
+    ok(!t.includes('SENZA FORNITORE') && !t.includes('segna tutti ordinati') && righe()[0].textContent.includes('LEVA FRENO'), 'Da ordinare: elenco unico senza gruppi per fornitore, il più vecchio in alto');
+    const rigaHtml = document.getElementById('ord-riga-9101').innerHTML;
+    ok(rigaHtml.includes('<b style="color:white;">RIGHE UGO</b>') && rigaHtml.includes('<b style="color:#fbbf24;">HONDA TRANSALP</b>'), 'Nome del cliente e moto in grassetto e in risalto');
+    ok(!document.getElementById('ord-riga-9101').textContent.includes('LARSSON'), 'Il fornitore non compare sulla riga');
     const rigaLeva = document.getElementById('ord-riga-9101');
     ok(rigaLeva && rigaLeva.getBoundingClientRect().height < 60, 'Riga corta: un ricambio su una sola riga (' + (rigaLeva && Math.round(rigaLeva.getBoundingClientRect().height)) + ' px)');
     const det = document.getElementById('ord-det-9101');
     ok(det && det.style.display === 'none' && rigaLeva.querySelectorAll('button').length === 1, 'Dettagli nascosti e un solo pulsante sulla riga');
     toggleDettaglioOrdine('9101');
-    ok(det.style.display === 'grid' && det.textContent.includes('LARSSON') && det.innerHTML.includes('editOrdine(9101)') && det.innerHTML.includes('deleteOrdine(9101)'), 'Clic sulla riga: si apre il dettaglio con fornitore e pulsanti');
+    ok(det.style.display === 'grid' && det.textContent.includes('LARSSON') && det.innerHTML.includes('editOrdine(9101)') && det.innerHTML.includes('deleteOrdine(9101)') && det.textContent.includes('Copia elenco LARSSON'), 'Clic sulla riga: dettaglio con fornitore, pulsanti e "Copia elenco" del fornitore');
     refreshOrdini();
     ok(document.getElementById('ord-det-9101').style.display === 'grid', 'Il dettaglio aperto resta aperto quando la pagina si aggiorna');
     toggleDettaglioOrdine('9101');
@@ -851,9 +854,9 @@
       copiaElencoFornitore(safeEncode('LARSSON')); await attendi(20);
     } finally { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: origClip }); }
     ok(copiato.includes('LARSSON') && copiato.includes('• 1 × LEVA FRENO — per HONDA TRANSALP') && copiato.includes('• 2 × KIT TRASMISSIONE (cod. KT-1)') && !copiato.includes('CINGHIA') && !copiato.includes('RIGHE'), 'Copia elenco: solo i ricambi del fornitore, con codice e moto, senza nomi dei clienti');
-    segnaOrdinatiFornitore(safeEncode('LARSSON'));
+    moveOrdine(9101, 'doing'); moveOrdine(9102, 'doing');
     const leggi = id => Object.values(fb.leggi('ordini') || {}).find(o => o.id === id);
-    ok(leggi(9101).stato === 'doing' && leggi(9102).stato === 'doing' && leggi(9101).data_ordinato === oggi && leggi(9103).stato === 'todo', 'Segna tutti ordinati: solo quelli del fornitore, con la data dell\'ordine');
+    ok(leggi(9101).stato === 'doing' && leggi(9102).stato === 'doing' && leggi(9101).data_ordinato === oggi && leggi(9103).stato === 'todo', '✓ Ordinato: data dell\'ordine registrata, gli altri restano da ordinare');
     campo('ord-cerca', 'cinghia'); refreshOrdini();
     ok(righe().length === 1 && testo().includes('CINGHIA'), 'Ricerca: trova il ricambio');
     campo('ord-cerca', ''); setOrdTab('doing');

@@ -3417,15 +3417,6 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const f = safeDecode(enc);
             return ordiniDB.filter(o => o && o.stato === 'todo' && (o.fornitore || '') === f);
         }
-        function segnaOrdinatiFornitore(enc) {
-            const f = safeDecode(enc), lst = _ordiniFornitore(enc);
-            if (!lst.length) return;
-            if (!confirm(`Segnare come ordinati ${lst.length} ricambi ${f ? 'di ' + f : 'senza fornitore'}?`)) return;
-            const oggi = getOggiLocale();
-            lst.forEach(o => { o.stato = 'doing'; if (!o.data_ordinato) o.data_ordinato = oggi; });
-            saveOrdini();
-            mostraToast(`🛒 ${lst.length} ricambi segnati come ordinati`);
-        }
         function copiaElencoFornitore(enc) {
             const f = safeDecode(enc), lst = _ordiniFornitore(enc);
             if (!lst.length) return;
@@ -3480,8 +3471,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const j = (o.jobId != null && o.jobId !== '') ? db.find(x => String(x.id) === String(o.jobId)) : null;
             const a = (j && j.stato === 'todo' && _ordineInAttesa(o)) ? _appuntamentoDelJob(j.id) : null;
             const tardiApp = a && o.data_consegna && o.data_consegna > a.data;
-            const cognome = String(o.cliente || o.rif || '').trim().split(/\s+/)[0] || '';
-            const chi = [o.moto, cognome].filter(Boolean).join(' · ') || 'per il banco';
+            const nome = String(o.cliente || o.rif || '').trim();
+            const chi = (nome || o.moto)
+                ? [nome ? `<b style="color:white;">${htmlEsc(nome)}</b>` : '', o.moto ? `<b style="color:#fbbf24;">${htmlEsc(o.moto)}</b>` : ''].filter(Boolean).join('<span style="color:var(--muted);"> · </span>')
+                : '<span style="color:var(--muted);">per il banco</span>';
 
             // un'indicazione breve, solo se serve
             let tag = '', tagCol = 'var(--muted)';
@@ -3523,6 +3516,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const bottoni = [
                 (o.stato === 'done' && o.tel_cliente) ? `<button type="button" onclick="waOrdineArrivato(${o.id})" style="${pb} border-color:#25d366; color:#25d366;">📲 Avvisa il cliente</button>` : '',
                 j ? `<button type="button" onclick="previewJob('${htmlEsc(o.jobId)}')" style="${pb}">🏍️ Apri la moto</button>` : '',
+                (o.stato === 'todo' && o.fornitore) ? `<button type="button" onclick="copiaElencoFornitore('${safeEncode(o.fornitore)}')" title="Copia i ricambi da ordinare a questo fornitore" style="${pb}">📋 Copia elenco ${htmlEsc(o.fornitore)}</button>` : '',
                 `<button type="button" onclick="editOrdine(${o.id})" style="${pb}">✏️ Modifica</button>`,
                 indietro ? `<button type="button" onclick="moveOrdine(${o.id}, '${indietro[0]}')" style="${pb}">⬅️ Riporta in ${indietro[1]}</button>` : '',
                 `<button type="button" onclick="deleteOrdine(${o.id})" style="${pb} border-color:rgba(239,68,68,0.5); color:#f87171;">🗑️ Elimina</button>`
@@ -3543,7 +3537,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     style="display:grid; grid-template-columns:44px minmax(160px, 2fr) minmax(140px, 1.6fr) 210px 130px; gap:12px; align-items:center; padding:9px 14px; border-bottom:1px solid #263142; cursor:pointer;">
                     <span style="font-weight:800; color:#94a3b8; text-align:right;">${o.qta || 1}×</span>
                     <span style="font-weight:700; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${htmlEsc(o.desc || '')}</span>
-                    <span style="color:#94a3b8; font-size:0.84rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${htmlEsc(chi)}</span>
+                    <span style="font-size:0.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chi}</span>
                     <span style="color:${tagCol}; font-size:0.78rem; white-space:nowrap; text-align:right; overflow:hidden; text-overflow:ellipsis;" title="${htmlEsc(tag)}">${htmlEsc(tag)}</span>
                     <span style="text-align:right;">${azione}</span>
                 </div>
@@ -3587,23 +3581,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             else rows = rows.sort((a, b) => String(b.data_consegnato || '').localeCompare(String(a.data_consegnato || ''))).slice(0, 200);
 
             const link = 'background:none; border:none; color:#94a3b8; font-size:0.78rem; cursor:pointer; padding:4px 6px; text-decoration:underline; width:auto; min-height:28px;';
-            let corpo = '';
-            if (currentOrdTab === 'todo') {
-                const gruppi = {};
-                rows.forEach(o => { const k = o.fornitore || ''; (gruppi[k] = gruppi[k] || []).push(o); });
-                Object.keys(gruppi).sort((a, b) => (a === '') - (b === '') || a.localeCompare(b)).forEach(f => {
-                    const enc = safeEncode(f);
-                    corpo += `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:10px 14px 8px; background:#111827; border-bottom:1px solid #334155; border-top:1px solid #334155;">
-                            <span style="font-weight:800; color:white; letter-spacing:0.4px;">${f ? htmlEsc(f) : 'SENZA FORNITORE'}</span>
-                            <span style="color:var(--muted); font-size:0.8rem;">${gruppi[f].length}</span>
-                            <span style="flex:1;"></span>
-                            ${f ? `<button type="button" onclick="copiaElencoFornitore('${enc}')" title="Copia l'elenco da mandare al fornitore" style="${link}">📋 copia elenco</button>` : ''}
-                            <button type="button" onclick="segnaOrdinatiFornitore('${enc}')" style="${link}">✓ segna tutti ordinati</button>
-                        </div>` + gruppi[f].map(_rigaOrdine).join('');
-                });
-            } else {
-                corpo = rows.map(_rigaOrdine).join('');
-            }
+            const corpo = rows.map(_rigaOrdine).join('');
             const sopra = currentOrdTab === 'done'
                 ? `<div style="display:flex; justify-content:flex-end; margin-bottom:6px;"><button type="button" onclick="segnaTuttiConsegnati()" style="${link}">✓ segna tutti consegnati (${rows.length})</button></div>`
                 : currentOrdTab === 'consegnato' ? `<div style="font-size:0.78rem; color:var(--muted); margin-bottom:6px;">Ultimi ${rows.length} ricambi consegnati o montati.</div>` : '';
