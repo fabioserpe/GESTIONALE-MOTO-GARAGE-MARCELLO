@@ -107,3 +107,4 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | v153 | Ordini ricambi rifatti: elenco a righe con schede Da ordinare/Ordinati/Arrivati/Storico, raggruppati per fornitore, "Consegnato", ricerca, date di ordine/arrivo |
 | v154 | Ordini: una riga corta per ricambio, dettagli e azioni secondarie al clic ("troppe informazioni") |
 | v155 | Ordini: tolti i gruppi per fornitore, nome e moto in grassetto e in risalto, "Copia elenco" nel dettaglio |
+| v156 | Ordini: nome cliente e moto della stessa grandezza del ricambio |
