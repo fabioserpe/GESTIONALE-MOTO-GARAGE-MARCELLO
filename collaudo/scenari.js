@@ -831,7 +831,16 @@
     ok(/Da ordinare 4/.test(tabs()) && /Ordinati 1/.test(tabs()) && /Arrivati 2/.test(tabs()) && /Storico \d+/.test(tabs()), 'Schede con il numero di ricambi per stato (' + tabs() + ')');
     ok(document.querySelectorAll('#ord-lista .ord-riga button').length > 0 && [...document.querySelectorAll('#ord-lista .ord-riga button')].every(b => b.getBoundingClientRect().width < 200), 'Pulsanti della riga di misura normale (prima la freccia occupava tutta la riga)');
     const t = testo();
-    ok(t.indexOf('LARSSON') < t.indexOf('PARTS EUROPE') && t.indexOf('PARTS EUROPE') < t.indexOf('Senza fornitore'), 'Da ordinare diviso per fornitore, "Senza fornitore" in fondo');
+    ok(t.indexOf('LARSSON') < t.indexOf('PARTS EUROPE') && t.indexOf('PARTS EUROPE') < t.indexOf('SENZA FORNITORE'), 'Da ordinare diviso per fornitore, "Senza fornitore" in fondo');
+    const rigaLeva = document.getElementById('ord-riga-9101');
+    ok(rigaLeva && rigaLeva.getBoundingClientRect().height < 60, 'Riga corta: un ricambio su una sola riga (' + (rigaLeva && Math.round(rigaLeva.getBoundingClientRect().height)) + ' px)');
+    const det = document.getElementById('ord-det-9101');
+    ok(det && det.style.display === 'none' && rigaLeva.querySelectorAll('button').length === 1, 'Dettagli nascosti e un solo pulsante sulla riga');
+    toggleDettaglioOrdine('9101');
+    ok(det.style.display === 'grid' && det.textContent.includes('LARSSON') && det.innerHTML.includes('editOrdine(9101)') && det.innerHTML.includes('deleteOrdine(9101)'), 'Clic sulla riga: si apre il dettaglio con fornitore e pulsanti');
+    refreshOrdini();
+    ok(document.getElementById('ord-det-9101').style.display === 'grid', 'Il dettaglio aperto resta aperto quando la pagina si aggiorna');
+    toggleDettaglioOrdine('9101');
     ok(/acquisto € 29,85/.test(t) && /cliente € 45,52/.test(t), 'Prezzi con scritto "acquisto" e "cliente"');
     ok(/⏳ da \d+ mesi/.test(t), 'Ricambio da ordinare da mesi: segnalato');
     ok(righe().some(r => r.textContent.includes('RG20010') && r.textContent.includes('HONDA TRANSALP')), 'Riga con la moto collegata');

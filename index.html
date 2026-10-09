@@ -3462,69 +3462,93 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 });
         }
 
+        // Una riga corta per ricambio; il dettaglio si apre cliccando la riga
+        const _ordAperti = new Set();
+        function toggleDettaglioOrdine(id) {
+            const k = String(id);
+            if (_ordAperti.has(k)) _ordAperti.delete(k); else _ordAperti.add(k);
+            const d = document.getElementById('ord-det-' + k);
+            if (d) d.style.display = _ordAperti.has(k) ? 'grid' : 'none';
+            const r = document.getElementById('ord-riga-' + k);
+            if (r) r.setAttribute('aria-expanded', _ordAperti.has(k) ? 'true' : 'false');
+        }
+
         function _rigaOrdine(o) {
             const oggi = getOggiLocale();
-            const ic = 'background:transparent; border:1px solid #475569; color:#cbd5e1; border-radius:6px; padding:5px 8px; cursor:pointer; font-size:0.85rem; width:auto; min-height:32px;';
-            const pr = (bg, col) => `background:${bg}; color:${col}; border:none; border-radius:7px; padding:7px 12px; cursor:pointer; font-weight:800; font-size:0.82rem; white-space:nowrap; width:auto; min-height:34px;`;
-            // ricambio
-            const ricambio = `<div style="font-weight:800; color:white;">${htmlEsc(o.desc || '')}</div>`
-                + (o.sku || o.note ? `<div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${o.sku ? `<span style="font-family:monospace;">${htmlEsc(o.sku)}</span>` : ''}${o.sku && o.note ? ' · ' : ''}${htmlEsc(o.note || '')}</div>` : '');
-            // moto / cliente
+            const k = String(o.id);
+            const aperto = _ordAperti.has(k);
             const j = (o.jobId != null && o.jobId !== '') ? db.find(x => String(x.id) === String(o.jobId)) : null;
-            let moto = '';
-            if (o.jobId != null && o.jobId !== '') {
-                moto = `<div>${j ? `<span class="targa-badge" onclick="previewJob('${htmlEsc(o.jobId)}')" title="Apri la scheda della moto" style="font-size:0.7rem; padding:1px 6px; cursor:pointer;">${htmlEsc(o.targa || 'N/D')}</span>` : `<span style="font-family:monospace; color:var(--muted);">${htmlEsc(o.targa || '')}</span>`} <span style="color:#fbbf24; font-weight:700;">${htmlEsc(o.moto || '')}</span></div>`;
-                const a = (j && j.stato === 'todo' && _ordineInAttesa(o)) ? _appuntamentoDelJob(j.id) : null;
-                if (a) {
-                    const tardi = o.data_consegna && o.data_consegna > a.data;
-                    moto += `<div style="font-size:0.74rem; font-weight:700; color:${tardi ? '#f87171' : 'var(--info)'};">📅 Appuntamento ${formattaData(a.data)} (${_quando(a.data)})${tardi ? ' · ⚠️ il ricambio arriva dopo' : ''}</div>`;
-                }
-            }
-            moto += (o.cliente || o.rif) ? `<div style="font-size:0.8rem; color:#93c5fd;">👤 ${htmlEsc(o.cliente || o.rif)}${o.tel_cliente ? ` · ${htmlEsc(o.tel_cliente)}` : ''}</div>` : (moto ? '' : `<span style="color:var(--muted); font-size:0.8rem;">— per il banco —</span>`);
-            // fornitore
-            const forn = `<div style="font-weight:700; color:#fca5a5;">${htmlEsc(o.fornitore || '—')}</div>${o.num_ordine ? `<div style="font-size:0.74rem; color:var(--muted);">N° ${htmlEsc(o.num_ordine)}</div>` : ''}`;
-            // date
-            let date = '';
+            const a = (j && j.stato === 'todo' && _ordineInAttesa(o)) ? _appuntamentoDelJob(j.id) : null;
+            const tardiApp = a && o.data_consegna && o.data_consegna > a.data;
+            const cognome = String(o.cliente || o.rif || '').trim().split(/\s+/)[0] || '';
+            const chi = [o.moto, cognome].filter(Boolean).join(' · ') || 'per il banco';
+
+            // un'indicazione breve, solo se serve
+            let tag = '', tagCol = 'var(--muted)';
             if (o.stato === 'todo') {
                 const g = o.data ? -_giorniDaOggi(o.data) : 0;
-                date = `<div style="font-size:0.8rem; color:var(--muted);">inserito ${formattaData(o.data)}</div>${g > 30 ? `<div style="font-size:0.74rem; color:#fbbf24; font-weight:700;">⏳ da ${g > 60 ? Math.round(g / 30) + ' mesi' : g + ' giorni'}</div>` : ''}`;
+                if (a) { tag = (tardiApp ? '⚠️ ' : '') + 'app. ' + formattaData(a.data).slice(0, 5); tagCol = tardiApp ? '#f87171' : '#cbd5e1'; }
+                else if (g > 30) { tag = '⏳ da ' + (g > 60 ? Math.round(g / 30) + ' mesi' : g + ' giorni'); tagCol = '#fbbf24'; }
             } else if (o.stato === 'doing') {
-                if (o.data_consegna) {
-                    const [bg, col, txt] = o.data_consegna < oggi ? ['rgba(239,68,68,0.18)', '#f87171', '⚠️ in ritardo dal ' + formattaData(o.data_consegna)]
-                        : o.data_consegna === oggi ? ['rgba(245,158,11,0.18)', '#fbbf24', '🔔 arriva oggi']
-                        : ['rgba(100,116,139,0.15)', '#cbd5e1', '📅 arriva ' + formattaData(o.data_consegna)];
-                    date = `<span style="background:${bg}; color:${col}; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; white-space:nowrap;">${txt}</span>`;
-                } else date = `<span style="font-size:0.78rem; color:var(--muted);">consegna non indicata</span>`;
-                if (o.data_ordinato) date += `<div style="font-size:0.72rem; color:var(--muted); margin-top:3px;">ordinato il ${formattaData(o.data_ordinato)}</div>`;
+                if (o.data_consegna && o.data_consegna < oggi) { tag = '⚠️ in ritardo dal ' + formattaData(o.data_consegna); tagCol = '#f87171'; }
+                else if (o.data_consegna === oggi) { tag = 'arriva oggi'; tagCol = '#fbbf24'; }
+                else if (o.data_consegna) tag = 'arriva ' + formattaData(o.data_consegna).slice(0, 5);
+                if (tardiApp && tagCol !== '#f87171') { tag = '⚠️ dopo l\'app. ' + formattaData(a.data).slice(0, 5); tagCol = '#f87171'; }
             } else if (o.stato === 'done') {
-                date = `<div style="font-size:0.8rem; color:#4ade80;">${o.data_arrivo ? 'arrivato il ' + formattaData(o.data_arrivo) : 'arrivato'}</div>`;
+                tag = o.data_arrivo ? 'arrivato ' + formattaData(o.data_arrivo).slice(0, 5) : 'arrivato';
             } else {
-                date = `<div style="font-size:0.8rem; color:var(--muted);">${o.consegnato_auto ? 'chiuso con la moto' : 'consegnato'} il ${formattaData(o.data_consegnato)}</div>`;
+                tag = formattaData(o.data_consegnato);
             }
-            // prezzi
-            const prezzi = (o.prezzo > 0 || o.prezzo_cliente > 0)
-                ? `${o.prezzo > 0 ? `<div style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">acquisto <b style="color:#cbd5e1;">${_eur(o.prezzo)}</b></div>` : ''}${o.prezzo_cliente > 0 ? `<div style="font-size:0.8rem; color:var(--muted); white-space:nowrap;">cliente <b style="color:#fbbf24;">${_eur(o.prezzo_cliente)}</b></div>` : ''}`
-                : '<span style="color:#475569;">—</span>';
-            // azioni
-            let azioni = '';
-            if (o.stato === 'todo') azioni = `<button type="button" onclick="moveOrdine(${o.id}, 'doing')" style="${pr('#2563eb', 'white')}">🛒 Ordinato</button>`;
-            else if (o.stato === 'doing') azioni = `<button type="button" onclick="moveOrdine(${o.id}, 'done')" style="${pr('#16a34a', 'white')}">📦 Arrivato</button>`;
-            else if (o.stato === 'done') azioni = `<button type="button" onclick="consegnaOrdine(${o.id})" style="${pr('#334155', '#4ade80')} border:1px solid #16a34a;">✅ Consegnato</button>`
-                + (o.tel_cliente ? ` <button type="button" onclick="waOrdineArrivato(${o.id})" title="Avvisa il cliente su WhatsApp" aria-label="Avvisa il cliente su WhatsApp" style="${ic} border-color:#25d366; color:#25d366;">📲</button>` : '');
-            const indietro = { doing: 'todo', done: 'doing', consegnato: 'done' }[o.stato];
-            if (indietro) azioni += ` <button type="button" onclick="moveOrdine(${o.id}, '${indietro}')" title="Riporta al passo precedente" aria-label="Riporta al passo precedente" style="${ic}">⬅️</button>`;
-            azioni += ` <button type="button" onclick="editOrdine(${o.id})" title="Modifica" aria-label="Modifica" style="${ic} border-color:#b45309;">✏️</button>`
-                + ` <button type="button" onclick="deleteOrdine(${o.id})" title="Elimina" aria-label="Elimina" style="${ic} border-color:rgba(239,68,68,0.45);">🗑️</button>`;
-            const td = 'padding:9px 10px; border-bottom:1px solid #334155; vertical-align:top;';
-            return `<tr class="ord-riga">
-                <td style="${td} text-align:center; font-weight:900; color:white; font-size:1rem;">${o.qta || 1}×</td>
-                <td style="${td} min-width:180px;">${ricambio}</td>
-                <td style="${td} min-width:200px;">${moto}</td>
-                <td style="${td}">${forn}</td>
-                <td style="${td}">${date}</td>
-                <td style="${td} text-align:right;">${prezzi}</td>
-                <td style="${td} text-align:right; white-space:nowrap;">${azioni}</td>
-            </tr>`;
+
+            const passo = { todo: ['doing', '✓ Ordinato', 'Segna come ordinato al fornitore'], doing: ['done', '✓ Arrivato', 'Segna come arrivato in officina'], done: ['consegnato', '✓ Consegnato', 'Consegnato al cliente o montato: va nello Storico'] }[o.stato];
+            const azione = passo
+                ? `<button type="button" title="${passo[2]}" onclick="event.stopPropagation(); ${passo[0] === 'consegnato' ? `consegnaOrdine(${o.id})` : `moveOrdine(${o.id}, '${passo[0]}')`}" style="background:transparent; border:1px solid #4ade80; color:#4ade80; border-radius:6px; padding:4px 10px; font-size:0.78rem; font-weight:700; cursor:pointer; white-space:nowrap; width:auto; min-height:30px;">${passo[1]}</button>`
+                : '';
+
+            // dettaglio
+            const riga = (et, val) => val ? `<div><span style="color:var(--muted);">${et}</span> ${val}</div>` : '';
+            const date = [
+                o.data ? 'inserito ' + formattaData(o.data) : '',
+                o.data_ordinato ? 'ordinato ' + formattaData(o.data_ordinato) : '',
+                o.data_consegna && o.stato !== 'done' && o.stato !== 'consegnato' ? 'consegna prevista ' + formattaData(o.data_consegna) : '',
+                o.data_arrivo ? 'arrivato ' + formattaData(o.data_arrivo) : '',
+                o.stato === 'consegnato' ? (o.consegnato_auto ? 'chiuso con la moto il ' : 'consegnato il ') + formattaData(o.data_consegnato) : ''
+            ].filter(Boolean).join(' · ');
+            const motoDet = (o.jobId != null && o.jobId !== '')
+                ? `${o.targa ? `<b>${htmlEsc(o.targa)}</b> ` : ''}${htmlEsc(o.moto || '')}${j ? '' : ' (scheda chiusa)'}${a ? ` — <span style="color:${tardiApp ? '#f87171' : 'inherit'};">📅 Appuntamento ${formattaData(a.data)} (${_quando(a.data)})${tardiApp ? ' · ⚠️ il ricambio arriva dopo' : ''}</span>` : ''}`
+                : '';
+            const prezzi = [o.prezzo > 0 ? 'acquisto ' + _eur(o.prezzo) : '', o.prezzo_cliente > 0 ? 'cliente ' + _eur(o.prezzo_cliente) : ''].filter(Boolean).join(' · ');
+            const pb = 'background:transparent; border:1px solid #475569; color:#cbd5e1; border-radius:6px; padding:5px 10px; font-size:0.8rem; cursor:pointer; width:auto; min-height:32px;';
+            const indietro = { doing: ['todo', 'Da ordinare'], done: ['doing', 'Ordinati'], consegnato: ['done', 'Arrivati'] }[o.stato];
+            const bottoni = [
+                (o.stato === 'done' && o.tel_cliente) ? `<button type="button" onclick="waOrdineArrivato(${o.id})" style="${pb} border-color:#25d366; color:#25d366;">📲 Avvisa il cliente</button>` : '',
+                j ? `<button type="button" onclick="previewJob('${htmlEsc(o.jobId)}')" style="${pb}">🏍️ Apri la moto</button>` : '',
+                `<button type="button" onclick="editOrdine(${o.id})" style="${pb}">✏️ Modifica</button>`,
+                indietro ? `<button type="button" onclick="moveOrdine(${o.id}, '${indietro[0]}')" style="${pb}">⬅️ Riporta in ${indietro[1]}</button>` : '',
+                `<button type="button" onclick="deleteOrdine(${o.id})" style="${pb} border-color:rgba(239,68,68,0.5); color:#f87171;">🗑️ Elimina</button>`
+            ].filter(Boolean).join('');
+            const dettaglio = `<div id="ord-det-${htmlEsc(k)}" class="ord-dettaglio" style="display:${aperto ? 'grid' : 'none'}; gap:4px; padding:10px 14px 12px 58px; background:#0f172a; border-bottom:1px solid #334155; font-size:0.84rem; color:#e2e8f0;">
+                ${riga('Fornitore', htmlEsc(o.fornitore || '—') + (o.num_ordine ? ' · N° ' + htmlEsc(o.num_ordine) : ''))}
+                ${riga('Codice', o.sku ? `<span style="font-family:monospace;">${htmlEsc(o.sku)}</span>` : '')}
+                ${riga('Moto', motoDet)}
+                ${riga('Cliente', (o.cliente || o.rif) ? htmlEsc(o.cliente || o.rif) + (o.tel_cliente ? ` · <a href="tel:${htmlEsc(o.tel_cliente)}" style="color:#93c5fd;">${htmlEsc(o.tel_cliente)}</a>` : '') : '')}
+                ${riga('Note', htmlEsc(o.note || ''))}
+                ${riga('Prezzi', prezzi)}
+                ${riga('Date', date)}
+                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${bottoni}</div>
+            </div>`;
+
+            return `<div class="ord-riga">
+                <div id="ord-riga-${htmlEsc(k)}" role="button" tabindex="0" aria-expanded="${aperto}" onclick="toggleDettaglioOrdine('${htmlEsc(k)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); toggleDettaglioOrdine('${htmlEsc(k)}');}" title="Clicca per i dettagli"
+                    style="display:grid; grid-template-columns:44px minmax(160px, 2fr) minmax(140px, 1.6fr) 210px 130px; gap:12px; align-items:center; padding:9px 14px; border-bottom:1px solid #263142; cursor:pointer;">
+                    <span style="font-weight:800; color:#94a3b8; text-align:right;">${o.qta || 1}×</span>
+                    <span style="font-weight:700; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${htmlEsc(o.desc || '')}</span>
+                    <span style="color:#94a3b8; font-size:0.84rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${htmlEsc(chi)}</span>
+                    <span style="color:${tagCol}; font-size:0.78rem; white-space:nowrap; text-align:right; overflow:hidden; text-overflow:ellipsis;" title="${htmlEsc(tag)}">${htmlEsc(tag)}</span>
+                    <span style="text-align:right;">${azione}</span>
+                </div>
+                ${dettaglio}
+            </div>`;
         }
 
         function refreshOrdini() {
@@ -3538,7 +3562,6 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 return `<button type="button" role="tab" aria-selected="${on}" onclick="setOrdTab('${k}')" style="background:transparent; border:none; border-bottom:3px solid ${on ? t.col : 'transparent'}; color:${on ? 'white' : 'var(--muted)'}; padding:9px 14px; font-size:0.92rem; font-weight:800; cursor:pointer; width:auto; min-height:44px;">${t.lbl} <span style="background:${on ? t.col : '#334155'}; color:${on ? '#0f172a' : 'white'}; border-radius:12px; padding:1px 8px; font-size:0.78rem; margin-left:4px;">${cnt[k]}</span></button>`;
             }).join('');
 
-            // filtro fornitori (solo quelli presenti nella scheda aperta)
             const nelTab = ordiniDB.filter(o => o && o.stato === currentOrdTab);
             const forniList = [...new Set(nelTab.map(o => o.fornitore).filter(Boolean))].sort();
             if (currentOrdFilter !== 'all' && !forniList.includes(currentOrdFilter)) currentOrdFilter = 'all';
@@ -3546,7 +3569,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (filterBar) filterBar.innerHTML = (currentOrdTab === 'todo' || forniList.length < 2) ? '' :
                 '<span style="font-size:0.75rem; color:var(--muted); margin-right:2px;">Fornitore:</span>' + ['all', ...forniList].map(f => {
                     const active = currentOrdFilter === f;
-                    return `<button type="button" onclick="setOrdFilter(safeDecode('${safeEncode(f)}'))" style="padding:3px 11px; border-radius:20px; border:1px solid ${active ? '#fca5a5' : 'rgba(252,165,165,0.25)'}; background:${active ? 'rgba(252,165,165,0.18)' : 'transparent'}; color:${active ? '#fca5a5' : 'var(--muted)'}; font-size:0.73rem; cursor:pointer; font-weight:${active ? 'bold' : 'normal'}; width:auto;">${f === 'all' ? 'Tutti' : htmlEsc(f)}</button>`;
+                    return `<button type="button" onclick="setOrdFilter(safeDecode('${safeEncode(f)}'))" style="padding:3px 11px; border-radius:20px; border:1px solid ${active ? '#cbd5e1' : '#334155'}; background:${active ? '#334155' : 'transparent'}; color:${active ? 'white' : 'var(--muted)'}; font-size:0.73rem; cursor:pointer; width:auto;">${f === 'all' ? 'Tutti' : htmlEsc(f)}</button>`;
                 }).join('');
 
             const lista = $('ord-lista');
@@ -3563,33 +3586,29 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             else if (currentOrdTab === 'done') rows.sort((a, b) => String(b.data_arrivo || b.data || '').localeCompare(String(a.data_arrivo || a.data || '')));
             else rows = rows.sort((a, b) => String(b.data_consegnato || '').localeCompare(String(a.data_consegnato || ''))).slice(0, 200);
 
-            const th = 'text-align:left; padding:8px 10px; font-size:0.7rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; border-bottom:2px solid #475569; white-space:nowrap;';
-            const intest = `<thead><tr style="background:#1e293b;">
-                <th style="${th} text-align:center; width:50px;">QTÀ</th><th style="${th}">RICAMBIO</th><th style="${th}">MOTO / CLIENTE</th><th style="${th}">FORNITORE</th>
-                <th style="${th}">${{ todo: 'INSERITO', doing: 'CONSEGNA', done: 'ARRIVATO', consegnato: 'CHIUSO' }[currentOrdTab]}</th><th style="${th} text-align:right;">PREZZI</th><th style="${th}"></th></tr></thead>`;
+            const link = 'background:none; border:none; color:#94a3b8; font-size:0.78rem; cursor:pointer; padding:4px 6px; text-decoration:underline; width:auto; min-height:28px;';
             let corpo = '';
             if (currentOrdTab === 'todo') {
                 const gruppi = {};
                 rows.forEach(o => { const k = o.fornitore || ''; (gruppi[k] = gruppi[k] || []).push(o); });
                 Object.keys(gruppi).sort((a, b) => (a === '') - (b === '') || a.localeCompare(b)).forEach(f => {
                     const enc = safeEncode(f);
-                    const bt = 'border-radius:7px; padding:5px 10px; cursor:pointer; font-size:0.78rem; font-weight:700; width:auto; min-height:32px;';
-                    corpo += `<tr><td colspan="7" style="padding:12px 10px 6px; background:#0f172a; border-bottom:1px solid #334155;">
-                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                            <span style="font-weight:900; color:#fca5a5; font-size:0.95rem;">🏭 ${f ? htmlEsc(f) : 'Senza fornitore'}</span>
-                            <span style="color:var(--muted); font-size:0.8rem;">(${gruppi[f].length})</span>
+                    corpo += `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:10px 14px 8px; background:#111827; border-bottom:1px solid #334155; border-top:1px solid #334155;">
+                            <span style="font-weight:800; color:white; letter-spacing:0.4px;">${f ? htmlEsc(f) : 'SENZA FORNITORE'}</span>
+                            <span style="color:var(--muted); font-size:0.8rem;">${gruppi[f].length}</span>
                             <span style="flex:1;"></span>
-                            ${f ? `<button type="button" onclick="copiaElencoFornitore('${enc}')" title="Copia l'elenco da mandare al fornitore" style="${bt} background:transparent; border:1px solid #475569; color:#cbd5e1;">📋 Copia elenco</button>` : ''}
-                            <button type="button" onclick="segnaOrdinatiFornitore('${enc}')" style="${bt} background:#1d4ed8; border:none; color:white;">🛒 Segna tutti ordinati</button>
-                        </div></td></tr>` + gruppi[f].map(_rigaOrdine).join('');
+                            ${f ? `<button type="button" onclick="copiaElencoFornitore('${enc}')" title="Copia l'elenco da mandare al fornitore" style="${link}">📋 copia elenco</button>` : ''}
+                            <button type="button" onclick="segnaOrdinatiFornitore('${enc}')" style="${link}">✓ segna tutti ordinati</button>
+                        </div>` + gruppi[f].map(_rigaOrdine).join('');
                 });
             } else {
                 corpo = rows.map(_rigaOrdine).join('');
             }
             const sopra = currentOrdTab === 'done'
-                ? `<div style="display:flex; justify-content:flex-end; margin-bottom:8px;"><button type="button" onclick="segnaTuttiConsegnati()" style="background:transparent; border:1px solid #16a34a; color:#4ade80; border-radius:7px; padding:6px 12px; cursor:pointer; font-size:0.8rem; font-weight:700; width:auto;">✅ Segna tutti consegnati (${rows.length})</button></div>`
-                : currentOrdTab === 'consegnato' ? `<div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">Ultimi ${rows.length} ricambi consegnati o montati. ⬅️ li riporta tra gli arrivati.</div>` : '';
-            lista.innerHTML = sopra + `<div style="overflow-x:auto; border:1px solid #334155; border-radius:10px;"><table style="width:100%; border-collapse:collapse; font-size:0.88rem; background:var(--card);">${intest}<tbody>${corpo}</tbody></table></div>`;
+                ? `<div style="display:flex; justify-content:flex-end; margin-bottom:6px;"><button type="button" onclick="segnaTuttiConsegnati()" style="${link}">✓ segna tutti consegnati (${rows.length})</button></div>`
+                : currentOrdTab === 'consegnato' ? `<div style="font-size:0.78rem; color:var(--muted); margin-bottom:6px;">Ultimi ${rows.length} ricambi consegnati o montati.</div>` : '';
+            lista.innerHTML = sopra + `<div style="border:1px solid #334155; border-radius:10px; background:var(--card); overflow:hidden;">${corpo}</div>
+                <div style="font-size:0.75rem; color:var(--muted); margin-top:8px;">Clicca un ricambio per vedere fornitore, prezzi, telefono, note e le altre azioni.</div>`;
         }
 
         // =====================================================================
