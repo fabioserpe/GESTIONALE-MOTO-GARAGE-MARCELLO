@@ -3457,11 +3457,21 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         const _ordAperti = new Set();
         function toggleDettaglioOrdine(id) {
             const k = String(id);
-            if (_ordAperti.has(k)) _ordAperti.delete(k); else _ordAperti.add(k);
+            const apri = !_ordAperti.has(k);
+            // una sola scheda aperta alla volta
+            [..._ordAperti].forEach(x => {
+                _ordAperti.delete(x);
+                const d = document.getElementById('ord-det-' + x);
+                if (d) d.style.display = 'none';
+                const r = document.getElementById('ord-riga-' + x);
+                if (r) r.setAttribute('aria-expanded', 'false');
+            });
+            if (!apri) return;
+            _ordAperti.add(k);
             const d = document.getElementById('ord-det-' + k);
-            if (d) d.style.display = _ordAperti.has(k) ? 'grid' : 'none';
+            if (d) d.style.display = 'grid';
             const r = document.getElementById('ord-riga-' + k);
-            if (r) r.setAttribute('aria-expanded', _ordAperti.has(k) ? 'true' : 'false');
+            if (r) r.setAttribute('aria-expanded', 'true');
         }
 
         function _rigaOrdine(o) {
@@ -3511,7 +3521,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 ? `${o.targa ? `<b>${htmlEsc(o.targa)}</b> ` : ''}${htmlEsc(o.moto || '')}${j ? '' : ' (scheda chiusa)'}${a ? ` — <span style="color:${tardiApp ? '#f87171' : 'inherit'};">📅 Appuntamento ${formattaData(a.data)} (${_quando(a.data)})${tardiApp ? ' · ⚠️ il ricambio arriva dopo' : ''}</span>` : ''}`
                 : '';
             const prezzi = [o.prezzo > 0 ? 'acquisto ' + _eur(o.prezzo) : '', o.prezzo_cliente > 0 ? 'cliente ' + _eur(o.prezzo_cliente) : ''].filter(Boolean).join(' · ');
-            const pb = 'background:transparent; border:1px solid #475569; color:#cbd5e1; border-radius:7px; padding:7px 12px; font-size:0.92rem; cursor:pointer; width:auto; min-height:38px;';
+            const pb = 'background:transparent; border:1px solid #475569; color:#cbd5e1; border-radius:8px; padding:9px 16px; font-size:1.05rem; cursor:pointer; width:auto; min-height:44px;';
             const indietro = { doing: ['todo', 'Da ordinare'], done: ['doing', 'Ordinati'], consegnato: ['done', 'Arrivati'] }[o.stato];
             const bottoni = [
                 (o.stato === 'done' && o.tel_cliente) ? `<button type="button" onclick="waOrdineArrivato(${o.id})" style="${pb} border-color:#25d366; color:#25d366;">📲 Avvisa il cliente</button>` : '',
@@ -3521,7 +3531,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 indietro ? `<button type="button" onclick="moveOrdine(${o.id}, '${indietro[0]}')" style="${pb}">⬅️ Riporta in ${indietro[1]}</button>` : '',
                 `<button type="button" onclick="deleteOrdine(${o.id})" style="${pb} border-color:rgba(239,68,68,0.5); color:#f87171;">🗑️ Elimina</button>`
             ].filter(Boolean).join('');
-            const dettaglio = `<div id="ord-det-${htmlEsc(k)}" class="ord-dettaglio" style="display:${aperto ? 'grid' : 'none'}; gap:6px; padding:12px 16px 14px 66px; background:#0f172a; border-bottom:1px solid #334155; font-size:1rem; color:#e2e8f0;">
+            const dettaglio = `<div id="ord-det-${htmlEsc(k)}" class="ord-dettaglio" style="display:${aperto ? 'grid' : 'none'}; gap:8px; padding:16px 18px 18px 66px; background:#0f172a; border-bottom:1px solid #334155; font-size:1.2rem; line-height:1.4; color:#e2e8f0;">
                 ${riga('Fornitore', htmlEsc(o.fornitore || '—') + (o.num_ordine ? ' · N° ' + htmlEsc(o.num_ordine) : ''))}
                 ${riga('Codice', o.sku ? `<span style="font-family:monospace;">${htmlEsc(o.sku)}</span>` : '')}
                 ${riga('Moto', motoDet)}

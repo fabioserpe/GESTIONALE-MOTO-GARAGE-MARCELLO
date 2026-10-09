@@ -843,7 +843,10 @@
     ok(det.style.display === 'grid' && det.textContent.includes('LARSSON') && det.innerHTML.includes('editOrdine(9101)') && det.innerHTML.includes('deleteOrdine(9101)') && det.textContent.includes('Copia elenco LARSSON'), 'Clic sulla riga: dettaglio con fornitore, pulsanti e "Copia elenco" del fornitore');
     refreshOrdini();
     ok(document.getElementById('ord-det-9101').style.display === 'grid', 'Il dettaglio aperto resta aperto quando la pagina si aggiorna');
-    toggleDettaglioOrdine('9101');
+    toggleDettaglioOrdine('9102');
+    ok(document.getElementById('ord-det-9102').style.display === 'grid' && document.getElementById('ord-det-9101').style.display === 'none', 'Aprendo un altro ricambio, quello aperto prima si chiude');
+    toggleDettaglioOrdine('9102');
+    ok(document.getElementById('ord-det-9102').style.display === 'none', 'Ricliccando si richiude');
     ok(/acquisto € 29,85/.test(t) && /cliente € 45,52/.test(t), 'Prezzi con scritto "acquisto" e "cliente"');
     ok(/⏳ da \d+ mesi/.test(t), 'Ricambio da ordinare da mesi: segnalato');
     ok(righe().some(r => r.textContent.includes('RG20010') && r.textContent.includes('HONDA TRANSALP')), 'Riga con la moto collegata');
