@@ -108,3 +108,4 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | v154 | Ordini: una riga corta per ricambio, dettagli e azioni secondarie al clic ("troppe informazioni") |
 | v155 | Ordini: tolti i gruppi per fornitore, nome e moto in grassetto e in risalto, "Copia elenco" nel dettaglio |
 | v156 | Ordini: nome cliente e moto della stessa grandezza del ricambio |
+| v157 | Ordini: testo delle righe e del dettaglio più grande; i nomi lunghi vanno a capo invece di essere tagliati |

@@ -836,7 +836,7 @@
     ok(rigaHtml.includes('<b style="color:white;">RIGHE UGO</b>') && rigaHtml.includes('<b style="color:#fbbf24;">HONDA TRANSALP</b>'), 'Nome del cliente e moto in grassetto e in risalto');
     ok(!document.getElementById('ord-riga-9101').textContent.includes('LARSSON'), 'Il fornitore non compare sulla riga');
     const rigaLeva = document.getElementById('ord-riga-9101');
-    ok(rigaLeva && rigaLeva.getBoundingClientRect().height < 60, 'Riga corta: un ricambio su una sola riga (' + (rigaLeva && Math.round(rigaLeva.getBoundingClientRect().height)) + ' px)');
+    ok(rigaLeva && rigaLeva.getBoundingClientRect().height < 75, 'Riga corta: un ricambio su una sola riga (' + (rigaLeva && Math.round(rigaLeva.getBoundingClientRect().height)) + ' px)');
     const det = document.getElementById('ord-det-9101');
     ok(det && det.style.display === 'none' && rigaLeva.querySelectorAll('button').length === 1, 'Dettagli nascosti e un solo pulsante sulla riga');
     toggleDettaglioOrdine('9101');
