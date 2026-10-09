@@ -540,7 +540,7 @@
     let o = ordine('KIT CATENA');
     ok(o && String(o.jobId) === '1002' && o.targa === 'CD67890' && o.moto === 'YAMAHA MT07' && o.stato === 'todo' && o.data === oggi, 'Ordine salvato e collegato alla moto CD67890');
     switchView('ordini'); await attendi(50);
-    ok(document.getElementById('view-ordini').textContent.includes('Per la moto'), 'Scheda dell\'ordine: indica la moto collegata');
+    ok([...document.querySelectorAll('#ord-lista .ord-riga')].some(r => r.textContent.includes('KIT CATENA') && r.textContent.includes('CD67890') && r.textContent.includes('YAMAHA MT07')), 'Elenco ordini: la riga indica la moto collegata');
     switchView('board'); await attendi(350);
     const cardB = () => [...document.querySelectorAll('#view-board .card-compact')].find(c => c.textContent.includes('CD67890'));
     ok(cardB() && cardB().textContent.includes('Attesa ricambi'), 'Bacheca: la moto mostra "Attesa ricambi"');
@@ -808,6 +808,66 @@
       ok(window.__errori.length === err0, 'Nessun errore JavaScript usando i pulsanti' + (window.__errori.length > err0 ? ': ' + window.__errori.slice(err0).join(' | ') : ''));
     } finally { window.open = origOpen; window.print = origPrint; }
     setPrevTab('aperti');
+    switchView('board');
+  });
+
+  await passo('Ordini ricambi: elenco a righe', async () => {
+    fb.scritturaRemota({
+      'db/-Nord1': { id: 2001, data: oggi, cognome: 'RIGHE', nome: 'UGO', tel: '3401010101', marca: 'HONDA', modello: 'TRANSALP', targa: 'RG20010', stato: 'doing', lavori_richiesti: 'FRENI', conto: [], totale_lordo: 0, clientId: 'c-righe' },
+      'ordini': [
+        { id: 9101, desc: 'LEVA FRENO', fornitore: 'LARSSON', qta: 1, stato: 'todo', data: '2026-06-04', cliente: 'RIGHE UGO', jobId: 2001, targa: 'RG20010', moto: 'HONDA TRANSALP', prezzo: 29.85, prezzo_cliente: 45.52 },
+        { id: 9102, desc: 'KIT TRASMISSIONE', fornitore: 'LARSSON', qta: 2, sku: 'KT-1', stato: 'todo', data: oggi, cliente: 'BIANCHI', moto: 'BMW R 1200 RT' },
+        { id: 9103, desc: 'CINGHIA', fornitore: 'PARTS EUROPE', qta: 1, stato: 'todo', data: oggi },
+        { id: 9104, desc: 'INFO CENTRALINA', qta: 1, stato: 'todo', data: oggi },
+        { id: 9105, desc: 'DUNLOP ROADSMART', fornitore: 'PARTS EUROPE', qta: 1, stato: 'doing', data: oggi, data_consegna: '2026-01-01' },
+        { id: 9106, desc: 'INTERRUTTORE STOP', fornitore: 'LARSSON', qta: 1, stato: 'done', data: '2026-07-16', cliente: 'FARNISI', tel_cliente: '3355798871' },
+        { id: 9107, desc: 'PASTIGLIE', fornitore: 'LARSSON', qta: 1, stato: 'done', data: oggi }
+      ]
+    }, false);
+    switchView('ordini'); setOrdTab('todo'); await attendi(50);
+    const tabs = () => document.getElementById('ord-tabs').textContent.replace(/\s+/g, ' ');
+    const righe = () => [...document.querySelectorAll('#ord-lista .ord-riga')];
+    const testo = () => document.getElementById('ord-lista').textContent;
+    ok(/Da ordinare 4/.test(tabs()) && /Ordinati 1/.test(tabs()) && /Arrivati 2/.test(tabs()) && /Storico \d+/.test(tabs()), 'Schede con il numero di ricambi per stato (' + tabs() + ')');
+    ok(document.querySelectorAll('#ord-lista .ord-riga button').length > 0 && [...document.querySelectorAll('#ord-lista .ord-riga button')].every(b => b.getBoundingClientRect().width < 200), 'Pulsanti della riga di misura normale (prima la freccia occupava tutta la riga)');
+    const t = testo();
+    ok(t.indexOf('LARSSON') < t.indexOf('PARTS EUROPE') && t.indexOf('PARTS EUROPE') < t.indexOf('Senza fornitore'), 'Da ordinare diviso per fornitore, "Senza fornitore" in fondo');
+    ok(/acquisto € 29,85/.test(t) && /cliente € 45,52/.test(t), 'Prezzi con scritto "acquisto" e "cliente"');
+    ok(/⏳ da \d+ mesi/.test(t), 'Ricambio da ordinare da mesi: segnalato');
+    ok(righe().some(r => r.textContent.includes('RG20010') && r.textContent.includes('HONDA TRANSALP')), 'Riga con la moto collegata');
+    let copiato = '';
+    const origClip = navigator.clipboard;
+    try {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: x => { copiato = x; return Promise.resolve(); } } });
+      copiaElencoFornitore(safeEncode('LARSSON')); await attendi(20);
+    } finally { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: origClip }); }
+    ok(copiato.includes('LARSSON') && copiato.includes('• 1 × LEVA FRENO — per HONDA TRANSALP') && copiato.includes('• 2 × KIT TRASMISSIONE (cod. KT-1)') && !copiato.includes('CINGHIA') && !copiato.includes('RIGHE'), 'Copia elenco: solo i ricambi del fornitore, con codice e moto, senza nomi dei clienti');
+    segnaOrdinatiFornitore(safeEncode('LARSSON'));
+    const leggi = id => Object.values(fb.leggi('ordini') || {}).find(o => o.id === id);
+    ok(leggi(9101).stato === 'doing' && leggi(9102).stato === 'doing' && leggi(9101).data_ordinato === oggi && leggi(9103).stato === 'todo', 'Segna tutti ordinati: solo quelli del fornitore, con la data dell\'ordine');
+    campo('ord-cerca', 'cinghia'); refreshOrdini();
+    ok(righe().length === 1 && testo().includes('CINGHIA'), 'Ricerca: trova il ricambio');
+    campo('ord-cerca', ''); setOrdTab('doing');
+    ok(/in ritardo dal 01\/01\/2026/.test(testo()) && testo().indexOf('DUNLOP') < testo().indexOf('LEVA FRENO'), 'Ordinati: prima quelli in ritardo, con l\'avviso');
+    moveOrdine(9101, 'done');
+    ok(leggi(9101).data_arrivo === oggi, 'Arrivato: data di arrivo registrata');
+    setOrdTab('done');
+    ok(righe().some(r => r.textContent.includes('INTERRUTTORE STOP') && r.innerHTML.includes('waOrdineArrivato(9106)')), 'Arrivati: pulsante WhatsApp per avvisare il cliente');
+    consegnaOrdine(9106);
+    ok(leggi(9106).stato === 'consegnato' && leggi(9106).data_consegnato === oggi, 'Consegnato: va nello Storico con la data');
+    let r = recordDi('db', 2001);
+    ok(leggi(9101).stato === 'done', 'Leva freno arrivata, moto ancora sul ponte: resta tra gli Arrivati');
+    switchView('board'); moveStatus(2001, 'done'); await attendi(50);
+    ok(leggi(9101).stato === 'consegnato' && leggi(9101).consegnato_auto === true, 'Moto pronta: i suoi ricambi arrivati passano da soli nello Storico');
+    switchView('ordini'); setOrdTab('consegnato');
+    ok(testo().includes('LEVA FRENO') && /chiuso con la moto il/.test(testo()), 'Storico: indica i ricambi chiusi insieme alla moto');
+    moveOrdine(9106, 'done');
+    ok(leggi(9106).stato === 'done' && !leggi(9106).data_consegnato, '⬅️ dallo Storico: torna tra gli Arrivati');
+    setOrdTab('done');
+    segnaTuttiConsegnati();
+    ok(Object.values(fb.leggi('ordini') || {}).filter(o => o.stato === 'done').length === 0, 'Segna tutti consegnati: Arrivati svuotato');
+    ok(_badgeRicambi(2001, null).includes('Ricambi arrivati'), 'Ricambio consegnato conta come arrivato sulla scheda della moto');
+    setOrdTab('todo');
     switchView('board');
   });
 
