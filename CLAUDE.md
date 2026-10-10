@@ -32,6 +32,7 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 - `fake-firebase.js`: finto Firebase v8 (auth + database) con la stessa semantica del vero: array salvati con chiavi numeriche, `null` cancella, eventi sincroni, `once`, `push`. Espone `window.__fb` (scritture, `leggi(path)`, `setConnesso`, `scritturaRemota` per simulare un altro dispositivo).
 - `dati-iniziali.js`: dati finti di partenza. `scenari.js`: le prove (oltre 130), raggruppate con `passo('nome', async () => …)`.
 - Il test aspetta che tutti i listener siano registrati: se aggiungi un `database.ref('/nuovo').on('value')`, aggiorna il numero (oggi **15**) in `scenari.js`.
+- Il passo "Tutte le schermate" controlla anche che ogni pagina stia dentro `.main-content` e si veda davvero sullo schermo: dopo modifiche all'HTML delle viste non fidarti solo dell'assenza di errori. Attenzione alle ricerche di `'        </div>'`: la stringa è contenuta anche nelle righe più rientrate.
 - Per vedere una schermata: genera la pagina come fa `collauda.sh` e usa Chrome headless con `--screenshot`. Per i PDF generati: `sips -s format png file.pdf --out file.png`.
 - Node non è installato; per JS isolato c'è `/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc`.
 
@@ -110,3 +111,4 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | v156 | Ordini: nome cliente e moto della stessa grandezza del ricambio |
 | v157 | Ordini: testo delle righe e del dettaglio più grande; i nomi lunghi vanno a capo invece di essere tagliati |
 | v158 | Ordini: dettaglio ancora più grande; un solo ricambio aperto alla volta |
+| v159 | Fix urgente: un `</div>` di troppo lasciato in v153 chiudeva il contenitore principale → 15 pagine (Nuova, Anagrafica, Preventivi, Magazzino, Lavori Lunghi, Incidentate…) fuori dallo schermo, "schermo nero". Aggiunte prove di struttura e visibilità |

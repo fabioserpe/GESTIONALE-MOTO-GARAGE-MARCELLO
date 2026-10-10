@@ -206,6 +206,15 @@
       if (window.__errori.length > e0) conErrori.push(v + ': ' + window.__errori.slice(e0).join(' | '));
     }
     ok(conErrori.length === 0, 'Tutte le 19 schermate si aprono senza errori' + (conErrori.length ? ' → ' + conErrori.join(' ; ') : ''));
+    const fuori = [...document.querySelectorAll('[id^="view-"]')].filter(el => !el.parentElement.classList.contains('main-content')).map(el => el.id);
+    ok(fuori.length === 0, 'Struttura: tutte le pagine stanno dentro il contenitore principale' + (fuori.length ? ' → fuori: ' + fuori.join(', ') : ''));
+    const nere = [];
+    for (const v of viste) {
+      switchView(v); await attendi(60);
+      const r = document.getElementById('view-' + v).getBoundingClientRect();
+      if (!(r.top < window.innerHeight && r.bottom > 0 && r.height > 0)) nere.push(v + ' (inizia a ' + Math.round(r.top) + 'px)');
+    }
+    ok(nere.length === 0, 'Ogni pagina aperta si vede sullo schermo (niente schermo nero)' + (nere.length ? ' → non visibili: ' + nere.join(', ') : ''));
     switchView('board');
   });
 
