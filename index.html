@@ -1151,6 +1151,9 @@
                 <button onclick="apriRiordino()" title="Aggiungi alla lista da ordinare gli articoli esauriti o sotto la scorta minima" style="display:flex; align-items:center; gap:6px; background:rgba(245,158,11,0.1); border:1px solid var(--warning); color:var(--warning); border-radius:8px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap;">
                     🔁 Riordina sotto scorta <span id="mag-riordina-badge" style="background:#d97706; color:white; border-radius:20px; padding:1px 7px; font-size:0.72rem; display:none;"></span>
                 </button>
+                <button type="button" id="mag-btn-ordini-abb" onclick="toggleOrdiniAbb()" title="Ordini ai fornitori in arrivo: quando arrivano si caricano in magazzino" style="display:none; align-items:center; gap:6px; background:rgba(59,130,246,0.1); border:1px solid var(--info); color:var(--info); border-radius:8px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; white-space:nowrap; width:auto; margin:0;">
+                    🚚 Ordini futuri <span id="oa-badge" style="background:var(--info); color:white; border-radius:20px; padding:1px 7px; font-size:0.72rem; display:none;"></span>
+                </button>
                 <button onclick="toggleMagForm()" style="display:flex; align-items:center; gap:6px; background:rgba(239,68,68,0.1); border:1px solid var(--accent); color:var(--accent); border-radius:8px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap;">
                     ➕ Aggiungi Articolo
                 </button>
@@ -1215,6 +1218,15 @@
                     </form>
                     <div id="lo-list"></div>
                 </div>
+            </div>
+
+            <!-- Ordini futuri abbigliamento e caschi (chiuso per default, solo nella scheda Abbigliamento) -->
+            <div class="card mb-14" id="oa-card" style="border-top:3px solid var(--info); display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+                    <h3 style="color:var(--info); margin:0; font-size:1rem; font-weight:800;">🚚 Ordini futuri — Abbigliamento e Caschi</h3>
+                    <button type="button" class="btn btn-info w-auto" onclick="apriOrdineAbb()" style="margin:0;">✚ Nuovo ordine</button>
+                </div>
+                <div id="oa-lista"></div>
             </div>
 
             <!-- Form aggiunta articolo — modal overlay -->
@@ -1791,6 +1803,58 @@
         </div>
     </div>
 
+    <div id="modal-ordine-abb" class="modal hidden no-print">
+        <div class="modal-content" style="width:min(1150px, 96vw); max-height:94vh; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 id="oa-titolo" style="margin:0; color:var(--info);">🚚 Nuovo ordine al fornitore</h2>
+                <button type="button" onclick="closeModal('modal-ordine-abb')" aria-label="Chiudi" style="background:none; border:none; color:var(--muted); font-size:1.8rem; cursor:pointer; line-height:1; width:auto;">×</button>
+            </div>
+            <div class="mob-form-grid" style="display:grid; grid-template-columns:2fr 1fr 1fr 2fr; gap:10px; align-items:end;">
+                <div><label>Fornitore *</label><input type="text" id="oa-fornitore" list="oa-lista-fornitori" placeholder="Es. GARI" style="margin:0;"><datalist id="oa-lista-fornitori"></datalist></div>
+                <div><label>Data ordine</label><input type="date" id="oa-data" style="margin:0;"></div>
+                <div><label>Arrivo previsto</label><input type="date" id="oa-prevista" style="margin:0;"></div>
+                <div><label>Note</label><input type="text" id="oa-note" placeholder="Es. pre-ordine stagione estiva" style="margin:0;"></div>
+            </div>
+            <div style="margin-top:16px; padding:14px; border:1px solid #334155; border-radius:10px; background:rgba(0,0,0,0.15);">
+                <div style="font-weight:800; color:white; margin-bottom:10px;">✚ Aggiungi un modello <span style="color:var(--muted); font-weight:400; font-size:0.85rem;">— scrivi i pezzi sotto ogni taglia</span></div>
+                <div class="mob-form-grid" style="display:grid; grid-template-columns:140px 2fr 1fr 160px 1.6fr 100px 100px; gap:10px; align-items:end;">
+                    <div><label>SKU *</label><input type="text" id="oa-sku" placeholder="GH9069" onchange="_datiModelloOa()" style="margin:0;"></div>
+                    <div><label>Descrizione *</label><input type="text" id="oa-nome" list="mag-lista-nomi" placeholder="G21 SUNVISOR" style="margin:0;"></div>
+                    <div><label>Marca</label><input type="text" id="oa-marca" list="mag-lista-marche" placeholder="GARI" style="margin:0;"></div>
+                    <div><label>Categoria</label><select id="oa-categoria" style="margin:0;"><option value="CASCHI">🪖 Caschi</option><option value="ABBIGLIAMENTO">👕 Abbigliamento</option></select></div>
+                    <div><label>Colore</label><input type="text" id="oa-colore" list="mag-lista-colori" placeholder="Nero opaco" style="margin:0;"></div>
+                    <div><label>Pr. Acq. €</label><input type="number" id="oa-prezzo" step="0.01" min="0" placeholder="0.00" style="margin:0; text-align:right;"></div>
+                    <div><label>Pr. Pubb. €</label><input type="number" id="oa-prezzo-pubblico" step="0.01" min="0" placeholder="0.00" style="margin:0; text-align:right;"></div>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:14px;">
+                    <label for="oa-set" style="margin:0;">Taglie</label>
+                    <select id="oa-set" onchange="cambiaSetTaglieAbb(this.value)" style="margin:0; width:auto;">
+                        <option value="lettere">Lettere (XS…4XL)</option>
+                        <option value="giacche">Giacche e pantaloni (44…60)</option>
+                        <option value="stivali">Stivali e scarpe (38…47)</option>
+                        <option value="guanti">Guanti (6…12)</option>
+                    </select>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; margin-top:10px;">
+                    <div id="oa-griglia" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+                    <div style="display:flex; align-items:flex-end; gap:6px;">
+                        <label style="display:flex; flex-direction:column; gap:4px; margin:0;"><span style="font-size:0.8rem;">Altra taglia</span><input type="text" id="oa-altra-taglia" placeholder="es. 62" oninput="_totaleGrigliaAbb()" style="width:84px; margin:0; text-align:center;"></label>
+                        <label style="display:flex; flex-direction:column; gap:4px; margin:0;"><span style="font-size:0.8rem;">Pezzi</span><input type="number" min="0" step="1" id="oa-altra-qta" oninput="_totaleGrigliaAbb()" style="width:66px; margin:0; text-align:center;"></label>
+                    </div>
+                    <span id="oa-tot-pz" style="font-weight:900; color:var(--warning); font-size:1.15rem; margin-left:auto;">0 pz</span>
+                    <button type="button" class="btn btn-info w-auto" onclick="aggiungiRigheOrdineAbb()" style="margin:0;">✚ Aggiungi all'ordine</button>
+                    <button type="button" class="btn btn-dark w-auto" onclick="svuotaRigaOrdineAbb()" title="Svuota i campi del modello" style="margin:0;">🧹</button>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;"><b style="color:white; font-size:1rem;">Nell'ordine</b><span id="oa-righe-tot" style="color:var(--warning); font-weight:800;"></span></div>
+            <div id="oa-righe"></div>
+            <div class="flex-row mt-15">
+                <button type="button" class="btn btn-dark" onclick="closeModal('modal-ordine-abb')" style="flex:1;">Annulla</button>
+                <button type="button" class="btn btn-info" onclick="salvaOrdineAbb()" style="flex:2; font-weight:800;">💾 Salva ordine</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-anagrafica" class="modal hidden no-print">
         <div class="modal-content" style="max-width:680px;">
             <h2 style="color:var(--accent);" class="mb-20">Modifica Dati Cliente e Veicoli</h2>
@@ -2323,6 +2387,13 @@
                 if (_invio && $('ip_perito')) { _popolaSelectPeriti('ip_perito', $('ip_perito').value); aggiornaInvioPerito(); }
             });
 
+            database.ref('/ordini_abb').on('value', (snap) => {
+                _segnaCaricato('ordini_abb');
+                ordiniAbbDB = _leggiOrdiniAbb(snap.val());
+                aggiornaBadgeOrdiniAbb();
+                if (currentView === 'magazzino') refreshOrdiniAbb();
+            });
+
             database.ref('/libretti_info').on('value', (snap) => {
                 _segnaCaricato('libretti_info');
                 librettiInfo = snap.val() || {};
@@ -2681,6 +2752,7 @@
                 const arrow = $('mag-inv-arrow'); if (arrow) arrow.textContent = '▼';
                 initMagazzino();
                 refreshListaOrdini();
+                refreshOrdiniAbb();
             }
             chiudiTuttiMenuBoard();
             ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-incidentate', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa', 'view-usate'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
@@ -6777,10 +6849,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const id = ['A', _up(sku), _up(taglia), _up(colore)].join('|');
             return !!_up(sku) && inventarioMag.some(i => isMagAbb(i) && _idMag(i) === id);
         }
-        function _chiaveVarianteMag(sku, taglia, colore) {
+        function _chiaveVarianteMag(sku, taglia, colore, usate) {
             const base = [_up(sku).replace(/[.#$\[\]\/]/g, '-') || 'ART', _skuTaglia(taglia), _skuTaglia(colore)].filter(Boolean).join('-');
             let k = base, n = 2;
-            while (inventarioMag.some(i => i.codice === k)) k = base + '-' + n++;
+            while (inventarioMag.some(i => i.codice === k) || (usate && usate.has(k))) k = base + '-' + n++;
+            if (usate) usate.add(k);
             return k;
         }
         function _nelRepartoMag(item) { return isMagAbb(item) === (magReparto === 'abbigliamento'); }
@@ -6796,6 +6869,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         // Stesso modello insieme, taglie in ordine (S, M, L, XL…)
         function _confrontaAbb(a, b) { return String(a.nome || '').localeCompare(String(b.nome || '')) || String(a.colore || '').localeCompare(String(b.colore || '')) || (_ordineTaglia(a.taglia) - _ordineTaglia(b.taglia)) || String(a.codice || '').localeCompare(String(b.codice || '')); }
         function _renderRepartiMag(n) {
+            const bOa = $('mag-btn-ordini-abb'); if (bOa) bOa.style.display = magReparto === 'abbigliamento' ? 'flex' : 'none';
+            const cOa = $('oa-card'); if (cOa && magReparto !== 'abbigliamento') cOa.style.display = 'none';
             const el = $('mag-reparti');
             if (!el) return;
             el.innerHTML = Object.entries(MAG_REP).map(([k, t]) => {
@@ -7296,6 +7371,282 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (card) card.style.display = 'block';
             refreshListaOrdini();
             mostraToast(`📋 ${aggiunti} articol${aggiunti === 1 ? 'o aggiunto' : 'i aggiunti'} alla lista da ordinare`);
+        }
+
+        // =====================================================================
+        // ORDINI FUTURI ABBIGLIAMENTO E CASCHI (/ordini_abb): ordini ai fornitori; all'arrivo caricano il magazzino
+        // Ordine: { id, fornitore, data_ordine, data_prevista, note, stato: 'aperto'|'arrivato', data_arrivo,
+        //           righe: [{ id, sku, nome, marca, categoria, colore, taglia, qta, prezzo, prezzo_pubblico, arrivata, data_arrivo }] }
+        // =====================================================================
+        let ordiniAbbDB = [];
+        let _oaEdit = null;   // copia dell'ordine aperto nella finestra: { id, righe }
+        let _oaSet = 'lettere';
+        const OA_SET_TAGLIE = {
+            lettere: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL'],
+            giacche: ['44', '46', '48', '50', '52', '54', '56', '58', '60'],
+            stivali: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
+            guanti: ['6', '7', '8', '9', '10', '11', '12']
+        };
+        const _OA_CHIP = 'border-radius:14px; padding:4px 11px; font-weight:800; font-size:0.92rem; white-space:nowrap; width:auto; margin:0;';
+        const _OA_CHIP_OK = `background:rgba(34,197,94,0.15); border:1px solid var(--success); color:var(--success); ${_OA_CHIP}`;
+
+        function _leggiOrdiniAbb(v) {
+            return Object.values(v || {}).filter(o => o && typeof o === 'object')
+                .map(o => ({ ...o, righe: Object.values(o.righe || {}).filter(r => r && typeof r === 'object') }));
+        }
+        function saveOrdiniAbb() {
+            if (!_puoSalvare('ordini_abb')) return;
+            database.ref('/').update({ ordini_abb: JSON.parse(JSON.stringify(ordiniAbbDB)) }).then(showCloudCheck).catch(_onSaveError);
+        }
+        function _ordineAbb(oid) { return ordiniAbbDB.find(x => String(x.id) === String(oid)); }
+        function _pezziAbb(righe) { return righe.reduce((s, r) => s + (parseInt(r.qta) || 0), 0); }
+        // Righe raggruppate per modello e colore, taglie in ordine
+        function _gruppiRigheAbb(righe) {
+            const g = new Map();
+            righe.forEach(r => { const k = [_up(r.sku), _up(r.nome), _up(r.colore)].join('|'); if (!g.has(k)) g.set(k, []); g.get(k).push(r); });
+            return [...g.values()].map(rr => rr.sort((a, b) => (_ordineTaglia(a.taglia) - _ordineTaglia(b.taglia)) || String(a.taglia || '').localeCompare(String(b.taglia || ''))));
+        }
+        function aggiornaBadgeOrdiniAbb() {
+            const b = $('oa-badge');
+            if (!b) return;
+            const n = ordiniAbbDB.filter(o => o.stato !== 'arrivato').length;
+            b.textContent = n;
+            b.style.display = n ? 'inline' : 'none';
+        }
+        function toggleOrdiniAbb() {
+            const c = $('oa-card');
+            if (!c) return;
+            const apri = c.style.display === 'none';
+            c.style.display = apri ? 'block' : 'none';
+            if (apri) refreshOrdiniAbb();
+        }
+        function refreshOrdiniAbb() {
+            aggiornaBadgeOrdiniAbb();
+            const el = $('oa-lista');
+            if (!el) return;
+            const aperti = ordiniAbbDB.filter(o => o.stato !== 'arrivato').sort((a, b) => String(a.data_prevista || '9999').localeCompare(String(b.data_prevista || '9999')));
+            const arrivati = ordiniAbbDB.filter(o => o.stato === 'arrivato').sort((a, b) => String(b.data_arrivo || '').localeCompare(String(a.data_arrivo || '')));
+            el.innerHTML = (aperti.length ? aperti.map(_bloccoOrdineAbb).join('')
+                    : '<p style="color:var(--muted); text-align:center; padding:10px 0; margin:0;">Nessun ordine in arrivo. Premi "✚ Nuovo ordine" per inserirne uno.</p>')
+                + (arrivati.length ? `<details id="oa-storico" style="margin-top:12px;"><summary style="cursor:pointer; color:var(--muted); font-size:0.9rem; font-weight:700;">Ordini arrivati (${arrivati.length})</summary>
+                    ${arrivati.slice(0, 30).map(o => `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:7px 4px; border-bottom:1px solid #334155; font-size:0.9rem;">
+                        <span><b style="color:white;">${htmlEsc(o.fornitore)}</b> <span style="color:var(--muted);">· arrivato il ${formattaData(o.data_arrivo)} · ${_pezziAbb(o.righe)} pz</span></span>
+                        <button type="button" onclick="eliminaOrdineAbb('${o.id}')" title="Togli dallo storico (il magazzino non cambia)" style="background:none; border:none; color:var(--muted); cursor:pointer; width:auto; margin:0;">🗑️</button>
+                    </div>`).join('')}</details>` : '');
+        }
+        function _bloccoOrdineAbb(o) {
+            const ritardo = !!o.data_prevista && o.data_prevista < getOggiLocale();
+            const attesa = _pezziAbb(o.righe.filter(r => !r.arrivata));
+            const tot = o.righe.reduce((s, r) => s + (parseFloat(r.prezzo) || 0) * (parseInt(r.qta) || 0), 0);
+            const gruppi = _gruppiRigheAbb(o.righe).map(rr => {
+                const r0 = rr[0], pend = rr.filter(r => !r.arrivata);
+                return `<div class="oa-gruppo" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 0; border-top:1px dashed #334155; font-size:1rem;">
+                    <span style="font-family:monospace; font-weight:800; color:var(--muted);">${htmlEsc(r0.sku)}</span>
+                    <b style="color:white;">${htmlEsc(r0.nome)}</b>
+                    ${r0.colore ? `<b style="color:#fbbf24;">${htmlEsc(r0.colore)}</b>` : ''}
+                    <span style="display:flex; flex-wrap:wrap; gap:6px; margin-left:auto;">
+                        ${rr.map(r => r.arrivata
+                            ? `<span title="Arrivato il ${formattaData(r.data_arrivo)}" style="${_OA_CHIP_OK}">✓ ${htmlEsc(r.taglia || '—')} ×${r.qta}</span>`
+                            : `<button type="button" class="oa-chip" onclick="arrivoRigheAbb('${o.id}','${r.id}')" title="Arrivata: carica in magazzino" style="background:#0f172a; border:1px solid var(--info); color:white; cursor:pointer; ${_OA_CHIP}">${htmlEsc(r.taglia || '—')} ×${r.qta}</button>`).join('')}
+                        ${pend.length > 1 ? `<button type="button" onclick="arrivoRigheAbb('${o.id}','${pend.map(r => r.id).join(',')}')" title="Arrivate tutte le taglie di questo modello" style="background:transparent; border:1px dashed var(--success); color:var(--success); cursor:pointer; ${_OA_CHIP}">📥 tutte</button>` : ''}
+                    </span>
+                </div>`;
+            }).join('');
+            return `<div class="oa-ordine" data-id="${o.id}" style="border:1px solid #334155; border-left:4px solid ${ritardo ? 'var(--accent)' : 'var(--info)'}; border-radius:10px; padding:12px 14px; margin-bottom:10px; background:rgba(0,0,0,0.15);">
+                <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; font-size:1rem;">
+                        <b style="color:white; font-size:1.1rem;">${htmlEsc(o.fornitore)}</b>
+                        <span style="color:var(--muted);">ordinato ${formattaData(o.data_ordine) || '—'}</span>
+                        <span class="oa-arrivo" style="color:${ritardo ? 'var(--accent)' : 'var(--warning)'}; font-weight:800;">${o.data_prevista ? (ritardo ? '⏰ doveva arrivare il ' : 'arrivo previsto ') + formattaData(o.data_prevista) : 'arrivo da definire'}</span>
+                        <span style="background:#334155; color:white; border-radius:12px; padding:2px 10px; font-size:0.85rem; font-weight:800;">${attesa} pz in arrivo</span>
+                        ${tot > 0 ? `<span style="color:var(--muted); font-size:0.88rem;">€ ${tot.toLocaleString('it-IT', { minimumFractionDigits: 2 })}</span>` : ''}
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn btn-success w-auto" onclick="arrivoTuttoAbb('${o.id}')" style="margin:0;">📥 Arrivato tutto</button>
+                        <button type="button" class="btn btn-dark w-auto" onclick="apriOrdineAbb('${o.id}')" title="Modifica l'ordine" style="margin:0;">✏️</button>
+                        <button type="button" class="btn btn-dark w-auto" onclick="eliminaOrdineAbb('${o.id}')" title="Elimina l'ordine" style="margin:0;">🗑️</button>
+                    </div>
+                </div>
+                ${o.note ? `<div style="color:var(--muted); font-size:0.88rem; margin-top:6px;">📝 ${htmlEsc(o.note)}</div>` : ''}
+                <div style="margin-top:8px;">${gruppi}</div>
+            </div>`;
+        }
+
+        // Arrivo: le righe scelte entrano in magazzino (stessa variante SKU + taglia + colore → si somma, altrimenti articolo nuovo)
+        function arrivoTuttoAbb(oid) {
+            const o = _ordineAbb(oid);
+            if (!o) return;
+            const pend = o.righe.filter(r => !r.arrivata);
+            if (pend.length) arrivoRigheAbb(oid, pend.map(r => r.id).join(','));
+        }
+        async function arrivoRigheAbb(oid, ids) {
+            const o = _ordineAbb(oid);
+            if (!o) return;
+            const scelte = new Set(String(ids).split(','));
+            const righe = o.righe.filter(r => !r.arrivata && scelte.has(String(r.id)));
+            if (!righe.length) return;
+            const pz = _pezziAbb(righe);
+            const elenco = _gruppiRigheAbb(righe).map(rr => `${rr[0].nome}${rr[0].colore ? ' ' + rr[0].colore : ''}: ${rr.map(r => (r.taglia || '—') + ' ×' + r.qta).join(', ')}`).join('\n');
+            if (!confirm(`Arrivati da ${o.fornitore} ${pz} pezzi?\n\n${elenco}\n\nVengono aggiunti al magazzino.`)) return;
+            if (!_puoSalvare('ordini_abb', 'magazzino')) return;
+            const oggi = getOggiLocale(), updates = {}, toccati = new Map(), usate = new Set();
+            righe.forEach(r => {
+                const id = ['A', _up(r.sku), _up(r.taglia), _up(r.colore)].join('|');
+                let art = toccati.get(id) || inventarioMag.find(i => isMagAbb(i) && _idMag(i) === id);
+                if (art) {
+                    art = { ...art, giacenza: (parseInt(art.giacenza) || 0) + (parseInt(r.qta) || 0) };
+                    if (!(parseFloat(art.prezzo) > 0) && r.prezzo > 0) art.prezzo = r.prezzo;
+                    if (!(parseFloat(art.prezzo_pubblico) > 0) && r.prezzo_pubblico > 0) art.prezzo_pubblico = r.prezzo_pubblico;
+                } else {
+                    const codice = _chiaveVarianteMag(r.sku, r.taglia, r.colore, usate);
+                    art = { codice, sku: _up(r.sku), nome: _up(r.nome), marca: _up(r.marca), categoria: MAG_CAT_ABB.includes(r.categoria) ? r.categoria : 'ABBIGLIAMENTO', taglia: _up(r.taglia), colore: _up(r.colore),
+                        giacenza: parseInt(r.qta) || 0, prezzo: parseFloat(r.prezzo) || 0, prezzo_pubblico: parseFloat(r.prezzo_pubblico) || 0 };
+                }
+                toccati.set(id, art);
+                updates['magazzino/' + art.codice] = art;
+                categorieAperteMag.add(art.categoria);
+                r.arrivata = true;
+                r.data_arrivo = oggi;
+            });
+            if (o.righe.every(r => r.arrivata)) { o.stato = 'arrivato'; o.data_arrivo = oggi; }
+            updates.ordini_abb = ordiniAbbDB;
+            refreshOrdiniAbb();
+            await database.ref('/').update(JSON.parse(JSON.stringify(updates))).then(showCloudCheck).catch(_onSaveError);
+            mostraToast(`📥 ${pz} pezzi caricati in magazzino${o.stato === 'arrivato' ? ' — ordine ' + o.fornitore + ' completato' : ''}`);
+        }
+        function eliminaOrdineAbb(oid) {
+            const o = _ordineAbb(oid);
+            if (!o) return;
+            const msg = o.stato === 'arrivato' ? `Togliere l'ordine ${o.fornitore} dallo storico?\nIl magazzino non cambia.`
+                : `Eliminare l'ordine ${o.fornitore}?` + (o.righe.some(r => r.arrivata) ? '\nI pezzi già arrivati restano in magazzino.' : '');
+            if (!confirm(msg) || !_puoSalvare('ordini_abb')) return;
+            ordiniAbbDB = ordiniAbbDB.filter(x => x !== o);
+            saveOrdiniAbb();
+            refreshOrdiniAbb();
+        }
+
+        // Finestra nuovo ordine / modifica
+        function apriOrdineAbb(oid) {
+            const o = oid != null ? _ordineAbb(oid) : null;
+            _oaEdit = { id: o ? o.id : null, righe: o ? JSON.parse(JSON.stringify(o.righe)) : [] };
+            $('oa-titolo').textContent = o ? '✏️ Ordine ' + o.fornitore : '🚚 Nuovo ordine al fornitore';
+            $('oa-fornitore').value = o ? (o.fornitore || '') : '';
+            $('oa-data').value = o ? (o.data_ordine || '') : getOggiLocale();
+            $('oa-prevista').value = o ? (o.data_prevista || '') : '';
+            $('oa-note').value = o ? (o.note || '') : '';
+            const dl = $('oa-lista-fornitori');
+            if (dl) dl.innerHTML = [...new Set(ordiniAbbDB.map(x => x.fornitore).filter(Boolean))].sort().map(f => `<option value="${htmlEsc(f)}">`).join('');
+            svuotaRigaOrdineAbb(true);
+            _renderRigheOrdineAbb();
+            openModal('modal-ordine-abb');
+            setTimeout(() => { const f = $(o ? 'oa-sku' : 'oa-fornitore'); if (f) f.focus(); }, 50);
+        }
+        function cambiaSetTaglieAbb(v) {
+            _oaSet = OA_SET_TAGLIE[v] ? v : 'lettere';
+            const s = $('oa-set'); if (s) s.value = _oaSet;
+            _renderGrigliaAbb();
+        }
+        function _renderGrigliaAbb() {
+            const g = $('oa-griglia');
+            if (!g) return;
+            const prima = {};
+            g.querySelectorAll('.oa-q').forEach(i => { if (i.value) prima[i.dataset.taglia] = i.value; });
+            g.innerHTML = OA_SET_TAGLIE[_oaSet].map(t => `<label style="display:flex; flex-direction:column; align-items:center; gap:4px; margin:0;">
+                <span style="font-weight:800; color:white; font-size:0.95rem;">${t}</span>
+                <input type="number" min="0" step="1" class="oa-q" data-taglia="${t}" value="${prima[t] || ''}" oninput="_totaleGrigliaAbb()" aria-label="Pezzi taglia ${t}" style="width:62px; text-align:center; margin:0; padding:8px 4px; font-size:1rem; font-weight:800;">
+            </label>`).join('');
+            _totaleGrigliaAbb();
+        }
+        function _quantitaGrigliaAbb() {
+            const q = [...document.querySelectorAll('#oa-griglia .oa-q')].map(i => [i.dataset.taglia, parseInt(i.value) || 0]);
+            const altra = _up(($('oa-altra-taglia') || {}).value), qa = parseInt(($('oa-altra-qta') || {}).value) || 0;
+            if (altra && qa > 0) q.push([altra, qa]);
+            return q.filter(([, n]) => n > 0);
+        }
+        function _totaleGrigliaAbb() {
+            const t = $('oa-tot-pz');
+            if (t) t.textContent = _quantitaGrigliaAbb().reduce((s, [, n]) => s + n, 0) + ' pz';
+        }
+        // SKU già noto (in magazzino o in un altro ordine): compila i campi vuoti del modello
+        function _datiModelloOa() {
+            const sku = _up($('oa-sku').value);
+            if (!sku) return;
+            const m = inventarioMag.find(i => isMagAbb(i) && _up(_skuMag(i)) === sku)
+                || ordiniAbbDB.flatMap(o => o.righe).concat(_oaEdit ? _oaEdit.righe : []).find(r => _up(r.sku) === sku);
+            if (!m) return;
+            const metti = (id, v) => { const e = $(id); if (e && !e.value && v) e.value = v; };
+            metti('oa-nome', m.nome); metti('oa-marca', m.marca);
+            metti('oa-prezzo', m.prezzo); metti('oa-prezzo-pubblico', m.prezzo_pubblico);
+            if (MAG_CAT_ABB.includes(m.categoria)) $('oa-categoria').value = m.categoria;
+        }
+        function aggiungiRigheOrdineAbb() {
+            if (!_oaEdit) return false;
+            const sku = _up($('oa-sku').value), nome = _up($('oa-nome').value);
+            if (!sku) { mostraErrore('Scrivi lo SKU del modello'); return false; }
+            if (!nome) { mostraErrore('Scrivi la descrizione del modello'); return false; }
+            const q = _quantitaGrigliaAbb();
+            if (!q.length) { mostraErrore('Scrivi quanti pezzi per almeno una taglia'); return false; }
+            const base = { sku, nome, marca: _up($('oa-marca').value), categoria: $('oa-categoria').value, colore: _up($('oa-colore').value),
+                prezzo: parseFloat($('oa-prezzo').value) || 0, prezzo_pubblico: parseFloat($('oa-prezzo-pubblico').value) || 0 };
+            q.forEach(([taglia, qta]) => {
+                const ex = _oaEdit.righe.find(r => !r.arrivata && _up(r.sku) === sku && _up(r.colore) === base.colore && _up(r.taglia) === taglia);
+                if (ex) Object.assign(ex, base, { qta: (parseInt(ex.qta) || 0) + qta });
+                else _oaEdit.righe.push({ id: genId(), ...base, taglia, qta, arrivata: false });
+            });
+            // Pronto per un altro colore dello stesso modello
+            $('oa-colore').value = '';
+            document.querySelectorAll('#oa-griglia .oa-q').forEach(i => { i.value = ''; });
+            $('oa-altra-taglia').value = ''; $('oa-altra-qta').value = '';
+            _totaleGrigliaAbb();
+            _renderRigheOrdineAbb();
+            $('oa-colore').focus();
+            return true;
+        }
+        function svuotaRigaOrdineAbb(senzaFocus) {
+            ['oa-sku', 'oa-nome', 'oa-marca', 'oa-colore', 'oa-prezzo', 'oa-prezzo-pubblico', 'oa-altra-taglia', 'oa-altra-qta'].forEach(id => { const e = $(id); if (e) e.value = ''; });
+            $('oa-categoria').value = 'ABBIGLIAMENTO';
+            document.querySelectorAll('#oa-griglia .oa-q').forEach(i => { i.value = ''; });
+            cambiaSetTaglieAbb(_oaSet);
+            if (!senzaFocus) $('oa-sku').focus();
+        }
+        function _renderRigheOrdineAbb() {
+            const el = $('oa-righe');
+            if (!el || !_oaEdit) return;
+            $('oa-righe-tot').textContent = _oaEdit.righe.length ? _pezziAbb(_oaEdit.righe) + ' pz' : '';
+            el.innerHTML = _oaEdit.righe.length ? _gruppiRigheAbb(_oaEdit.righe).map(rr => `<div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 0; border-top:1px dashed #334155; font-size:1rem;">
+                    <span style="font-family:monospace; font-weight:800; color:var(--muted);">${htmlEsc(rr[0].sku)}</span>
+                    <b style="color:white;">${htmlEsc(rr[0].nome)}</b>
+                    ${rr[0].colore ? `<b style="color:#fbbf24;">${htmlEsc(rr[0].colore)}</b>` : ''}
+                    <span style="display:flex; flex-wrap:wrap; gap:6px; margin-left:auto;">${rr.map(r => r.arrivata
+                        ? `<span title="Già arrivato" style="${_OA_CHIP_OK}">✓ ${htmlEsc(r.taglia || '—')} ×${r.qta}</span>`
+                        : `<span style="background:#0f172a; border:1px solid #475569; color:white; display:inline-flex; align-items:center; gap:6px; ${_OA_CHIP}">${htmlEsc(r.taglia || '—')} ×${r.qta}<button type="button" onclick="togliRigaOrdineAbb('${r.id}')" aria-label="Togli la taglia ${htmlEsc(r.taglia || '')}" title="Togli" style="background:none; border:none; color:var(--accent); cursor:pointer; padding:0; width:auto; margin:0; font-size:0.95rem;">✕</button></span>`).join('')}</span>
+                </div>`).join('')
+                : '<p style="color:var(--muted); margin:8px 0 0;">Nessun modello ancora: compila i campi qui sopra, scrivi i pezzi per taglia e premi "✚ Aggiungi all\'ordine".</p>';
+        }
+        function togliRigaOrdineAbb(rid) {
+            if (!_oaEdit) return;
+            _oaEdit.righe = _oaEdit.righe.filter(r => r.arrivata || String(r.id) !== String(rid));
+            _renderRigheOrdineAbb();
+        }
+        function salvaOrdineAbb() {
+            if (!_oaEdit) return;
+            const fornitore = _up($('oa-fornitore').value);
+            if (!fornitore) return mostraErrore('Scrivi il fornitore');
+            // Taglie scritte ma non ancora aggiunte: si aggiungono da sole
+            if (_quantitaGrigliaAbb().length && !aggiungiRigheOrdineAbb()) return;
+            if (!_oaEdit.righe.length) return mostraErrore('Aggiungi almeno un modello all\'ordine');
+            if (!_puoSalvare('ordini_abb')) return;
+            const dati = { fornitore, data_ordine: $('oa-data').value || '', data_prevista: $('oa-prevista').value || '', note: $('oa-note').value.trim(), righe: _oaEdit.righe };
+            const completo = dati.righe.every(r => r.arrivata);
+            const o = _oaEdit.id != null ? _ordineAbb(_oaEdit.id) : null;
+            if (o) Object.assign(o, dati, completo ? { stato: 'arrivato', data_arrivo: o.data_arrivo || getOggiLocale() } : { stato: 'aperto' });
+            else ordiniAbbDB.push({ id: genId(), ...dati, stato: 'aperto' });
+            saveOrdiniAbb();
+            _oaEdit = null;
+            closeModal('modal-ordine-abb');
+            const c = $('oa-card'); if (c) c.style.display = 'block';
+            refreshOrdiniAbb();
+            mostraToast('🚚 Ordine salvato');
         }
 
         function deleteListaOrdine(id) {

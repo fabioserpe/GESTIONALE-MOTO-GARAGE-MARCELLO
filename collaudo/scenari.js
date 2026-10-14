@@ -17,12 +17,12 @@
   const campo = (id, v) => { const e = document.getElementById(id); if (!e) throw new Error('campo mancante ' + id); e.value = v; };
   async function passo(nome, fn) { try { await fn(); } catch (e) { ok(false, nome + ': eccezione ' + (e && e.message)); } }
 
-  for (let i = 0; i < 300 && fb.inAttesa.length < 15; i++) await attendi(20);
+  for (let i = 0; i < 300 && fb.inAttesa.length < 16; i++) await attendi(20);
   await attendi(50);
 
   await passo('Avvio', async () => {
     ok(document.getElementById('app-shell').style.display === 'flex', 'Avvio: accesso simulato, gestionale visibile');
-    ok(fb.inAttesa.length === 15, 'Avvio: tutte le 15 sezioni in ascolto (' + fb.inAttesa.length + ')');
+    ok(fb.inAttesa.length === 16, 'Avvio: tutte le 16 sezioni in ascolto (' + fb.inAttesa.length + ')');
     ok(ovVisibile() && ovTitolo() === 'Caricamento dati…', 'Avvio: pannello "Caricamento dati…" finché i dati non arrivano');
     const n = nScr(), a = fb.alerts.length;
     db.push({ id: 999, cognome: 'PRIMA DEL CARICAMENTO' });
@@ -1079,6 +1079,108 @@
     const regMob = regole.find(r => r.selectorText === '#mag-mobile-container');
     ok(regMob && regMob.style.getPropertyPriority('display') === 'important', 'Telefono: l\'elenco del magazzino non resta nascosto sotto "Inventario"');
     setMagReparto('ricambi');
+    switchView('board');
+  });
+
+  await passo('Ordini futuri abbigliamento', async () => {
+    switchView('magazzino'); setMagReparto('ricambi'); await attendi(50);
+    const btn = document.getElementById('mag-btn-ordini-abb'), card = document.getElementById('oa-card');
+    ok(btn.style.display === 'none', 'Ordini futuri: pulsante nascosto nella scheda Ricambi');
+    setMagReparto('abbigliamento');
+    ok(btn.style.display === 'flex', 'Ordini futuri: pulsante visibile nella scheda Abbigliamento e Caschi');
+    toggleOrdiniAbb();
+    ok(card.style.display === 'block' && /Nessun ordine in arrivo/.test(card.textContent), 'Riquadro aperto, nessun ordine');
+    const oa = () => Object.values(fb.leggi('ordini_abb') || {}).map(o => ({ ...o, righe: Object.values(o.righe || {}) }));
+    const mag = () => Object.values(fb.nodo('magazzino'));
+    const agvM = mag().find(x => x.sku === 'AGV-K1' && x.taglia === 'M' && x.colore === 'NERO');
+    const agvPrima = agvM ? agvM.giacenza : null;
+    const nMag = mag().length;
+
+    apriOrdineAbb();
+    ok(!document.getElementById('modal-ordine-abb').classList.contains('hidden') && document.getElementById('oa-data').value === oggi && document.querySelectorAll('#oa-griglia .oa-q').length === 8, 'Nuovo ordine: finestra aperta, data di oggi, griglia XS…4XL');
+    campo('oa-fornitore', 'gari'); campo('oa-prevista', '2099-11-20'); campo('oa-note', 'stagione estiva');
+    campo('oa-sku', 'gh9069'); campo('oa-nome', 'g21 sunvisor'); campo('oa-marca', 'gari'); campo('oa-categoria', 'CASCHI'); campo('oa-colore', 'nero opaco'); campo('oa-prezzo', '37.17'); campo('oa-prezzo-pubblico', '75');
+    const q = (t, n) => { const i = document.querySelector('#oa-griglia .oa-q[data-taglia="' + t + '"]'); i.value = n; i.dispatchEvent(new Event('input')); };
+    q('S', 2); q('M', 3); q('L', 3); q('XL', 2);
+    ok(document.getElementById('oa-tot-pz').textContent === '10 pz', 'Griglia: totale 10 pezzi');
+    ok(aggiungiRigheOrdineAbb() && _oaEdit.righe.length === 4, 'Aggiungi all\'ordine: una riga per taglia (4)');
+    ok(document.getElementById('oa-sku').value === 'gh9069' && document.getElementById('oa-colore').value === '' && document.getElementById('oa-tot-pz').textContent === '0 pz', 'Dopo l\'aggiunta: modello e prezzi restano, colore e pezzi si svuotano');
+    campo('oa-colore', 'bianco perlato'); q('M', 1); q('L', 1); aggiungiRigheOrdineAbb();
+    campo('oa-colore', 'bianco perlato'); q('M', 1); aggiungiRigheOrdineAbb();
+    const mB = _oaEdit.righe.find(r => r.colore === 'BIANCO PERLATO' && r.taglia === 'M');
+    ok(_oaEdit.righe.length === 6 && mB && mB.qta === 2, 'Stessa taglia e colore aggiunti due volte: pezzi sommati (M bianco ×2)');
+    const lB = _oaEdit.righe.find(r => r.colore === 'BIANCO PERLATO' && r.taglia === 'L');
+    togliRigaOrdineAbb(lB.id);
+    ok(_oaEdit.righe.length === 5 && /BIANCO PERLATO/.test(document.getElementById('oa-righe').textContent), 'Taglia tolta dall\'ordine con ✕');
+    svuotaRigaOrdineAbb(true);
+    campo('oa-sku', 'agv-k1'); _datiModelloOa();
+    ok(document.getElementById('oa-nome').value === 'CASCO AGV K1' && document.getElementById('oa-categoria').value === 'CASCHI' && document.getElementById('oa-prezzo-pubblico').value === '189', 'SKU già in magazzino: nome, categoria e prezzi compilati da soli');
+    campo('oa-colore', 'nero'); q('M', 2);
+    const n0 = nScr();
+    salvaOrdineAbb();
+    const o1 = oa()[0];
+    ok(oa().length === 1 && o1.fornitore === 'GARI' && o1.stato === 'aperto' && o1.righe.length === 6 && o1.data_prevista === '2099-11-20' && o1.note === 'stagione estiva', 'Salva ordine: GARI con 6 righe (il casco AGV aggiunto da solo anche senza premere "Aggiungi")');
+    ok(uguali(chiaviDa(n0), ['ordini_abb']) && mag().length === nMag, 'Salvataggio: scritto solo l\'ordine, magazzino non toccato');
+    ok(document.getElementById('modal-ordine-abb').classList.contains('hidden') && /14 pz in arrivo/.test(card.textContent) && document.getElementById('oa-badge').textContent === '1', 'Riquadro: ordine GARI con 14 pezzi in arrivo, 1 ordine sul pulsante');
+    ok(card.textContent.includes('arrivo previsto 20/11/2099') && !card.textContent.includes('doveva arrivare'), 'Data di arrivo prevista mostrata');
+
+    // Arrivo parziale: solo la S nera
+    const rS = o1.righe.find(r => r.sku === 'GH9069' && r.taglia === 'S');
+    const chip = [...card.querySelectorAll('.oa-chip')].find(b => b.getAttribute('onclick').includes("'" + rS.id + "'"));
+    ok(chip && /S ×2/.test(chip.textContent), 'Ogni taglia è un pulsante (S ×2)');
+    const n1 = nScr();
+    await arrivoRigheAbb(o1.id, String(rS.id));
+    const s1 = mag().find(x => x.sku === 'GH9069' && x.taglia === 'S' && x.colore === 'NERO OPACO');
+    ok(s1 && s1.giacenza === 2 && s1.categoria === 'CASCHI' && s1.prezzo === 37.17 && s1.prezzo_pubblico === 75 && s1.nome === 'G21 SUNVISOR', 'Arrivo della sola S: in magazzino 2 pezzi con SKU, taglia, colore e prezzi');
+    ok(fb.scritture.length === n1 + 1 && oa()[0].stato === 'aperto' && oa()[0].righe.find(r => String(r.id) === String(rS.id)).arrivata === true, 'Un solo salvataggio (magazzino + ordine); ordine ancora aperto, S segnata come arrivata');
+    ok(/12 pz in arrivo/.test(card.textContent) && /✓ S ×2/.test(card.textContent), 'Riquadro: S con la spunta verde, 12 pezzi ancora in arrivo');
+
+    // Arrivato tutto
+    await arrivoTuttoAbb(o1.id);
+    const gh = mag().filter(x => x.sku === 'GH9069');
+    ok(gh.length === 5 && gh.find(x => x.taglia === 'M' && x.colore === 'BIANCO PERLATO').giacenza === 2, 'Arrivato tutto: 5 varianti GH9069 in magazzino (M bianco ×2)');
+    const agvDopo = mag().find(x => x.sku === 'AGV-K1' && x.taglia === 'M' && x.colore === 'NERO');
+    ok(agvPrima !== null && agvDopo.giacenza === agvPrima + 2 && mag().filter(x => x.sku === 'AGV-K1' && x.taglia === 'M' && x.colore === 'NERO').length === 1, 'Casco AGV M nero già in magazzino: pezzi sommati (' + agvPrima + ' → ' + (agvDopo && agvDopo.giacenza) + '), nessun doppione');
+    ok(oa()[0].stato === 'arrivato' && oa()[0].data_arrivo === oggi && document.getElementById('oa-badge').style.display === 'none', 'Ordine completato: passa negli arrivati, pulsante senza numero');
+    ok(/Nessun ordine in arrivo/.test(card.textContent) && /Ordini arrivati \(1\)/.test(card.textContent), 'Riquadro: nessun ordine aperto, "Ordini arrivati (1)"');
+    setMagReparto('abbigliamento'); renderTableMag();
+    ok([...document.querySelectorAll('.mag-item-row[data-cat="CASCHI"] .mag-in-sku')].filter(i => i.value === 'GH9069').length === 5, 'Tabella Abbigliamento: i 5 visiere GH9069 compaiono con il loro SKU');
+
+    // Ordine in ritardo, taglie numeriche, altra taglia, modifica ed eliminazione
+    apriOrdineAbb();
+    campo('oa-fornitore', 'dainese'); campo('oa-prevista', '2020-01-10');
+    campo('oa-sku', 'gia-01'); campo('oa-nome', 'giacca super speed'); campo('oa-categoria', 'ABBIGLIAMENTO'); campo('oa-colore', 'nero');
+    cambiaSetTaglieAbb('giacche');
+    ok(document.querySelectorAll('#oa-griglia .oa-q').length === 9 && document.querySelector('#oa-griglia .oa-q[data-taglia="52"]'), 'Taglie giacche: 44…60');
+    q('52', 1); campo('oa-altra-taglia', '62'); campo('oa-altra-qta', '1');
+    salvaOrdineAbb();
+    const o2 = oa().find(o => o.fornitore === 'DAINESE');
+    ok(o2 && o2.righe.length === 2 && o2.righe.some(r => r.taglia === '62'), 'Taglia fuori griglia (62) aggiunta con "Altra taglia"');
+    const blocco = [...card.querySelectorAll('.oa-ordine')].find(b => b.textContent.includes('DAINESE'));
+    ok(blocco && /doveva arrivare il 10\/01\/2020/.test(blocco.textContent), 'Ordine in ritardo: "doveva arrivare il 10/01/2020"');
+    apriOrdineAbb(o2.id);
+    ok(_oaEdit.righe.length === 2 && document.getElementById('oa-fornitore').value === 'DAINESE', 'Modifica: l\'ordine si riapre con le sue righe');
+    togliRigaOrdineAbb(_oaEdit.righe.find(r => r.taglia === '62').id);
+    closeModal('modal-ordine-abb');
+    ok(oa().find(o => o.fornitore === 'DAINESE').righe.length === 2, 'Annulla: le modifiche non salvate si perdono');
+    apriOrdineAbb(o2.id);
+    togliRigaOrdineAbb(_oaEdit.righe.find(r => r.taglia === '62').id);
+    salvaOrdineAbb();
+    ok(oa().find(o => o.fornitore === 'DAINESE').righe.length === 1 && oa().length === 2, 'Modifica salvata: resta solo la 52');
+    apriOrdineAbb(); campo('oa-fornitore', '');
+    salvaOrdineAbb();
+    ok(oa().length === 2 && !document.getElementById('modal-ordine-abb').classList.contains('hidden'), 'Senza fornitore non si salva');
+    campo('oa-fornitore', 'x'); salvaOrdineAbb();
+    ok(oa().length === 2, 'Senza modelli non si salva');
+    closeModal('modal-ordine-abb');
+    eliminaOrdineAbb(o2.id);
+    ok(oa().length === 1 && !card.textContent.includes('DAINESE') && mag().every(x => x.sku !== 'GIA-01'), 'Ordine eliminato: il magazzino non cambia');
+
+    fb.scritturaRemota({ 'ordini_abb': [{ id: 77, fornitore: '<img src=x onerror="window.__xssOa=1">', data_ordine: oggi, stato: 'aperto', righe: [{ id: 78, sku: 'X1', nome: '<b>Y</b>', colore: '', taglia: 'M', qta: 1, arrivata: false }] }] }, false);
+    await attendi(50);
+    ok(!window.__xssOa && card.textContent.includes('<b>Y</b>'), 'Testi dell\'ordine mostrati come testo (nessun codice eseguito)');
+    setMagReparto('ricambi');
+    ok(card.style.display === 'none' && btn.style.display === 'none', 'Scheda Ricambi: riquadro e pulsante Ordini futuri nascosti');
     switchView('board');
   });
 
