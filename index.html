@@ -1318,9 +1318,9 @@
                             <th onclick="sortMag('codice')" style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:170px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">CODICE SKU <span id="mag-sort-codice"></span></th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; letter-spacing:0.5px;">DESCRIZIONE</th>
                             <th class="mag-col-abb" style="display:none; text-align:center; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:80px; letter-spacing:0.5px;">TAGLIA</th>
-                            <th class="mag-col-abb" style="display:none; text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:150px; letter-spacing:0.5px;">COLORE</th>
+                            <th class="mag-col-abb" style="display:none; text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:230px; letter-spacing:0.5px;">COLORE</th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:140px; letter-spacing:0.5px;">MARCA</th>
-                            <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:155px; letter-spacing:0.5px;">CATEGORIA</th>
+                            <th id="mag-th-cat" style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:155px; letter-spacing:0.5px;">CATEGORIA</th>
                             <th onclick="sortMag('giacenza')" style="text-align:center; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:130px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">STOCK <span id="mag-sort-giacenza"></span></th>
                             <th onclick="sortMag('prezzo')" style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:100px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">PR. ACQ. <span id="mag-sort-prezzo"></span></th>
                             <th style="text-align:right; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:100px; letter-spacing:0.5px; white-space:nowrap;">PR. PUBB.</th>
@@ -6815,7 +6815,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const vedi = MAG_CAT_ABB.includes(cat) || (!cat && magReparto === 'abbigliamento');
             document.querySelectorAll('#mag-new-item-form .mag-campo-abb').forEach(d => d.style.display = vedi ? '' : 'none');
             const g = $('mag-new-grid');
-            if (g) g.style.gridTemplateColumns = vedi ? '160px 2fr 1fr 1fr 90px 1fr 70px 110px 110px auto' : '160px 2fr 1fr 1fr 70px 110px auto';
+            if (g) g.style.gridTemplateColumns = vedi ? '160px 2fr 1fr 1fr 80px 1.7fr 70px 110px 110px auto' : '160px 2fr 1fr 1fr 70px 110px auto';
             const nota = $('mag-new-abb-nota');
             if (nota) nota.style.display = vedi ? 'flex' : 'none';
             _controllaDoppioneMag();
@@ -6871,7 +6871,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const vedi = MAG_CAT_ABB.includes(($('lo-categoria') || {}).value);
             document.querySelectorAll('#lo-form .lo-campo-abb').forEach(d => d.style.display = vedi ? '' : 'none');
             const g = $('lo-grid');
-            if (g) g.style.gridTemplateColumns = vedi ? '110px 2fr 1fr 1fr 80px 1fr 70px 110px auto auto' : '110px 2fr 1fr 1fr 70px 110px auto';
+            if (g) g.style.gridTemplateColumns = vedi ? '110px 2fr 1fr 1fr 80px 1.6fr 70px 110px auto auto' : '110px 2fr 1fr 1fr 70px 110px auto';
         }
         function _tagliaColoreLo(obj) {
             if (MAG_CAT_ABB.includes(obj.categoria)) { obj.taglia = $('lo-taglia').value.toUpperCase().trim(); obj.colore = $('lo-colore').value.toUpperCase().trim(); }
@@ -7358,6 +7358,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const nRep = { ricambi: filtered.filter(i => !isMagAbb(i)).length, abbigliamento: filtered.filter(isMagAbb).length };
             _renderRepartiMag(nRep);
             document.querySelectorAll('.mag-col-abb').forEach(th => th.style.display = abb ? '' : 'none');
+            const thCat = $('mag-th-cat'); if (thCat) thCat.style.width = abb ? '185px' : '215px';   // "ABBIGLIAMENTO" / "ARIA E CARBURANTE" interi
             filtered = filtered.filter(_nelRepartoMag);
 
             if (!filtered.length) {
@@ -7510,8 +7511,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                 onblur="this.style.background='transparent'; this.style.outline='none'; modificaArticoloMag('${cod}','taglia',this.value)">
                         </td>
                         <td style="padding:8px 8px;">
-                            <input type="text" value="${htmlEsc(item.colore || '')}" list="mag-lista-colori" placeholder="—" aria-label="Colore" class="mag-in-colore"
-                                style="width:100%; background:transparent; border:none; color:#1e293b; font-size:0.88rem; font-weight:600; padding:4px 6px; border-radius:6px;"
+                            <input type="text" value="${htmlEsc(item.colore || '')}" title="${htmlEsc(item.colore || '')}" list="mag-lista-colori" placeholder="—" aria-label="Colore" class="mag-in-colore"
+                                style="width:100%; background:transparent; border:none; color:#1e293b; font-size:${String(item.colore || '').length > 16 ? '0.76rem' : '0.88rem'}; font-weight:600; padding:4px 6px; border-radius:6px;"
                                 onfocus="this.style.background='#f8fafc'; this.style.outline='2px solid var(--info)';"
                                 onblur="this.style.background='transparent'; this.style.outline='none'; modificaArticoloMag('${cod}','colore',this.value)">
                         </td>` : ''}

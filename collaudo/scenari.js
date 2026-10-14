@@ -1050,6 +1050,31 @@
     modificaArticoloMag(kGua, 'categoria', 'ACCESSORI'); renderTableMag();
     ok(/spostato in "Ricambi"/.test((document.querySelector('.toast-msg') || {}).textContent || '') && righeCat('ACCESSORI').length === 0, 'Categoria cambiata in Accessori: avviso e articolo passato nei Ricambi');
     await attendi(700);
+    fb.scritturaRemota({
+      'magazzino/COL-1': { codice: 'COL-1', sku: 'GH9069', nome: 'G21 SUNVISOR', marca: 'GARI', categoria: 'CASCHI', taglia: 'XL', colore: 'BIANCO PERLATO', giacenza: 2, prezzo: 37.17, prezzo_pubblico: 75 },
+      'magazzino/COL-2': { codice: 'COL-2', sku: 'GH9069', nome: 'G21 SUNVISOR', marca: 'GARI', categoria: 'CASCHI', taglia: 'M', colore: 'NERO OPACO/ROSSO FLUO', giacenza: 2, prezzo: 37.17, prezzo_pubblico: 75 }
+    }, false);
+    setMagReparto('abbigliamento'); renderTableMag(); await attendi(50);
+    const colori = [...document.querySelectorAll('.mag-in-colore')];
+    const tagliati = colori.filter(i => i.scrollWidth > i.clientWidth + 1).map(i => i.value + ' (' + i.scrollWidth + '/' + i.clientWidth + ')');
+    ok(colori.some(i => i.value === 'NERO OPACO/ROSSO FLUO') && tagliati.length === 0, 'Colonna Colore: nessun colore tagliato, anche "BIANCO PERLATO" e "NERO OPACO/ROSSO FLUO"' + (tagliati.length ? ' → ' + tagliati.join(', ') : ''));
+    const cnv = document.createElement('canvas').getContext('2d');
+    const catTagliate = () => [...document.querySelectorAll('#mag-inventory-table select')].filter(x => x.offsetParent).filter(x => {
+      const cs = getComputedStyle(x); cnv.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+      return cnv.measureText(x.options[x.selectedIndex].text).width > x.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    }).map(x => x.options[x.selectedIndex].text + ' (' + x.clientWidth + ')');
+    inventarioMag.forEach(i => categorieAperteMag.add(i.categoria)); renderTableMag();
+    const ctA = catTagliate();
+    ok(document.querySelectorAll('#mag-inventory-table select').length > 0 && ctA.length === 0, 'Scheda Abbigliamento: categoria "ABBIGLIAMENTO" non tagliata' + (ctA.length ? ' → ' + ctA.join(', ') : ''));
+    setMagReparto('ricambi'); renderTableMag();
+    const ctR = catTagliate();
+    ok([...document.querySelectorAll('#mag-inventory-table select')].some(x => x.value === 'ARIA E CARBURANTE') && ctR.length === 0, 'Scheda Ricambi: categorie non tagliate, anche "ARIA E CARBURANTE"' + (ctR.length ? ' → ' + ctR.join(', ') : ''));
+    setMagReparto('abbigliamento');
+    toggleMagForm(); campo('mag-new-categoria', 'CASCHI'); _aggiornaCampiAbbForm();
+    const cf = document.getElementById('mag-new-colore'); cf.value = 'BIANCO PERLATO';
+    ok(cf.scrollWidth <= cf.clientWidth + 1, 'Modulo: il campo Colore contiene "BIANCO PERLATO" senza tagliarlo (' + cf.scrollWidth + '/' + cf.clientWidth + ')');
+    svuotaModuloMag(true); toggleMagForm();
+    fb.scritturaRemota({ 'magazzino/COL-1': null, 'magazzino/COL-2': null }, false);
     const regole = [...document.styleSheets].flatMap(f => { try { return [...f.cssRules]; } catch (e) { return []; } }).flatMap(r => r.cssRules ? [...r.cssRules] : [r]);
     const regMob = regole.find(r => r.selectorText === '#mag-mobile-container');
     ok(regMob && regMob.style.getPropertyPriority('display') === 'important', 'Telefono: l\'elenco del magazzino non resta nascosto sotto "Inventario"');
