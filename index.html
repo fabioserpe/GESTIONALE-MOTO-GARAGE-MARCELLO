@@ -1229,7 +1229,7 @@
                     <div class="mob-form-grid" id="mag-new-grid" style="display:grid; grid-template-columns: 160px 2fr 1fr 1fr 70px 110px auto; gap:10px; align-items:end;">
                         <div>
                             <label>SKU</label>
-                            <input type="text" id="mag-new-codice" placeholder="FIL-01" required style="margin-bottom:0;">
+                            <input type="text" id="mag-new-codice" placeholder="FIL-01" required onchange="_datiModelloMag()" style="margin-bottom:0;">
                             <span id="mag-sku-warning" style="display:none; color:var(--accent); font-size:0.7rem; font-weight:bold; margin-top:3px;">⚠️ Già presente</span>
                         </div>
                         <div>
@@ -1263,11 +1263,11 @@
                         </div>
                         <div class="mag-campo-abb" style="display:none;">
                             <label>Taglia</label>
-                            <input type="text" id="mag-new-taglia" list="mag-lista-taglie" placeholder="M" oninput="_proponiSkuTaglia()" style="margin-bottom:0; text-align:center;">
+                            <input type="text" id="mag-new-taglia" list="mag-lista-taglie" placeholder="M" oninput="_controllaDoppioneMag()" style="margin-bottom:0; text-align:center;">
                         </div>
                         <div class="mag-campo-abb" style="display:none;">
                             <label>Colore</label>
-                            <input type="text" id="mag-new-colore" list="mag-lista-colori" placeholder="Nero" style="margin-bottom:0;">
+                            <input type="text" id="mag-new-colore" list="mag-lista-colori" placeholder="Nero" oninput="_controllaDoppioneMag()" style="margin-bottom:0;">
                         </div>
                         <div>
                             <label>Qtà</label>
@@ -1284,7 +1284,8 @@
                         <button type="submit" id="mag-btn-add-submit" class="btn btn-accent" style="white-space:nowrap; margin-bottom:0; width:auto;">✚ Aggiungi</button>
                     </div>
                     <div id="mag-new-abb-nota" style="display:none; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:12px; padding:10px 12px; border:1px dashed #334155; border-radius:8px; font-size:0.85rem; color:var(--muted);">
-                        <span>👕 Una riga per ogni taglia e colore. Dopo <b style="color:white;">Aggiungi</b> il modulo resta compilato: cambia solo taglia e quantità, il codice si adatta da solo.</span>
+                        <span id="mag-new-abb-info">👕 Una riga per ogni taglia e colore, tutte con lo <b style="color:white;">stesso SKU del modello</b>. Dopo <b style="color:white;">Aggiungi</b> il modulo resta compilato: cambia solo taglia (o colore) e quantità.</span>
+                        <span id="mag-new-abb-doppione" style="display:none; color:var(--accent); font-weight:800;">⚠️ Questo SKU c'è già in questa taglia e colore: cambia taglia o colore, oppure aumenta la quantità dalla tabella.</span>
                         <button type="button" onclick="svuotaModuloMag()" title="Svuota il modulo" style="background:transparent; border:1px solid #64748b; color:#94a3b8; border-radius:8px; padding:7px 14px; cursor:pointer; font-size:0.85rem; width:auto; margin:0;">🧹 Svuota modulo</button>
                     </div>
                 </form>
@@ -3373,7 +3374,7 @@
         function prezziDaMagazzinoOrdine() {
             const sku = ($('ord_sku').value || '').toUpperCase().trim();
             if (!sku) return;
-            const it = inventarioMag.find(i => String(i.codice || '').toUpperCase() === sku);
+            const it = inventarioMag.find(i => String(i.codice || '').toUpperCase() === sku) || inventarioMag.find(i => _up(_skuMag(i)) === sku);
             if (!it) return;
             if (!$('ord_desc').value && it.nome) $('ord_desc').value = it.nome;
             if (!$('ord_prezzo').value && it.prezzo) $('ord_prezzo').value = it.prezzo;
@@ -5038,7 +5039,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (magCodice) tr.dataset.magCodice = magCodice;
             if (ordineId) tr.dataset.ordineId = ordineId;
             const ordBadgeHtml = ordineId ? `<span title="Ricambio ordinato per questa moto" style="font-size:0.65rem;background:rgba(245,158,11,0.18);color:#b45309;border:1px solid #f59e0b;border-radius:4px;padding:1px 5px;font-weight:800;white-space:nowrap;">📦 ORDINE</span>` : '';
-            const magBadgeHtml = magCodice ? `<span class="mag-link-badge" style="font-size:0.65rem;background:rgba(20,184,166,0.2);color:#14b8a6;border:1px solid #14b8a6;border-radius:4px;padding:1px 5px;font-weight:bold;white-space:nowrap;flex-shrink:0;">${magCodice}</span>` : '';
+            const magBadgeHtml = magCodice ? `<span class="mag-link-badge" style="font-size:0.65rem;background:rgba(20,184,166,0.2);color:#14b8a6;border:1px solid #14b8a6;border-radius:4px;padding:1px 5px;font-weight:bold;white-space:nowrap;flex-shrink:0;">${htmlEsc(_skuDaChiaveMag(magCodice))}</span>` : '';
             tr.style.cssText = 'border-bottom:2px solid #94a3b8; background:white;';
             tr.innerHTML = `
                 <td style="padding:7px 12px; background:#f8fafc; border-right:1px solid #cbd5e1; color:#1e293b;">
@@ -5145,7 +5146,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 return `<div onmousedown="selezionaMagPerConto(this.closest('.mag-conto-results').closest('tr'),'${codeSafe}','${nomeSafe}',${prezzo})"
                     style="padding:8px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem;transition:background 0.1s;"
                     onmouseover="this.style.background='rgba(20,184,166,0.15)'" onmouseout="this.style.background=''">
-                    <span style="color:#14b8a6;font-weight:bold;font-family:monospace;">${i.codice}</span>
+                    <span style="color:#14b8a6;font-weight:bold;font-family:monospace;">${htmlEsc(_skuMag(i))}</span>
                     <span style="color:white;margin-left:8px;">${htmlEsc(i.nome||'')}</span>${_tagliaColoreMag(i) ? ` <b style="color:#a78bfa;">${htmlEsc(_tagliaColoreMag(i))}</b>` : ''}
                     <span style="float:right;color:var(--muted);">${stock} ${i.giacenza} pz${prezzoPubb > 0 ? ` · <span style="color:#22c55e;font-weight:bold;">€${prezzoPubb.toFixed(2)}</span>` : ''}</span>
                 </div>`;
@@ -5164,7 +5165,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const badge = document.createElement('span');
             badge.className = 'mag-link-badge';
             badge.style.cssText = 'font-size:0.65rem;background:rgba(20,184,166,0.2);color:#14b8a6;border:1px solid #14b8a6;border-radius:4px;padding:1px 5px;font-weight:bold;white-space:nowrap;flex-shrink:0;';
-            badge.textContent = codice;
+            badge.textContent = _skuDaChiaveMag(codice);
             const container = descInput?.parentElement;
             if (container) container.appendChild(badge);
             // Compila prezzo unitario dal magazzino e sposta focus su qtà
@@ -6763,8 +6764,25 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         const MAG_COLORI = ['NERO', 'NERO OPACO', 'BIANCO', 'GRIGIO', 'ROSSO', 'BLU', 'GIALLO', 'GIALLO FLUO', 'VERDE', 'ARANCIONE', 'NERO/ROSSO', 'NERO/BIANCO'];
         const MAG_REP = { ricambi: { lbl: '🔧 Ricambi', col: 'var(--accent)' }, abbigliamento: { lbl: '🪖 Abbigliamento e Caschi', col: 'var(--info)' } };
         let magReparto = 'ricambi';
-        let _magSkuBase = null;
+        let _magModuloTenuto = false;
         function isMagAbb(item) { return !!item && MAG_CAT_ABB.includes(item.categoria); }
+        // Caschi e abbigliamento: lo SKU del modello è uguale per tutte le taglie e i colori (campo sku);
+        // la chiave dell'articolo (codice, nodo /magazzino/{codice}) è interna: SKU-TAGLIA-COLORE, mai mostrata
+        function _skuMag(item) { return (item && (item.sku || item.codice)) || ''; }
+        function _skuDaChiaveMag(k) { const it = inventarioMag.find(i => i.codice === k); return it ? _skuMag(it) : k; }
+        function _up(s) { return String(s == null ? '' : s).toUpperCase().trim(); }
+        function _idMag(i) { return isMagAbb(i) ? ['A', _up(_skuMag(i)), _up(i.taglia), _up(i.colore)].join('|') : _up(i.codice); }
+        function _idLo(x) { return isMagAbb(x) ? ['A', _up(x.codice), _up(x.taglia), _up(x.colore)].join('|') : _up(x.codice); }
+        function _doppioneVarianteMag(sku, taglia, colore) {
+            const id = ['A', _up(sku), _up(taglia), _up(colore)].join('|');
+            return !!_up(sku) && inventarioMag.some(i => isMagAbb(i) && _idMag(i) === id);
+        }
+        function _chiaveVarianteMag(sku, taglia, colore) {
+            const base = [_up(sku).replace(/[.#$\[\]\/]/g, '-') || 'ART', _skuTaglia(taglia), _skuTaglia(colore)].filter(Boolean).join('-');
+            let k = base, n = 2;
+            while (inventarioMag.some(i => i.codice === k)) k = base + '-' + n++;
+            return k;
+        }
         function _nelRepartoMag(item) { return isMagAbb(item) === (magReparto === 'abbigliamento'); }
         function _tagliaColoreMag(item, sep = ' · ') { return isMagAbb(item) ? [item.taglia ? 'TG. ' + item.taglia : '', item.colore || ''].filter(Boolean).join(sep) : ''; }
         function _nomeArticoloMag(item) { const tc = _tagliaColoreMag(item, ', '); return (item.nome || '') + (tc ? ' (' + tc + ')' : ''); }
@@ -6800,36 +6818,51 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (g) g.style.gridTemplateColumns = vedi ? '160px 2fr 1fr 1fr 90px 1fr 70px 110px 110px auto' : '160px 2fr 1fr 1fr 70px 110px auto';
             const nota = $('mag-new-abb-nota');
             if (nota) nota.style.display = vedi ? 'flex' : 'none';
+            _controllaDoppioneMag();
+        }
+        // "Già presente": per i ricambi lo SKU, per caschi e abbigliamento SKU + taglia + colore
+        function _controllaDoppioneMag() {
+            const c = $('mag-new-codice');
+            if (!c) return;
+            const cat = $('mag-new-categoria').value;
+            const abb = MAG_CAT_ABB.includes(cat) || (!cat && magReparto === 'abbigliamento');
+            const cod = _up(c.value);
+            const dup = abb ? _doppioneVarianteMag(cod, $('mag-new-taglia').value, $('mag-new-colore').value) : (cod !== '' && inventarioMag.some(i => i.codice === cod));
+            const w = $('mag-sku-warning'); if (w) w.style.display = dup && !abb ? 'block' : 'none';
+            const d = $('mag-new-abb-doppione'), info = $('mag-new-abb-info');
+            if (d) d.style.display = dup && abb ? '' : 'none';
+            if (info) info.style.display = dup && abb ? 'none' : '';
+            c.style.borderColor = dup ? 'var(--accent)' : '#334155';
+            ['mag-new-taglia', 'mag-new-colore'].forEach(id => { const e = $(id); if (e) e.style.borderColor = dup && abb ? 'var(--accent)' : ''; });
+            const btn = $('mag-btn-add-submit'); if (btn) btn.disabled = dup;
+        }
+        // SKU di un modello già in magazzino: compila i campi vuoti con i suoi dati (nuova taglia o nuovo colore)
+        function _datiModelloMag() {
+            const sku = _up($('mag-new-codice').value);
+            const cat = $('mag-new-categoria').value;
+            if (!sku || (cat && !MAG_CAT_ABB.includes(cat))) return;
+            const m = inventarioMag.find(i => isMagAbb(i) && _up(_skuMag(i)) === sku);
+            if (!m) return;
+            if (!cat) { $('mag-new-categoria').value = m.categoria; _aggiornaCampiAbbForm(); }
+            const metti = (id, v) => { const e = $(id); if (e && !e.value && v) e.value = v; };
+            metti('mag-new-nome', m.nome); metti('mag-new-marca', m.marca);
+            metti('mag-new-prezzo', m.prezzo); metti('mag-new-prezzo-pubblico', m.prezzo_pubblico);
+            _controllaDoppioneMag();
         }
         function _skuTaglia(t) { return String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
-        // Dopo un capo aggiunto il modulo resta compilato per la taglia successiva: il codice nuovo = codice base + taglia
-        function _prontoPerAltraTaglia(art) {
-            const suff = art.taglia ? '-' + _skuTaglia(art.taglia) : '';
-            _magSkuBase = suff && art.codice.endsWith(suff) ? art.codice.slice(0, -suff.length) : art.codice;
-            const c = $('mag-new-codice');
-            c.value = ''; c.dataset.auto = '1';
+        // Dopo un capo aggiunto il modulo resta compilato (stesso SKU) per la taglia o il colore successivo
+        function _prontoPerAltraTaglia() {
+            _magModuloTenuto = true;
             $('mag-new-taglia').value = '';
             $('mag-new-giacenza').value = 1;
-        }
-        function _proponiSkuTaglia() {
-            const c = $('mag-new-codice');
-            if (!_magSkuBase || !c || (c.value && c.dataset.auto !== '1')) return;
-            const t = _skuTaglia($('mag-new-taglia').value);
-            c.value = t ? _magSkuBase + '-' + t : '';
-            c.dataset.auto = '1';
-            c.dispatchEvent(new Event('input'));
+            _controllaDoppioneMag();
         }
         function svuotaModuloMag(chiudendo) {
             const form = $('mag-new-item-form');
             if (!form) return;
             form.reset();
             $('mag-new-giacenza').value = 1;
-            _magSkuBase = null;
-            const c = $('mag-new-codice');
-            delete c.dataset.auto;
-            c.style.borderColor = '#334155';
-            const w = $('mag-sku-warning'); if (w) w.style.display = 'none';
-            const btn = $('mag-btn-add-submit'); if (btn) btn.disabled = false;
+            _magModuloTenuto = false;
             _aggiornaCampiAbbForm();
             if (!chiudendo) $('mag-new-nome').focus();
         }
@@ -6894,35 +6927,29 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (form) form.onsubmit = async function(e) {
                 e.preventDefault();
                 const cod = $('mag-new-codice').value.toUpperCase().trim();
-                if (inventarioMag.some(i => i.codice === cod)) return mostraErrore("SKU già presente!");
                 const art = { codice: cod, nome: $('mag-new-nome').value.toUpperCase().trim(), marca: $('mag-new-marca').value.toUpperCase().trim(), categoria: $('mag-new-categoria').value, giacenza: parseInt($('mag-new-giacenza').value)||0, prezzo: parseFloat($('mag-new-prezzo').value)||0, prezzo_pubblico: parseFloat($('mag-new-prezzo-pubblico').value)||0 };
                 const abb = isMagAbb(art);
-                if (abb) { art.taglia = $('mag-new-taglia').value.toUpperCase().trim(); art.colore = $('mag-new-colore').value.toUpperCase().trim(); }
+                if (abb) {
+                    art.taglia = $('mag-new-taglia').value.toUpperCase().trim(); art.colore = $('mag-new-colore').value.toUpperCase().trim();
+                    if (_doppioneVarianteMag(cod, art.taglia, art.colore)) return mostraErrore("Questo articolo c'è già in questa taglia e colore!");
+                    art.sku = cod;
+                    art.codice = _chiaveVarianteMag(cod, art.taglia, art.colore);
+                } else if (inventarioMag.some(i => i.codice === cod)) return mostraErrore("SKU già presente!");
                 try {
-                    await magSave(cod, art);
-                    if (abb) _prontoPerAltraTaglia(art);
-                    else { form.reset(); $('mag-new-giacenza').value = 1; _magSkuBase = null; _aggiornaCampiAbbForm(); }
-                    const w = $('mag-sku-warning'); if (w) w.style.display = 'none';
-                    $('mag-new-codice').style.borderColor = '#334155';
-                    const btn = $('mag-btn-add-submit'); if (btn) btn.disabled = false;
+                    await magSave(art.codice, art);
+                    if (abb) _prontoPerAltraTaglia();
+                    else { form.reset(); $('mag-new-giacenza').value = 1; _magModuloTenuto = false; _aggiornaCampiAbbForm(); }
                     $(abb ? 'mag-new-taglia' : 'mag-new-codice').focus();
                     if (art.categoria) categorieAperteMag.add(art.categoria);
                     magReparto = abb ? 'abbigliamento' : 'ricambi';
                     await magRefreshData();
-                    if (abb) mostraToast(`✅ ${art.nome}${art.taglia ? ' tg. ' + art.taglia : ''} aggiunto. Per un'altra taglia cambia solo taglia e quantità`);
+                    if (abb) mostraToast(`✅ ${art.nome}${art.taglia ? ' tg. ' + art.taglia : ''} aggiunto. Per un'altra taglia o colore cambia solo quelli e la quantità`);
                 } catch(err) { mostraErrore("Errore aggiunta: " + err.message); }
             };
 
             // SKU duplicate check
             const codInput = $('mag-new-codice');
-            if (codInput) codInput.addEventListener('input', function(e) {
-                if (e && e.isTrusted) delete this.dataset.auto;
-                const cod = this.value.toUpperCase().trim();
-                const dup = cod !== '' && inventarioMag.some(i => i.codice === cod);
-                const w = $('mag-sku-warning'); if (w) w.style.display = dup ? 'block' : 'none';
-                this.style.borderColor = dup ? 'var(--accent)' : '#334155';
-                const btn = $('mag-btn-add-submit'); if (btn) btn.disabled = dup;
-            });
+            if (codInput) codInput.addEventListener('input', _controllaDoppioneMag);
         }
 
         function toggleFiltroSottosogliaMag() {
@@ -7167,13 +7194,15 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (idx === -1) return;
             const item = listaOrdiniMag[idx];
             const codice = item.codice || ('LO-' + String(item.id).slice(-6));
-            const existing = inventarioMag.find(i => i.codice === codice);
+            const abb = isMagAbb(item);
+            const existing = abb ? inventarioMag.find(i => _idMag(i) === _idLo({ ...item, codice })) : inventarioMag.find(i => i.codice === codice);
             if (existing) {
-                if (!confirm(`"${codice}" già in magazzino (giacenza: ${existing.giacenza}). Aggiungere ${item.giacenza} unità?`)) return;
+                if (!confirm(`"${codice}${abb && _tagliaColoreMag(item) ? ' ' + _tagliaColoreMag(item) : ''}" già in magazzino (giacenza: ${existing.giacenza}). Aggiungere ${item.giacenza} unità?`)) return;
                 existing.giacenza += item.giacenza;
-                await magSave(codice, existing);
+                await magSave(existing.codice, existing);
             } else {
-                await magSave(codice, { codice, nome: item.nome, marca: item.marca, categoria: item.categoria || 'RICAMBI', giacenza: item.giacenza, prezzo: item.prezzo || 0, prezzo_pubblico: item.prezzo_pubblico || 0, ...(isMagAbb(item) ? { taglia: item.taglia || '', colore: item.colore || '' } : {}) });
+                const chiave = abb ? _chiaveVarianteMag(codice, item.taglia, item.colore) : codice;
+                await magSave(chiave, { codice: chiave, nome: item.nome, marca: item.marca, categoria: item.categoria || 'RICAMBI', giacenza: item.giacenza, prezzo: item.prezzo || 0, prezzo_pubblico: item.prezzo_pubblico || 0, ...(abb ? { sku: codice, taglia: item.taglia || '', colore: item.colore || '' } : {}) });
             }
             listaOrdiniMag.splice(idx, 1);
             saveListaOrdiniMag();
@@ -7181,15 +7210,15 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         function _codiciInListaOrdini() {
-            return new Set(listaOrdiniMag.map(x => String(x.codice || '').toUpperCase().trim()).filter(Boolean));
+            return new Set(listaOrdiniMag.filter(x => String(x.codice || '').trim()).map(_idLo));
         }
         function _articoliDaRiordinare() {
             const inLista = _codiciInListaOrdini();
             const tutti = inventarioMag.filter(magDaRiordinare)
                 .sort((a, b) => (Number(isMagEsaurito(b)) - Number(isMagEsaurito(a))) || String(a.codice || '').localeCompare(String(b.codice || '')));
             return {
-                nuovi: tutti.filter(i => !inLista.has(String(i.codice || '').toUpperCase().trim())),
-                giaInLista: tutti.filter(i => inLista.has(String(i.codice || '').toUpperCase().trim()))
+                nuovi: tutti.filter(i => !inLista.has(_idMag(i))),
+                giaInLista: tutti.filter(i => inLista.has(_idMag(i)))
             };
         }
         function _qtaRiordinoProposta(item) {
@@ -7222,7 +7251,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 <tbody>${nuovi.map((i, n) => `
                     <tr style="border-bottom:1px solid #334155;">
                         <td style="padding:6px 8px; text-align:center;"><input type="checkbox" class="riordino-chk" data-codice="${htmlEsc(i.codice)}" checked aria-label="Riordina ${htmlEsc(i.nome || i.codice)}" style="width:auto; margin:0;"></td>
-                        <td style="padding:6px 10px; font-family:monospace; font-weight:800;">${htmlEsc(i.codice)}</td>
+                        <td style="padding:6px 10px; font-family:monospace; font-weight:800;">${htmlEsc(_skuMag(i))}</td>
                         <td style="padding:6px 10px;"><b style="color:white;">${htmlEsc(i.nome || '')}</b>${_tagliaColoreMag(i) ? ` <span style="color:var(--info); font-weight:800;">${htmlEsc(_tagliaColoreMag(i))}</span>` : ''}${i.marca ? ` <span style="color:var(--muted);">· ${htmlEsc(i.marca)}</span>` : ''}</td>
                         <td style="padding:6px 10px; text-align:center; font-weight:800; color:${isMagEsaurito(i) ? 'var(--accent)' : 'var(--warning)'};">${i.giacenza || 0}</td>
                         <td style="padding:6px 10px; text-align:center; color:var(--muted);">${(i.min_stock != null && i.min_stock !== '') ? i.min_stock : 1}</td>
@@ -7230,7 +7259,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     </tr>`).join('')}
                 </tbody></table>`;
             $('riordino-gia').textContent = giaInLista.length
-                ? `Già nella lista da ordinare (non vengono aggiunti di nuovo): ${giaInLista.map(i => i.codice).join(', ')}`
+                ? `Già nella lista da ordinare (non vengono aggiunti di nuovo): ${giaInLista.map(i => _skuMag(i) + (_tagliaColoreMag(i) ? ' ' + _tagliaColoreMag(i) : '')).join(', ')}`
                 : '';
             $('riordino-conferma').textContent = `Aggiungi ${nuovi.length} articol${nuovi.length === 1 ? 'o' : 'i'} alla lista`;
             $('modal-riordino').classList.remove('hidden');
@@ -7247,10 +7276,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             scelti.forEach(r => {
                 const codice = r.chk.dataset.codice;
                 const item = inventarioMag.find(i => i.codice === codice);
-                if (!item || inLista.has(String(codice).toUpperCase().trim())) return;
+                if (!item || inLista.has(_idMag(item))) return;
                 listaOrdiniMag.push({
                     id: genId(),
-                    codice: item.codice,
+                    codice: _skuMag(item),
                     nome: item.nome || '',
                     marca: item.marca || '',
                     categoria: item.categoria || '',
@@ -7287,7 +7316,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             } else {
                 wrapper.style.display = 'none';
                 document.body.style.overflow = '';
-                if (_magSkuBase !== null) svuotaModuloMag(true);
+                if (_magModuloTenuto) svuotaModuloMag(true);
             }
         }
 
@@ -7386,7 +7415,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                             <div style="display:flex;align-items:center;gap:7px;min-width:0;flex:1;">
                                 <span style="width:8px;height:8px;border-radius:50%;background:${sc};flex-shrink:0;"></span>
                                 <div style="min-width:0;">
-                                    <div style="font-family:monospace;font-size:0.75rem;color:var(--muted);line-height:1;">${item.codice}</div>
+                                    <div style="font-family:monospace;font-size:0.75rem;color:var(--muted);line-height:1;">${htmlEsc(_skuMag(item))}</div>
                                     <div style="font-size:0.88rem;font-weight:600;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.nome||'—'}</div>
                                     ${_tagliaColoreMag(item) ? `<div style="font-size:0.78rem;font-weight:800;color:var(--info);">${htmlEsc(_tagliaColoreMag(item))}</div>` : ''}
                                 </div>
@@ -7461,7 +7490,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
                     tr.innerHTML = `
                         <td style="padding:12px 14px; white-space:nowrap;">
-                            <span style="font-family:monospace; font-size:1rem; color:#1e293b; font-weight:800; letter-spacing:0.3px;">${item.codice}</span>
+                            ${abb ? `<input type="text" value="${htmlEsc(_skuMag(item))}" aria-label="Codice SKU" class="mag-in-sku" title="SKU del modello (uguale per tutte le taglie)"
+                                style="width:100%; font-family:monospace; font-size:1rem; color:#1e293b; font-weight:800; letter-spacing:0.3px; background:transparent; border:none; padding:2px 4px; border-radius:6px;"
+                                onfocus="this.style.background='#f8fafc'; this.style.outline='2px solid var(--info)';"
+                                onblur="this.style.background='transparent'; this.style.outline='none'; modificaArticoloMag('${cod}','sku',this.value)">`
+                            : `<span style="font-family:monospace; font-size:1rem; color:#1e293b; font-weight:800; letter-spacing:0.3px;">${item.codice}</span>`}
                         </td>
                         <td style="padding:12px 14px;">
                             <input type="text" value="${safe(item.nome)}"
@@ -7591,6 +7624,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             else if (campo==='min_stock') v = Math.max(1, parseInt(valore)||1);
             else if (typeof v==='string') v = v.toUpperCase().trim();
             const aggiornato = { ...inventarioMag[idx], [campo]: v };
+            if (['sku', 'taglia', 'colore'].includes(campo) && isMagAbb(aggiornato) && inventarioMag.some((i, k) => k !== idx && isMagAbb(i) && _idMag(i) === _idMag(aggiornato)))
+                mostraToast(`⚠️ C'è già un altro ${aggiornato.nome || 'articolo'} ${_skuMag(aggiornato)} ${_tagliaColoreMag(aggiornato)}: controlla i doppioni`, '#d97706');
             if (campo === 'categoria' && isMagAbb(aggiornato) !== isMagAbb(inventarioMag[idx])) mostraToast(`${aggiornato.nome || codice} spostato in "${isMagAbb(aggiornato) ? 'Abbigliamento e Caschi' : 'Ricambi'}"`);
             inventarioMag[idx] = aggiornato;
             renderSummaryMag();
@@ -7610,7 +7645,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         async function eliminaArticoloMag(cod) {
-            if (confirm(`Eliminare ${cod} definitivamente dal magazzino?`)) {
+            const it = inventarioMag.find(i => i.codice === cod);
+            if (confirm(`Eliminare ${it ? _skuMag(it) + ' ' + _nomeArticoloMag(it) : cod} definitivamente dal magazzino?`)) {
                 try { await magDelete(cod); } catch(e) { mostraErrore("Errore: " + e.message); }
             }
         }
@@ -7620,7 +7656,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             let csv = "\uFEFFCODICE;DESCRIZIONE;MARCA;CATEGORIA;TAGLIA;COLORE;STOCK;PR.ACQUISTO;PR.PUBBLICO;PREZZO IVATO ACQ;TOTALE NETTO;TOTALE IVATO\n";
             [...inventarioMag].sort((a,b)=>(a.categoria||'').localeCompare(b.categoria||'')||(a.codice||'').localeCompare(b.codice||'')).forEach(i => {
                 const pI=i.prezzo*(1+MAG_IVA), tN=i.giacenza*i.prezzo, tI=tN*(1+MAG_IVA), pp=(i.prezzo_pubblico||0);
-                csv+=`${i.codice};${i.nome};${i.marca};${i.categoria};${isMagAbb(i) ? (i.taglia||'') : ''};${isMagAbb(i) ? (i.colore||'') : ''};${i.giacenza};${i.prezzo.toFixed(2).replace('.',',')};${pp.toFixed(2).replace('.',',')};${pI.toFixed(2).replace('.',',')};${tN.toFixed(2).replace('.',',')};${tI.toFixed(2).replace('.',',')}\n`;
+                csv+=`${_skuMag(i)};${i.nome};${i.marca};${i.categoria};${isMagAbb(i) ? (i.taglia||'') : ''};${isMagAbb(i) ? (i.colore||'') : ''};${i.giacenza};${i.prezzo.toFixed(2).replace('.',',')};${pp.toFixed(2).replace('.',',')};${pI.toFixed(2).replace('.',',')};${tN.toFixed(2).replace('.',',')};${tI.toFixed(2).replace('.',',')}\n`;
             });
             const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'})); a.download=`magazzino_${getOggiLocale()}.csv`; a.click();
         }
