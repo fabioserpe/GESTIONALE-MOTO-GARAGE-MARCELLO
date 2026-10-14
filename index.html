@@ -205,7 +205,7 @@
             #mag-table-wrap { display: none !important; }
             #mag-inv-section { display: none; }
             #mag-inv-btn { display: flex !important; }
-            #mag-mobile-container { display: block; padding-bottom: 30px; }
+            #mag-mobile-container { display: block !important; padding-bottom: 30px; }
             #mag-form-body { display: block !important; }
             #mag-form-toggle-icon { display: none !important; }
             #mag-form-wrapper .flex-between { cursor: default !important; pointer-events: none !important; }
@@ -340,6 +340,25 @@
         #mag-inventory-table .mag-item-row td:nth-child(6) input { font-weight:700 !important; }
         #mag-inventory-table .mag-item-row td:nth-child(7) { font-weight:700; }
         #mag-inventory-table .mag-item-row td:nth-child(7) input { font-weight:700 !important; }
+        /* Scheda Abbigliamento e Caschi: Taglia e Colore dopo la descrizione, gli stessi colori delle colonne spostati di due */
+        #mag-inventory-table.mag-abb .mag-item-row td:nth-child(4),
+        #mag-inventory-table.mag-abb .mag-item-row td:nth-child(5) { background:transparent !important; }
+        #mag-inventory-table.mag-abb .mag-item-row td:nth-child(6) { background:#cbd5e1; font-weight:700 !important; }
+        #mag-inventory-table.mag-abb .mag-item-row td:nth-child(6) select { font-weight:700 !important; color:#111 !important; background:transparent !important; }
+        #mag-inventory-table.mag-abb .mag-item-row td:nth-child(7) { background:#334155 !important; }
+        #mag-inventory-table.mag-abb .mag-item-row td:nth-child(7) input { font-weight:900 !important; }
+        #mag-inventory-table.mag-abb .mag-item-row td:nth-child(8),
+        #mag-inventory-table.mag-abb .mag-item-row td:nth-child(9),
+        #mag-inventory-table.mag-abb .mag-item-row td:nth-child(8) input,
+        #mag-inventory-table.mag-abb .mag-item-row td:nth-child(9) input { font-weight:700 !important; }
+        #mag-inventory-table.mag-abb .mag-item-row.row-esaurito td:nth-child(4),
+        #mag-inventory-table.mag-abb .mag-item-row.row-esaurito td:nth-child(5) { background:#fecaca !important; }
+        #mag-inventory-table.mag-abb .mag-item-row.row-scarso td:nth-child(4),
+        #mag-inventory-table.mag-abb .mag-item-row.row-scarso td:nth-child(5) { background:#fef3c7 !important; }
+        #mag-inventory-table.mag-abb .mag-item-row.row-esaurito td:nth-child(6),
+        #mag-inventory-table.mag-abb .mag-item-row.row-scarso td:nth-child(6) { background:#cbd5e1 !important; }
+        #mag-inventory-table.mag-abb .mag-item-row.row-esaurito td:nth-child(7),
+        #mag-inventory-table.mag-abb .mag-item-row.row-scarso td:nth-child(7) { background:#334155 !important; }
         #mag-inventory-table .mag-item-row:hover td { box-shadow: inset 0 0 0 999px rgba(99,116,139,0.13) !important; }
 #mc-rows tr:hover td { box-shadow: inset 0 0 0 999px rgba(99,116,139,0.13) !important; }
 #conto-rows tr:hover td { box-shadow: inset 0 0 0 999px rgba(99,116,139,0.13) !important; }
@@ -1120,6 +1139,7 @@
                         <button class="btn btn-dark w-auto" onclick="esportaExcelMag()" title="Esporta lista magazzino in Excel">📊 Excel</button>
                     </div>
                 </div>
+                <div id="mag-reparti" role="tablist" aria-label="Reparto del magazzino" style="display:flex; gap:2px; flex-wrap:wrap; border-bottom:1px solid #334155; margin-bottom:10px;"></div>
                 <input type="text" id="mag-search-input" placeholder="🔍 Cerca articolo per codice, descrizione o marca..." oninput="_dRenderMag()" style="background:var(--card); border:2px solid var(--warning); margin-bottom:0;">
             </div>
 
@@ -1142,7 +1162,7 @@
                 <div id="lo-body">
                     <!-- Form inserimento — stessi campi del magazzino -->
                     <form id="lo-form">
-                        <div class="mob-form-grid" style="display:grid; grid-template-columns: 110px 2fr 1fr 1fr 70px 110px auto; gap:10px; align-items:end; margin-bottom:12px;">
+                        <div class="mob-form-grid" id="lo-grid" style="display:grid; grid-template-columns: 110px 2fr 1fr 1fr 70px 110px auto; gap:10px; align-items:end; margin-bottom:12px;">
                             <div>
                                 <label>SKU</label>
                                 <input type="text" id="lo-codice" placeholder="FIL-01" style="margin-bottom:0;">
@@ -1157,7 +1177,7 @@
                             </div>
                             <div>
                                 <label>Categoria</label>
-                                <select id="lo-categoria" style="margin-bottom:0;">
+                                <select id="lo-categoria" onchange="_aggiornaCampiAbbLo()" style="margin-bottom:0;">
                                     <option value="">-- --</option>
                                     <option value="ARIA E CARBURANTE">🌬️ Aria e Carburante</option>
                                     <option value="MOTORE">⚙️ Motore</option>
@@ -1172,6 +1192,14 @@
                                     <option value="ABBIGLIAMENTO">👕 Abbigliamento</option>
                                     <option value="RICAMBI">🔩 Ricambi Vari</option>
                                 </select>
+                            </div>
+                            <div class="lo-campo-abb" style="display:none;">
+                                <label>Taglia</label>
+                                <input type="text" id="lo-taglia" list="mag-lista-taglie" placeholder="M" style="margin-bottom:0; text-align:center;">
+                            </div>
+                            <div class="lo-campo-abb" style="display:none;">
+                                <label>Colore</label>
+                                <input type="text" id="lo-colore" list="mag-lista-colori" placeholder="Nero" style="margin-bottom:0;">
                             </div>
                             <div>
                                 <label>Qtà</label>
@@ -1198,7 +1226,7 @@
                 </div>
                 <div id="mag-form-body">
                 <form id="mag-new-item-form">
-                    <div class="mob-form-grid" style="display:grid; grid-template-columns: 160px 2fr 1fr 1fr 70px 110px auto; gap:10px; align-items:end;">
+                    <div class="mob-form-grid" id="mag-new-grid" style="display:grid; grid-template-columns: 160px 2fr 1fr 1fr 70px 110px auto; gap:10px; align-items:end;">
                         <div>
                             <label>SKU</label>
                             <input type="text" id="mag-new-codice" placeholder="FIL-01" required style="margin-bottom:0;">
@@ -1213,10 +1241,12 @@
                             <label>Marca</label>
                             <input type="text" id="mag-new-marca" list="mag-lista-marche" placeholder="Marca" style="margin-bottom:0;">
                             <datalist id="mag-lista-marche"></datalist>
+                            <datalist id="mag-lista-taglie"></datalist>
+                            <datalist id="mag-lista-colori"></datalist>
                         </div>
                         <div>
                             <label>Categoria</label>
-                            <select id="mag-new-categoria" required style="margin-bottom:0;">
+                            <select id="mag-new-categoria" required onchange="_aggiornaCampiAbbForm()" style="margin-bottom:0;">
                                 <option value="" disabled selected>-- --</option>
                                 <option value="ARIA E CARBURANTE">🌬️ Aria e Carburante</option>
                                 <option value="MOTORE">⚙️ Motore</option>
@@ -1231,6 +1261,14 @@
                                 <option value="ABBIGLIAMENTO">👕 Abbigliamento</option>
                             </select>
                         </div>
+                        <div class="mag-campo-abb" style="display:none;">
+                            <label>Taglia</label>
+                            <input type="text" id="mag-new-taglia" list="mag-lista-taglie" placeholder="M" oninput="_proponiSkuTaglia()" style="margin-bottom:0; text-align:center;">
+                        </div>
+                        <div class="mag-campo-abb" style="display:none;">
+                            <label>Colore</label>
+                            <input type="text" id="mag-new-colore" list="mag-lista-colori" placeholder="Nero" style="margin-bottom:0;">
+                        </div>
                         <div>
                             <label>Qtà</label>
                             <input type="number" id="mag-new-giacenza" min="0" value="1" required style="margin-bottom:0; text-align:center;">
@@ -1244,6 +1282,10 @@
                             <input type="number" id="mag-new-prezzo-pubblico" step="0.01" min="0" placeholder="0.00" style="margin-bottom:0; text-align:right;">
                         </div>
                         <button type="submit" id="mag-btn-add-submit" class="btn btn-accent" style="white-space:nowrap; margin-bottom:0; width:auto;">✚ Aggiungi</button>
+                    </div>
+                    <div id="mag-new-abb-nota" style="display:none; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:12px; padding:10px 12px; border:1px dashed #334155; border-radius:8px; font-size:0.85rem; color:var(--muted);">
+                        <span>👕 Una riga per ogni taglia e colore. Dopo <b style="color:white;">Aggiungi</b> il modulo resta compilato: cambia solo taglia e quantità, il codice si adatta da solo.</span>
+                        <button type="button" onclick="svuotaModuloMag()" title="Svuota il modulo" style="background:transparent; border:1px solid #64748b; color:#94a3b8; border-radius:8px; padding:7px 14px; cursor:pointer; font-size:0.85rem; width:auto; margin:0;">🧹 Svuota modulo</button>
                     </div>
                 </form>
                 </div><!-- fine mag-form-body -->
@@ -1274,6 +1316,8 @@
                         <tr style="background:var(--card);">
                             <th onclick="sortMag('codice')" style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:170px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">CODICE SKU <span id="mag-sort-codice"></span></th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; letter-spacing:0.5px;">DESCRIZIONE</th>
+                            <th class="mag-col-abb" style="display:none; text-align:center; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:80px; letter-spacing:0.5px;">TAGLIA</th>
+                            <th class="mag-col-abb" style="display:none; text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:150px; letter-spacing:0.5px;">COLORE</th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:140px; letter-spacing:0.5px;">MARCA</th>
                             <th style="text-align:left; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:155px; letter-spacing:0.5px;">CATEGORIA</th>
                             <th onclick="sortMag('giacenza')" style="text-align:center; padding:11px 14px; font-size:0.72rem; color:var(--muted); font-weight:800; border-bottom:2px solid #334155; width:130px; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">STOCK <span id="mag-sort-giacenza"></span></th>
@@ -5088,21 +5132,21 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 return;
             }
             const matches = inventarioMag.filter(i =>
-                (i.nome||'').toUpperCase().includes(q) || (i.codice||'').toUpperCase().includes(q)
+                (i.nome||'').toUpperCase().includes(q) || (i.codice||'').toUpperCase().includes(q) || _nomeArticoloMag(i).toUpperCase().includes(q)
             ).slice(0, 7);
             if (!matches.length) { resDiv.style.display = 'none'; return; }
             resDiv.style.display = 'block';
             resDiv.innerHTML = matches.map(i => {
-                const stock = i.giacenza <= 0 ? '⛔' : i.giacenza <= 3 ? '⚠️' : '✅';
+                const stock = isMagEsaurito(i) ? '⛔' : isMagScarso(i) ? '⚠️' : '✅';
                 const codeSafe = (i.codice||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-                const nomeSafe = (i.nome||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+                const nomeSafe = htmlEsc(_nomeArticoloMag(i).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
                 const prezzo = parseFloat(i.prezzo_pubblico) || parseFloat(i.prezzo) || 0;
                 const prezzoPubb = parseFloat(i.prezzo_pubblico) || 0;
                 return `<div onmousedown="selezionaMagPerConto(this.closest('.mag-conto-results').closest('tr'),'${codeSafe}','${nomeSafe}',${prezzo})"
                     style="padding:8px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem;transition:background 0.1s;"
                     onmouseover="this.style.background='rgba(20,184,166,0.15)'" onmouseout="this.style.background=''">
                     <span style="color:#14b8a6;font-weight:bold;font-family:monospace;">${i.codice}</span>
-                    <span style="color:white;margin-left:8px;">${i.nome}</span>
+                    <span style="color:white;margin-left:8px;">${htmlEsc(i.nome||'')}</span>${_tagliaColoreMag(i) ? ` <b style="color:#a78bfa;">${htmlEsc(_tagliaColoreMag(i))}</b>` : ''}
                     <span style="float:right;color:var(--muted);">${stock} ${i.giacenza} pz${prezzoPubb > 0 ? ` · <span style="color:#22c55e;font-weight:bold;">€${prezzoPubb.toFixed(2)}</span>` : ''}</span>
                 </div>`;
             }).join('');
@@ -6712,6 +6756,95 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             return soglia > 0 && (item.giacenza||0) <= soglia;
         }
         function magDaRiordinare(item) { return isMagEsaurito(item) || isMagScarso(item); }
+
+        // Reparto "Abbigliamento e Caschi": stesse regole dei ricambi, in più taglia e colore (un articolo per ogni taglia/colore)
+        const MAG_CAT_ABB = ['CASCHI', 'ABBIGLIAMENTO'];
+        const MAG_TAGLIE = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
+        const MAG_COLORI = ['NERO', 'NERO OPACO', 'BIANCO', 'GRIGIO', 'ROSSO', 'BLU', 'GIALLO', 'GIALLO FLUO', 'VERDE', 'ARANCIONE', 'NERO/ROSSO', 'NERO/BIANCO'];
+        const MAG_REP = { ricambi: { lbl: '🔧 Ricambi', col: 'var(--accent)' }, abbigliamento: { lbl: '🪖 Abbigliamento e Caschi', col: 'var(--info)' } };
+        let magReparto = 'ricambi';
+        let _magSkuBase = null;
+        function isMagAbb(item) { return !!item && MAG_CAT_ABB.includes(item.categoria); }
+        function _nelRepartoMag(item) { return isMagAbb(item) === (magReparto === 'abbigliamento'); }
+        function _tagliaColoreMag(item, sep = ' · ') { return isMagAbb(item) ? [item.taglia ? 'TG. ' + item.taglia : '', item.colore || ''].filter(Boolean).join(sep) : ''; }
+        function _nomeArticoloMag(item) { const tc = _tagliaColoreMag(item, ', '); return (item.nome || '') + (tc ? ' (' + tc + ')' : ''); }
+        function _ordineTaglia(t) {
+            const s = String(t || '').toUpperCase().trim().replace(/^2XL$/, 'XXL');
+            const i = MAG_TAGLIE.indexOf(s);
+            if (i >= 0) return i;
+            const n = parseFloat(s.replace(',', '.'));
+            return isNaN(n) ? 1000 : 100 + n;
+        }
+        // Stesso modello insieme, taglie in ordine (S, M, L, XL…)
+        function _confrontaAbb(a, b) { return String(a.nome || '').localeCompare(String(b.nome || '')) || String(a.colore || '').localeCompare(String(b.colore || '')) || (_ordineTaglia(a.taglia) - _ordineTaglia(b.taglia)) || String(a.codice || '').localeCompare(String(b.codice || '')); }
+        function _renderRepartiMag(n) {
+            const el = $('mag-reparti');
+            if (!el) return;
+            el.innerHTML = Object.entries(MAG_REP).map(([k, t]) => {
+                const on = magReparto === k;
+                return `<button type="button" role="tab" id="mag-rep-${k}" aria-selected="${on}" onclick="setMagReparto('${k}')" style="background:transparent; border:none; border-bottom:3px solid ${on ? t.col : 'transparent'}; color:${on ? 'white' : 'var(--muted)'}; padding:9px 14px; font-size:0.92rem; font-weight:800; cursor:pointer; width:auto; min-height:44px;">${t.lbl} <span style="background:${on ? t.col : '#334155'}; color:${on ? '#0f172a' : 'white'}; border-radius:12px; padding:1px 8px; font-size:0.78rem; margin-left:4px;">${n[k]}</span></button>`;
+            }).join('');
+        }
+        function setMagReparto(r) {
+            if (!MAG_REP[r] || magReparto === r) return;
+            magReparto = r;
+            if (r === 'abbigliamento' && !MAG_CAT_ABB.some(c => categorieAperteMag.has(c))) MAG_CAT_ABB.forEach(c => categorieAperteMag.add(c));
+            renderTableMag(); renderSummaryMag();
+        }
+        // Modulo "Aggiungi Articolo": taglia e colore solo per caschi e abbigliamento
+        function _aggiornaCampiAbbForm() {
+            const cat = ($('mag-new-categoria') || {}).value;
+            const vedi = MAG_CAT_ABB.includes(cat) || (!cat && magReparto === 'abbigliamento');
+            document.querySelectorAll('#mag-new-item-form .mag-campo-abb').forEach(d => d.style.display = vedi ? '' : 'none');
+            const g = $('mag-new-grid');
+            if (g) g.style.gridTemplateColumns = vedi ? '160px 2fr 1fr 1fr 90px 1fr 70px 110px 110px auto' : '160px 2fr 1fr 1fr 70px 110px auto';
+            const nota = $('mag-new-abb-nota');
+            if (nota) nota.style.display = vedi ? 'flex' : 'none';
+        }
+        function _skuTaglia(t) { return String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+        // Dopo un capo aggiunto il modulo resta compilato per la taglia successiva: il codice nuovo = codice base + taglia
+        function _prontoPerAltraTaglia(art) {
+            const suff = art.taglia ? '-' + _skuTaglia(art.taglia) : '';
+            _magSkuBase = suff && art.codice.endsWith(suff) ? art.codice.slice(0, -suff.length) : art.codice;
+            const c = $('mag-new-codice');
+            c.value = ''; c.dataset.auto = '1';
+            $('mag-new-taglia').value = '';
+            $('mag-new-giacenza').value = 1;
+        }
+        function _proponiSkuTaglia() {
+            const c = $('mag-new-codice');
+            if (!_magSkuBase || !c || (c.value && c.dataset.auto !== '1')) return;
+            const t = _skuTaglia($('mag-new-taglia').value);
+            c.value = t ? _magSkuBase + '-' + t : '';
+            c.dataset.auto = '1';
+            c.dispatchEvent(new Event('input'));
+        }
+        function svuotaModuloMag(chiudendo) {
+            const form = $('mag-new-item-form');
+            if (!form) return;
+            form.reset();
+            $('mag-new-giacenza').value = 1;
+            _magSkuBase = null;
+            const c = $('mag-new-codice');
+            delete c.dataset.auto;
+            c.style.borderColor = '#334155';
+            const w = $('mag-sku-warning'); if (w) w.style.display = 'none';
+            const btn = $('mag-btn-add-submit'); if (btn) btn.disabled = false;
+            _aggiornaCampiAbbForm();
+            if (!chiudendo) $('mag-new-nome').focus();
+        }
+        // Lista da ordinare: stessi campi
+        function _aggiornaCampiAbbLo() {
+            const vedi = MAG_CAT_ABB.includes(($('lo-categoria') || {}).value);
+            document.querySelectorAll('#lo-form .lo-campo-abb').forEach(d => d.style.display = vedi ? '' : 'none');
+            const g = $('lo-grid');
+            if (g) g.style.gridTemplateColumns = vedi ? '110px 2fr 1fr 1fr 80px 1fr 70px 110px auto auto' : '110px 2fr 1fr 1fr 70px 110px auto';
+        }
+        function _tagliaColoreLo(obj) {
+            if (MAG_CAT_ABB.includes(obj.categoria)) { obj.taglia = $('lo-taglia').value.toUpperCase().trim(); obj.colore = $('lo-colore').value.toUpperCase().trim(); }
+            else { delete obj.taglia; delete obj.colore; }
+            return obj;
+        }
         const MAG_IVA = 0.22;
         let inventarioMag = [];
         let listaOrdiniMag = [];
@@ -6763,21 +6896,27 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const cod = $('mag-new-codice').value.toUpperCase().trim();
                 if (inventarioMag.some(i => i.codice === cod)) return mostraErrore("SKU già presente!");
                 const art = { codice: cod, nome: $('mag-new-nome').value.toUpperCase().trim(), marca: $('mag-new-marca').value.toUpperCase().trim(), categoria: $('mag-new-categoria').value, giacenza: parseInt($('mag-new-giacenza').value)||0, prezzo: parseFloat($('mag-new-prezzo').value)||0, prezzo_pubblico: parseFloat($('mag-new-prezzo-pubblico').value)||0 };
+                const abb = isMagAbb(art);
+                if (abb) { art.taglia = $('mag-new-taglia').value.toUpperCase().trim(); art.colore = $('mag-new-colore').value.toUpperCase().trim(); }
                 try {
                     await magSave(cod, art);
-                    form.reset(); $('mag-new-giacenza').value = 1;
+                    if (abb) _prontoPerAltraTaglia(art);
+                    else { form.reset(); $('mag-new-giacenza').value = 1; _magSkuBase = null; _aggiornaCampiAbbForm(); }
                     const w = $('mag-sku-warning'); if (w) w.style.display = 'none';
                     $('mag-new-codice').style.borderColor = '#334155';
                     const btn = $('mag-btn-add-submit'); if (btn) btn.disabled = false;
-                    $('mag-new-codice').focus();
+                    $(abb ? 'mag-new-taglia' : 'mag-new-codice').focus();
                     if (art.categoria) categorieAperteMag.add(art.categoria);
+                    magReparto = abb ? 'abbigliamento' : 'ricambi';
                     await magRefreshData();
+                    if (abb) mostraToast(`✅ ${art.nome}${art.taglia ? ' tg. ' + art.taglia : ''} aggiunto. Per un'altra taglia cambia solo taglia e quantità`);
                 } catch(err) { mostraErrore("Errore aggiunta: " + err.message); }
             };
 
             // SKU duplicate check
             const codInput = $('mag-new-codice');
-            if (codInput) codInput.addEventListener('input', function() {
+            if (codInput) codInput.addEventListener('input', function(e) {
+                if (e && e.isTrusted) delete this.dataset.auto;
                 const cod = this.value.toUpperCase().trim();
                 const dup = cod !== '' && inventarioMag.some(i => i.codice === cod);
                 const w = $('mag-sku-warning'); if (w) w.style.display = dup ? 'block' : 'none';
@@ -6918,6 +7057,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             $('lo-categoria').value= item.categoria || '';
             $('lo-giacenza').value = item.giacenza || 1;
             $('lo-prezzo').value   = item.prezzo || 0;
+            $('lo-taglia').value   = item.taglia || '';
+            $('lo-colore').value   = item.colore || '';
+            _aggiornaCampiAbbLo();
             const btn = document.querySelector('#lo-form button[type="submit"]');
             if (btn) { btn.textContent = '💾 Salva'; btn.style.background = '#f59e0b'; }
             const cancelBtn = $('lo-cancel-btn');
@@ -6929,6 +7071,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             _editingLoId = null;
             $('lo-form').reset();
             $('lo-giacenza').value = 1;
+            _aggiornaCampiAbbLo();
             const btn = document.querySelector('#lo-form button[type="submit"]');
             if (btn) { btn.textContent = '✚ Aggiungi'; btn.style.background = ''; }
             const cancelBtn = $('lo-cancel-btn');
@@ -6946,7 +7089,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (_editingLoId !== null) {
                     const idx = listaOrdiniMag.findIndex(x => x.id === _editingLoId);
                     if (idx !== -1) {
-                        listaOrdiniMag[idx] = {
+                        listaOrdiniMag[idx] = _tagliaColoreLo({
+                            ...listaOrdiniMag[idx],
                             id: _editingLoId,
                             codice:   $('lo-codice').value.toUpperCase().trim(),
                             nome,
@@ -6954,11 +7098,11 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                             categoria:$('lo-categoria').value,
                             giacenza: parseInt($('lo-giacenza').value) || 1,
                             prezzo:   parseFloat($('lo-prezzo').value) || 0
-                        };
+                        });
                     }
                     cancelEditLo();
                 } else {
-                    listaOrdiniMag.push({
+                    listaOrdiniMag.push(_tagliaColoreLo({
                         id: genId(),
                         codice:   $('lo-codice').value.toUpperCase().trim(),
                         nome,
@@ -6966,9 +7110,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         categoria:$('lo-categoria').value,
                         giacenza: parseInt($('lo-giacenza').value) || 1,
                         prezzo:   parseFloat($('lo-prezzo').value) || 0
-                    });
+                    }));
                     form.reset();
                     $('lo-giacenza').value = 1;
+                    _aggiornaCampiAbbLo();
                     $('lo-nome').focus();
                 }
                 saveListaOrdiniMag();
@@ -7001,7 +7146,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         <td style="padding:6px 12px; background:#f1f5f9; border-right:1px solid #e2e8f0; border-left:3px solid #60a5fa;">
                             <span style="font-family:monospace; font-size:1rem; color:#1e293b; font-weight:800;">${item.codice || '—'}</span>
                         </td>
-                        <td style="padding:6px 12px; background:#f8fafc; font-weight:700; color:#1e293b; border-right:1px solid #e2e8f0;">${item.nome}</td>
+                        <td style="padding:6px 12px; background:#f8fafc; font-weight:700; color:#1e293b; border-right:1px solid #e2e8f0;">${item.nome}${_tagliaColoreMag(item) ? ` <span style="color:#0369a1; font-weight:800; white-space:nowrap;">· ${htmlEsc(_tagliaColoreMag(item))}</span>` : ''}</td>
                         <td style="padding:6px 12px; color:#64748b; border-right:1px solid #e2e8f0;">${item.marca || '—'}</td>
                         <td style="padding:6px 12px; background:#cbd5e1; font-weight:700; color:#1e293b; border-right:1px solid #e2e8f0; font-size:0.82rem;">${item.categoria || '—'}</td>
                         <td style="padding:6px 12px; text-align:center; background:#334155; border-right:1px solid #475569;">
@@ -7028,7 +7173,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 existing.giacenza += item.giacenza;
                 await magSave(codice, existing);
             } else {
-                await magSave(codice, { codice, nome: item.nome, marca: item.marca, categoria: item.categoria || 'RICAMBI', giacenza: item.giacenza, prezzo: item.prezzo || 0, prezzo_pubblico: item.prezzo_pubblico || 0 });
+                await magSave(codice, { codice, nome: item.nome, marca: item.marca, categoria: item.categoria || 'RICAMBI', giacenza: item.giacenza, prezzo: item.prezzo || 0, prezzo_pubblico: item.prezzo_pubblico || 0, ...(isMagAbb(item) ? { taglia: item.taglia || '', colore: item.colore || '' } : {}) });
             }
             listaOrdiniMag.splice(idx, 1);
             saveListaOrdiniMag();
@@ -7078,7 +7223,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     <tr style="border-bottom:1px solid #334155;">
                         <td style="padding:6px 8px; text-align:center;"><input type="checkbox" class="riordino-chk" data-codice="${htmlEsc(i.codice)}" checked aria-label="Riordina ${htmlEsc(i.nome || i.codice)}" style="width:auto; margin:0;"></td>
                         <td style="padding:6px 10px; font-family:monospace; font-weight:800;">${htmlEsc(i.codice)}</td>
-                        <td style="padding:6px 10px;"><b style="color:white;">${htmlEsc(i.nome || '')}</b>${i.marca ? ` <span style="color:var(--muted);">· ${htmlEsc(i.marca)}</span>` : ''}</td>
+                        <td style="padding:6px 10px;"><b style="color:white;">${htmlEsc(i.nome || '')}</b>${_tagliaColoreMag(i) ? ` <span style="color:var(--info); font-weight:800;">${htmlEsc(_tagliaColoreMag(i))}</span>` : ''}${i.marca ? ` <span style="color:var(--muted);">· ${htmlEsc(i.marca)}</span>` : ''}</td>
                         <td style="padding:6px 10px; text-align:center; font-weight:800; color:${isMagEsaurito(i) ? 'var(--accent)' : 'var(--warning)'};">${i.giacenza || 0}</td>
                         <td style="padding:6px 10px; text-align:center; color:var(--muted);">${(i.min_stock != null && i.min_stock !== '') ? i.min_stock : 1}</td>
                         <td style="padding:6px 10px; text-align:center;"><input type="number" class="riordino-qta" min="1" step="1" value="${_qtaRiordinoProposta(i)}" aria-label="Quantità da ordinare" style="margin:0; width:70px; text-align:center; padding:6px;"></td>
@@ -7111,7 +7256,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     categoria: item.categoria || '',
                     giacenza: Math.max(1, parseInt(r.qta && r.qta.value) || 1),
                     prezzo: parseFloat(item.prezzo) || 0,
-                    prezzo_pubblico: parseFloat(item.prezzo_pubblico) || 0
+                    prezzo_pubblico: parseFloat(item.prezzo_pubblico) || 0,
+                    ...(isMagAbb(item) ? { taglia: item.taglia || '', colore: item.colore || '' } : {})
                 });
                 aggiunti++;
             });
@@ -7136,10 +7282,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (isHidden) {
                 wrapper.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
+                _aggiornaCampiAbbForm();
                 setTimeout(() => { const f = $('mag-new-nome'); if (f) f.focus(); }, 50);
             } else {
                 wrapper.style.display = 'none';
                 document.body.style.overflow = '';
+                if (_magSkuBase !== null) svuotaModuloMag(true);
             }
         }
 
@@ -7158,7 +7306,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (!tbody && !mobCont) return;
             const search = ($('mag-search-input') ? $('mag-search-input').value : '').toUpperCase();
             const isSearch = search !== '';
-            if (!isMob) { tbody.innerHTML = ''; updateSortIndicators(); }
+            const abb = magReparto === 'abbigliamento';
+            if (!isMob) { tbody.innerHTML = ''; updateSortIndicators(); tbody.classList.toggle('mag-abb', magReparto === 'abbigliamento'); }
             else {
                 mobCont.innerHTML = '';
                 // Su mobile apri tutte le categorie di default
@@ -7176,10 +7325,19 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 filtered = filtered.filter(magDaRiordinare);
             }
 
+            // Schede Ricambi / Abbigliamento e Caschi: i numeri seguono ricerca e filtro
+            const nRep = { ricambi: filtered.filter(i => !isMagAbb(i)).length, abbigliamento: filtered.filter(isMagAbb).length };
+            _renderRepartiMag(nRep);
+            document.querySelectorAll('.mag-col-abb').forEach(th => th.style.display = abb ? '' : 'none');
+            filtered = filtered.filter(_nelRepartoMag);
+
             if (!filtered.length) {
-                const msg = magFiltroSottosoglia ? '✅ Nessun articolo sotto soglia. Magazzino in ordine!' : isSearch ? `Nessun articolo trovato per "<b style="color:white;">${search}</b>"` : 'Magazzino vuoto. Aggiungi il primo articolo qui sopra.';
+                const altro = abb ? 'ricambi' : 'abbigliamento';
+                const vuoto = abb ? 'Nessun casco o capo di abbigliamento. Aggiungili con "➕ Aggiungi Articolo" scegliendo la categoria Caschi o Abbigliamento.' : 'Magazzino vuoto. Aggiungi il primo articolo qui sopra.';
+                const msg = (magFiltroSottosoglia ? '✅ Nessun articolo sotto soglia. Magazzino in ordine!' : isSearch ? `Nessun articolo trovato per "<b style="color:white;">${htmlEsc(search)}</b>"` : vuoto)
+                    + (nRep[altro] && (isSearch || magFiltroSottosoglia) ? `<div style="margin-top:12px;"><button type="button" class="btn btn-dark w-auto" onclick="setMagReparto('${altro}')">Trovati ${nRep[altro]} in ${MAG_REP[altro].lbl} →</button></div>` : '');
                 if (isMob) { mobCont.innerHTML = `<div style="text-align:center; padding:40px; color:var(--muted);">${msg}</div>`; }
-                else { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:var(--muted); font-size:1rem;">${msg}</td></tr>`; }
+                else { tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:40px; color:var(--muted); font-size:1rem;">${msg}</td></tr>`; }
                 return;
             }
 
@@ -7214,7 +7372,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     </div>`;
                     mobCont.appendChild(hDiv);
 
-                    items.sort((a,b) => (a.codice||'').localeCompare(b.codice||'')).forEach(item => {
+                    items.sort((a,b) => abb ? _confrontaAbb(a, b) : (a.codice||'').localeCompare(b.codice||'')).forEach(item => {
                         const safe = s => (s||'').replace(/"/g,'&quot;').replace(/'/g,"\\'");
                         const cod = safe(item.codice);
                         let sc;
@@ -7230,6 +7388,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                 <div style="min-width:0;">
                                     <div style="font-family:monospace;font-size:0.75rem;color:var(--muted);line-height:1;">${item.codice}</div>
                                     <div style="font-size:0.88rem;font-weight:600;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.nome||'—'}</div>
+                                    ${_tagliaColoreMag(item) ? `<div style="font-size:0.78rem;font-weight:800;color:var(--info);">${htmlEsc(_tagliaColoreMag(item))}</div>` : ''}
                                 </div>
                             </div>
                             <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
@@ -7254,7 +7413,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 trH.onclick = () => toggleCategoriaMag(cat);
                 const catBg = 'background:rgba(0,0,0,0.25); border-top:2px solid #334155; border-bottom:1px solid #334155;';
                 trH.innerHTML = `
-                    <td colspan="4" style="${catBg} padding:11px 14px;">
+                    <td colspan="${abb ? 6 : 4}" style="${catBg} padding:11px 14px;">
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span class="mag-ic" style="display:inline-block; transition:transform 0.25s; font-size:0.7rem; color:var(--muted); transform:rotate(${isOpen?'0':'-90'}deg);">▶</span>
                             <span style="font-weight:800; font-size:0.88rem; color:white; text-transform:uppercase; letter-spacing:0.5px;">${catEmoji[cat]||'📂'} ${cat}</span>
@@ -7265,6 +7424,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                         ${lowCount > 0 ? `<span style="background:rgba(245,158,11,0.12); color:var(--warning); font-size:0.72rem; padding:3px 9px; border-radius:20px; font-weight:bold; white-space:nowrap;">⚠️ ${lowCount} da ord.</span>` : ''}
                     </td>
                     <td style="${catBg} padding:11px 14px;"></td>
+                    <td style="${catBg} padding:11px 14px;"></td>
                     <td style="${catBg} padding:11px 14px; text-align:right;">
                         <span style="font-size:0.8rem; font-weight:800; color:white;">€ ${totCat.toLocaleString('it-IT',{minimumFractionDigits:2})}</span>
                     </td>
@@ -7273,6 +7433,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
                 items.sort((a, b) => {
                     let va, vb;
+                    if (magSortField === 'codice' && abb) { const d = _confrontaAbb(a, b); return magSortDir === 'asc' ? d : -d; }
                     if (magSortField === 'codice')    { va = a.codice || ''; vb = b.codice || ''; return magSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
                     if (magSortField === 'giacenza')  { va = a.giacenza || 0; vb = b.giacenza || 0; }
                     else if (magSortField === 'prezzo')  { va = a.prezzo || 0; vb = b.prezzo || 0; }
@@ -7309,6 +7470,18 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                                 onfocus="this.style.background='#f8fafc'; this.style.outline='2px solid var(--info)';"
                                 onblur="this.style.background='transparent'; this.style.outline='none'; modificaArticoloMag('${cod}','nome',this.value)">
                         </td>
+                        ${abb ? `<td style="padding:8px 8px; text-align:center;">
+                            <input type="text" value="${htmlEsc(item.taglia || '')}" list="mag-lista-taglie" placeholder="—" aria-label="Taglia" class="mag-in-taglia"
+                                style="width:100%; text-align:center; background:transparent; border:none; color:#1e293b; font-size:1rem; font-weight:800; padding:4px 6px; border-radius:6px;"
+                                onfocus="this.style.background='#f8fafc'; this.style.outline='2px solid var(--info)';"
+                                onblur="this.style.background='transparent'; this.style.outline='none'; modificaArticoloMag('${cod}','taglia',this.value)">
+                        </td>
+                        <td style="padding:8px 8px;">
+                            <input type="text" value="${htmlEsc(item.colore || '')}" list="mag-lista-colori" placeholder="—" aria-label="Colore" class="mag-in-colore"
+                                style="width:100%; background:transparent; border:none; color:#1e293b; font-size:0.88rem; font-weight:600; padding:4px 6px; border-radius:6px;"
+                                onfocus="this.style.background='#f8fafc'; this.style.outline='2px solid var(--info)';"
+                                onblur="this.style.background='transparent'; this.style.outline='none'; modificaArticoloMag('${cod}','colore',this.value)">
+                        </td>` : ''}
                         <td style="padding:12px 14px;">
                             <input type="text" value="${safe(item.marca)}"
                                 style="width:100%; background:transparent; border:none; color:#64748b; font-size:0.85rem; padding:4px 6px; border-radius:6px; transition:all 0.15s;"
@@ -7365,7 +7538,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const c = $('mag-summary-container'); if (!c) return;
             let tN=0, tI=0, sotto=0, totArticoli=0;
             const stats={};
-            inventarioMag.forEach(i => {
+            inventarioMag.filter(_nelRepartoMag).forEach(i => {
                 const n = i.giacenza * i.prezzo;
                 tN += n; tI += n * (1 + MAG_IVA);
                 if (magDaRiordinare(i)) sotto++;
@@ -7402,6 +7575,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 function renderDatalistMag() {
             const dlM=$('mag-lista-marche'); if(dlM) dlM.innerHTML=[...new Set(inventarioMag.map(i=>i.marca))].sort().map(m=>`<option value="${m}">`).join('');
             const dlN=$('mag-lista-nomi'); if(dlN) dlN.innerHTML=[...new Set(inventarioMag.map(i=>i.nome))].sort().map(n=>`<option value="${n}">`).join('');
+            const dlT=$('mag-lista-taglie'); if(dlT) dlT.innerHTML=[...new Set([...MAG_TAGLIE, ...inventarioMag.filter(isMagAbb).map(i=>i.taglia).filter(Boolean).sort((a,b)=>_ordineTaglia(a)-_ordineTaglia(b))])].map(t=>`<option value="${htmlEsc(t)}">`).join('');
+            const dlC=$('mag-lista-colori'); if(dlC) dlC.innerHTML=[...new Set([...MAG_COLORI, ...inventarioMag.filter(isMagAbb).map(i=>i.colore).filter(Boolean)])].sort().map(c=>`<option value="${htmlEsc(c)}">`).join('');
         }
 
         // Timer debounce per campo: evita una scrittura Firebase per ogni lettera digitata
@@ -7416,6 +7591,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             else if (campo==='min_stock') v = Math.max(1, parseInt(valore)||1);
             else if (typeof v==='string') v = v.toUpperCase().trim();
             const aggiornato = { ...inventarioMag[idx], [campo]: v };
+            if (campo === 'categoria' && isMagAbb(aggiornato) !== isMagAbb(inventarioMag[idx])) mostraToast(`${aggiornato.nome || codice} spostato in "${isMagAbb(aggiornato) ? 'Abbigliamento e Caschi' : 'Ricambi'}"`);
             inventarioMag[idx] = aggiornato;
             renderSummaryMag();
 
@@ -7441,10 +7617,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
 
         function esportaExcelMag() {
             if (!inventarioMag.length) return mostraErrore("Magazzino vuoto!");
-            let csv = "\uFEFFCODICE;DESCRIZIONE;MARCA;CATEGORIA;STOCK;PR.ACQUISTO;PR.PUBBLICO;PREZZO IVATO ACQ;TOTALE NETTO;TOTALE IVATO\n";
+            let csv = "\uFEFFCODICE;DESCRIZIONE;MARCA;CATEGORIA;TAGLIA;COLORE;STOCK;PR.ACQUISTO;PR.PUBBLICO;PREZZO IVATO ACQ;TOTALE NETTO;TOTALE IVATO\n";
             [...inventarioMag].sort((a,b)=>(a.categoria||'').localeCompare(b.categoria||'')||(a.codice||'').localeCompare(b.codice||'')).forEach(i => {
                 const pI=i.prezzo*(1+MAG_IVA), tN=i.giacenza*i.prezzo, tI=tN*(1+MAG_IVA), pp=(i.prezzo_pubblico||0);
-                csv+=`${i.codice};${i.nome};${i.marca};${i.categoria};${i.giacenza};${i.prezzo.toFixed(2).replace('.',',')};${pp.toFixed(2).replace('.',',')};${pI.toFixed(2).replace('.',',')};${tN.toFixed(2).replace('.',',')};${tI.toFixed(2).replace('.',',')}\n`;
+                csv+=`${i.codice};${i.nome};${i.marca};${i.categoria};${isMagAbb(i) ? (i.taglia||'') : ''};${isMagAbb(i) ? (i.colore||'') : ''};${i.giacenza};${i.prezzo.toFixed(2).replace('.',',')};${pp.toFixed(2).replace('.',',')};${pI.toFixed(2).replace('.',',')};${tN.toFixed(2).replace('.',',')};${tI.toFixed(2).replace('.',',')}\n`;
             });
             const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'})); a.download=`magazzino_${getOggiLocale()}.csv`; a.click();
         }
