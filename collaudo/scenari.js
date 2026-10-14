@@ -897,12 +897,14 @@
 
   await passo('Abbigliamento e caschi', async () => {
     fb.scritturaRemota({
-      'magazzino/AGV-K1-L': { codice: 'AGV-K1-L', nome: 'CASCO AGV K1', marca: 'AGV', categoria: 'CASCHI', taglia: 'L', colore: 'NERO', giacenza: 3, prezzo: 120, prezzo_pubblico: 189, min_stock: 1 },
+      'magazzino/AGV-K1-L-NERO': { codice: 'AGV-K1-L-NERO', sku: 'AGV-K1', nome: 'CASCO AGV K1', marca: 'AGV', categoria: 'CASCHI', taglia: 'L', colore: 'NERO', giacenza: 3, prezzo: 120, prezzo_pubblico: 189, min_stock: 1 },
       'magazzino/GIU-01': { codice: 'GIU-01', nome: 'GIUBBOTTO DAINESE', marca: 'DAINESE', categoria: 'ABBIGLIAMENTO', taglia: '52', colore: 'NERO/ROSSO', giacenza: 0, prezzo: 200, prezzo_pubblico: 320, min_stock: 1 }
     }, false);
     switchView('magazzino'); await attendi(100);
     const righeCat = c => [...document.querySelectorAll('.mag-item-row[data-cat="' + c + '"]')];
     const thAbb = () => [...document.querySelectorAll('.mag-col-abb')];
+    const variante = (t, c) => Object.values(fb.nodo('magazzino')).find(x => x.sku === 'AGV-K1' && x.taglia === t && x.colore === c);
+    const nCaschi = () => Object.values(fb.nodo('magazzino')).filter(x => x.categoria === 'CASCHI').length;
     ok(document.getElementById('mag-rep-ricambi') && document.getElementById('mag-rep-abbigliamento') && document.getElementById('mag-rep-abbigliamento').textContent.includes('2'), 'Magazzino: schede "Ricambi" e "Abbigliamento e Caschi" (2 articoli)');
     ok(righeCat('CASCHI').length === 0 && righeCat('ABBIGLIAMENTO').length === 0 && righeCat('LUBRIFICANTI').length > 0, 'Scheda Ricambi: niente caschi né abbigliamento');
     ok(thAbb().length === 2 && thAbb().every(th => th.style.display === 'none'), 'Scheda Ricambi: colonne Taglia e Colore nascoste');
@@ -910,42 +912,54 @@
     ok(righeCat('LUBRIFICANTI').length === 0 && righeCat('CASCHI').length === 1 && righeCat('ABBIGLIAMENTO').length === 1, 'Scheda Abbigliamento e Caschi: solo i suoi articoli');
     ok(thAbb().every(th => th.style.display === '') && righeCat('CASCHI')[0].style.display !== 'none', 'Scheda Abbigliamento: colonne Taglia e Colore visibili, categorie aperte');
     const rAgv = righeCat('CASCHI')[0];
-    ok(rAgv && rAgv.querySelector('.mag-in-taglia').value === 'L' && rAgv.querySelector('.mag-in-colore').value === 'NERO', 'Riga del casco: taglia L, colore NERO');
+    ok(rAgv && rAgv.querySelector('.mag-in-sku').value === 'AGV-K1' && rAgv.querySelector('.mag-in-taglia').value === 'L' && rAgv.querySelector('.mag-in-colore').value === 'NERO', 'Riga del casco: SKU del modello AGV-K1 (non la chiave interna), taglia L, colore NERO');
+    ok(righeCat('ABBIGLIAMENTO')[0].querySelector('.mag-in-sku').value === 'GIU-01', 'Articolo inserito prima (senza SKU separato): si vede il suo codice');
     const riep = document.getElementById('mag-summary-container').textContent;
     ok(/Articoli a Magazzino\s*2/.test(riep) && /Da Riordinare\s*1/.test(riep), 'Riepilogo della scheda: 2 articoli, 1 da riordinare (giubbotto esaurito)');
 
-    // Nuovo casco, poi altre taglie dello stesso modello
+    // Stesso SKU per tutte le taglie e i colori del modello
     toggleMagForm();
     const vis = () => [...document.querySelectorAll('#mag-new-item-form .mag-campo-abb')].every(d => d.style.display === '');
     ok(vis() && document.getElementById('mag-new-abb-nota').style.display === 'flex', 'Modulo aperto dalla scheda Abbigliamento: campi Taglia e Colore visibili');
     campo('mag-new-categoria', 'MOTORE'); _aggiornaCampiAbbForm();
     ok(!vis(), 'Modulo: con una categoria di ricambi Taglia e Colore spariscono');
     campo('mag-new-categoria', 'CASCHI'); _aggiornaCampiAbbForm();
-    campo('mag-new-codice', 'AGV-K1-M'); campo('mag-new-nome', 'casco agv k1'); campo('mag-new-marca', 'agv');
-    campo('mag-new-taglia', 'm'); campo('mag-new-colore', 'nero'); campo('mag-new-giacenza', '2'); campo('mag-new-prezzo', '120'); campo('mag-new-prezzo-pubblico', '189');
+    const cod = document.getElementById('mag-new-codice'), tg = document.getElementById('mag-new-taglia'), col = document.getElementById('mag-new-colore');
+    const avviso = () => document.getElementById('mag-btn-add-submit').disabled && (document.getElementById('mag-sku-warning').style.display === 'block' || document.getElementById('mag-new-abb-doppione').style.display === '');
+    cod.value = 'agv-k1'; cod.dispatchEvent(new Event('input'));
+    campo('mag-new-nome', 'casco agv k1'); campo('mag-new-marca', 'agv');
+    tg.value = 'm'; tg.dispatchEvent(new Event('input'));
+    col.value = 'nero'; col.dispatchEvent(new Event('input'));
+    campo('mag-new-giacenza', '2'); campo('mag-new-prezzo', '120'); campo('mag-new-prezzo-pubblico', '189');
+    ok(!avviso(), 'Stesso SKU di un casco già presente ma taglia diversa: nessun "Già presente"');
     const form = document.getElementById('mag-new-item-form');
     await form.onsubmit({ preventDefault() {} });
-    const m = fb.leggi('magazzino/AGV-K1-M');
-    ok(m && m.taglia === 'M' && m.colore === 'NERO' && m.categoria === 'CASCHI' && m.giacenza === 2 && m.nome === 'CASCO AGV K1', 'Nuovo casco salvato con taglia M e colore NERO');
-    ok(document.getElementById('mag-new-nome').value === 'casco agv k1' && document.getElementById('mag-new-colore').value === 'nero' && document.getElementById('mag-new-codice').value === '' && document.getElementById('mag-new-taglia').value === '' && document.getElementById('mag-new-giacenza').value === '1', 'Dopo "Aggiungi": modulo ancora compilato, vuoti solo codice, taglia e quantità');
-    const tg = document.getElementById('mag-new-taglia');
+    const m = variante('M', 'NERO');
+    ok(m && m.codice !== 'AGV-K1' && m.categoria === 'CASCHI' && m.giacenza === 2 && m.nome === 'CASCO AGV K1' && fb.leggi('magazzino/AGV-K1-L-NERO').giacenza === 3, 'Taglia M salvata con lo SKU AGV-K1, accanto alla L (chiave interna ' + (m && m.codice) + ')');
+    ok(cod.value === 'agv-k1' && document.getElementById('mag-new-nome').value === 'casco agv k1' && col.value === 'nero' && tg.value === '' && document.getElementById('mag-new-giacenza').value === '1', 'Dopo "Aggiungi": SKU, nome e colore restano, vuote taglia e quantità');
     tg.value = 'xl'; tg.dispatchEvent(new Event('input'));
-    ok(document.getElementById('mag-new-codice').value === 'AGV-K1-XL', 'Taglia XL: codice proposto AGV-K1-XL (' + document.getElementById('mag-new-codice').value + ')');
     await form.onsubmit({ preventDefault() {} });
-    const xl = fb.leggi('magazzino/AGV-K1-XL');
-    ok(xl && xl.taglia === 'XL' && xl.colore === 'NERO' && xl.prezzo_pubblico === 189 && xl.giacenza === 1, 'Seconda taglia salvata con gli stessi dati (XL, NERO, 189 €, 1 pezzo)');
-    tg.value = 'L'; tg.dispatchEvent(new Event('input'));
-    ok(document.getElementById('mag-new-codice').value === 'AGV-K1-L' && document.getElementById('mag-sku-warning').style.display === 'block' && document.getElementById('mag-btn-add-submit').disabled, 'Taglia già presente: avviso "Già presente" e Aggiungi bloccato');
-    const cod = document.getElementById('mag-new-codice');
-    cod.value = 'MIO-COD'; cod.dispatchEvent(new Event('input')); delete cod.dataset.auto;
-    tg.value = 'S'; tg.dispatchEvent(new Event('input'));
-    ok(cod.value === 'MIO-COD', 'Codice scritto a mano: la taglia non lo cambia');
+    const xl = variante('XL', 'NERO');
+    ok(xl && xl.prezzo_pubblico === 189 && xl.giacenza === 1 && xl.codice !== m.codice, 'Taglia XL salvata con lo stesso SKU e gli stessi prezzi');
+    tg.value = 'l'; tg.dispatchEvent(new Event('input'));
+    ok(avviso() && document.getElementById('mag-new-abb-doppione').style.display === '' && document.getElementById('mag-sku-warning').style.display === 'none' && tg.style.borderColor !== '', 'Stesso SKU, taglia L e colore NERO già presenti: avviso nella barra, campi in rosso, Aggiungi bloccato');
+    const prima = nCaschi();
+    await form.onsubmit({ preventDefault() {} });
+    ok(nCaschi() === prima, 'Doppione: non viene salvato');
+    col.value = 'bianco'; col.dispatchEvent(new Event('input'));
+    ok(!avviso(), 'Stessa taglia L ma colore BIANCO: si può aggiungere');
+    await form.onsubmit({ preventDefault() {} });
+    ok(variante('L', 'BIANCO') && variante('L', 'NERO') && nCaschi() === prima + 1, 'Taglia L in due colori, stesso SKU');
     toggleMagForm();
-    ok(document.getElementById('mag-form-wrapper').style.display === 'none' && document.getElementById('mag-new-nome').value === '' && document.getElementById('mag-new-codice').value === '', 'Chiudendo la finestra il modulo si svuota');
+    ok(document.getElementById('mag-form-wrapper').style.display === 'none' && document.getElementById('mag-new-nome').value === '' && cod.value === '' && !avviso(), 'Chiudendo la finestra il modulo si svuota');
+    toggleMagForm();
+    cod.value = 'AGV-K1'; _datiModelloMag();
+    ok(document.getElementById('mag-new-categoria').value === 'CASCHI' && document.getElementById('mag-new-nome').value === 'CASCO AGV K1' && document.getElementById('mag-new-prezzo-pubblico').value === '189' && col.value === '', 'SKU di un modello già in magazzino: categoria, nome e prezzi compilati da soli (colore no)');
+    svuotaModuloMag(); toggleMagForm();
     await attendi(50);
-    const ordine = righeCat('CASCHI').map(r => r.querySelector('span').textContent.trim());
-    ok(uguali(ordine, ['AGV-K1-M', 'AGV-K1-L', 'AGV-K1-XL']), 'Caschi in ordine di taglia: M, L, XL (' + ordine + ')');
-    ok(document.getElementById('mag-rep-abbigliamento').textContent.includes('4'), 'Scheda Abbigliamento: ora 4 articoli');
+    const ordine = righeCat('CASCHI').map(r => r.querySelector('.mag-in-sku').value + ' ' + r.querySelector('.mag-in-taglia').value + ' ' + r.querySelector('.mag-in-colore').value);
+    ok(uguali(ordine, ['AGV-K1 L BIANCO', 'AGV-K1 M NERO', 'AGV-K1 L NERO', 'AGV-K1 XL NERO']), 'Caschi raggruppati per colore e in ordine di taglia, tutti con SKU AGV-K1 (' + ordine + ')');
+    ok(document.getElementById('mag-rep-abbigliamento').textContent.includes('5'), 'Scheda Abbigliamento: ora 5 articoli');
 
     // Ricambio aggiunto mentre si è nella scheda Abbigliamento → si torna su Ricambi e il modulo si svuota
     toggleMagForm();
@@ -953,20 +967,30 @@
     campo('mag-new-codice', 'DIS-01'); campo('mag-new-nome', 'disco freno'); campo('mag-new-giacenza', '1');
     await form.onsubmit({ preventDefault() {} });
     const dis = fb.leggi('magazzino/DIS-01');
-    ok(dis && dis.taglia === undefined && dis.colore === undefined && magReparto === 'ricambi' && document.getElementById('mag-new-nome').value === '', 'Ricambio: salvato senza taglia/colore, modulo svuotato, si passa alla scheda Ricambi');
-    toggleMagForm();
+    ok(dis && dis.taglia === undefined && dis.sku === undefined && magReparto === 'ricambi' && document.getElementById('mag-new-nome').value === '', 'Ricambio: salvato col suo SKU come prima, senza taglia/colore; si passa alla scheda Ricambi');
+    campo('mag-new-categoria', 'FRENI'); _aggiornaCampiAbbForm();
+    cod.value = 'DIS-01'; cod.dispatchEvent(new Event('input'));
+    ok(avviso() && document.getElementById('mag-sku-warning').style.display === 'block' && document.getElementById('mag-sku-warning').textContent.includes('Già presente'), 'Ricambi: lo SKU resta unico ("Già presente")');
+    svuotaModuloMag(true); toggleMagForm();
 
     // Modifica dalla tabella
-    modificaArticoloMag('AGV-K1-XL', 'colore', 'bianco'); await attendi(700);
-    ok(fb.leggi('magazzino/AGV-K1-XL').colore === 'BIANCO', 'Colore modificato dalla tabella (BIANCO)');
+    modificaArticoloMag(xl.codice, 'colore', 'bianco'); await attendi(700);
+    ok(fb.leggi('magazzino/' + xl.codice).colore === 'BIANCO', 'Colore modificato dalla tabella (BIANCO), la chiave interna non cambia');
+    const kLb = variante('L', 'BIANCO').codice;
+    modificaArticoloMag(kLb, 'colore', 'nero');
+    ok(/già un altro/.test((document.querySelector('.toast-msg') || {}).textContent || ''), 'Dalla tabella: stessa taglia e colore di un altro articolo → avviso doppione');
+    modificaArticoloMag(kLb, 'colore', 'bianco'); await attendi(700);
+    modificaArticoloMag('GIU-01', 'sku', 'gdai-ss'); await attendi(700);
+    ok(fb.leggi('magazzino/GIU-01').sku === 'GDAI-SS' && fb.leggi('magazzino/GIU-01').giacenza === 0, 'SKU modificabile dalla tabella senza spostare l\'articolo');
 
     // Ricerca dalla scheda sbagliata
+    setMagReparto('ricambi');
     campo('mag-search-input', 'AGV'); renderTableMag();
     const vuota = document.getElementById('mag-inventory-table');
     const btnAltro = vuota.querySelector('button');
-    ok(vuota.textContent.includes('Trovati 3 in') && btnAltro, 'Ricerca "AGV" nei Ricambi: indica i 3 caschi nell\'altra scheda');
+    ok(vuota.textContent.includes('Trovati 4 in') && btnAltro, 'Ricerca "AGV" nei Ricambi: indica i 4 caschi nell\'altra scheda');
     if (btnAltro) btnAltro.click();
-    ok(magReparto === 'abbigliamento' && righeCat('CASCHI').length === 3, 'Clic: si apre la scheda Abbigliamento con i 3 caschi');
+    ok(magReparto === 'abbigliamento' && righeCat('CASCHI').length === 4, 'Clic: si apre la scheda Abbigliamento con i 4 caschi');
     campo('mag-search-input', ''); renderTableMag();
 
     // Conto: ricerca articolo con taglia e colore
@@ -974,34 +998,43 @@
     td.innerHTML = '<div><input class="r-desc"></div><div class="mag-conto-results"></div>';
     const inp = td.querySelector('.r-desc'); inp.value = 'CASCO AGV';
     cercaMagPerConto(inp);
-    const res = td.querySelector('.mag-conto-results');
-    const voce = [...res.children].find(d => d.textContent.includes('AGV-K1-M'));
-    ok(voce && voce.textContent.includes('TG. M · NERO') && voce.getAttribute('onmousedown').includes('CASCO AGV K1 (TG. M, NERO)'), 'Conto: il casco compare con la taglia e nella descrizione va "CASCO AGV K1 (TG. M, NERO)"');
+    const voce = [...td.querySelector('.mag-conto-results').children].find(d => d.textContent.includes('TG. M · NERO'));
+    ok(voce && voce.textContent.includes('AGV-K1') && voce.getAttribute('onmousedown').includes('CASCO AGV K1 (TG. M, NERO)') && voce.getAttribute('onmousedown').includes("'" + m.codice + "'"), 'Conto: casco con SKU e taglia; descrizione "CASCO AGV K1 (TG. M, NERO)", scarico sulla taglia giusta');
+    ok(_skuDaChiaveMag(m.codice) === 'AGV-K1', 'Conto: l\'etichetta del magazzino mostra lo SKU AGV-K1');
 
     // Riordino e lista da ordinare
     apriRiordino();
     const rg = [...document.querySelectorAll('#riordino-lista tbody tr')];
-    rg.forEach(r => { r.querySelector('.riordino-chk').checked = r.textContent.includes('GIU-01'); });
-    const rGiu = rg.find(r => r.textContent.includes('GIU-01'));
-    ok(rGiu && rGiu.textContent.includes('TG. 52 · NERO/ROSSO'), 'Riordino: il giubbotto esaurito compare con taglia e colore');
+    rg.forEach(r => { r.querySelector('.riordino-chk').checked = r.textContent.includes('GDAI-SS') || r.textContent.includes('TG. XL'); });
+    const rGiu = rg.find(r => r.textContent.includes('GDAI-SS'));
+    ok(rGiu && rGiu.textContent.includes('TG. 52 · NERO/ROSSO') && rg.some(r => r.textContent.includes('AGV-K1') && r.textContent.includes('TG. XL')), 'Riordino: giubbotto e casco XL con SKU, taglia e colore');
     confermaRiordino();
-    const giuLo = () => Object.values(fb.leggi('lista_ordini') || {}).find(x => x.codice === 'GIU-01');
-    ok(giuLo() && giuLo().taglia === '52' && giuLo().colore === 'NERO/ROSSO', 'Lista da ordinare: taglia e colore del giubbotto conservati');
+    const lo = () => Object.values(fb.leggi('lista_ordini') || {});
+    const giuLo = () => lo().find(x => x.codice === 'GDAI-SS');
+    const xlLo = lo().find(x => x.codice === 'AGV-K1' && x.taglia === 'XL');
+    ok(giuLo() && giuLo().taglia === '52' && giuLo().colore === 'NERO/ROSSO' && xlLo && xlLo.colore === 'BIANCO', 'Lista da ordinare: SKU del modello con taglia e colore');
     ok(document.getElementById('lo-list').textContent.includes('TG. 52 · NERO/ROSSO'), 'Lista da ordinare: taglia e colore visibili sulla riga');
+    apriRiordino();
+    ok(/AGV-K1 TG\. XL · BIANCO/.test(document.getElementById('riordino-gia').textContent) && ![...document.querySelectorAll('#riordino-lista tbody tr')].some(r => r.textContent.includes('TG. XL')), 'Riordino: il casco XL già in lista non viene riproposto, la L sì');
+    closeModal('modal-riordino');
+    if (xlLo) await spostaInMagazzino(xlLo.id);
+    ok(fb.leggi('magazzino/' + xl.codice).giacenza === 2 && nCaschi() === prima + 1, 'Arrivo del casco XL: carico sulla sua taglia (2 pezzi), nessun articolo nuovo');
     editListaOrdine(giuLo().id);
     ok(document.getElementById('lo-taglia').value === '52' && [...document.querySelectorAll('#lo-form .lo-campo-abb')].every(d => d.style.display === ''), 'Modifica riga della lista: taglia e colore nel modulo');
     campo('lo-colore', 'nero');
     document.getElementById('lo-form').onsubmit({ preventDefault() {} });
     ok(giuLo().colore === 'NERO' && giuLo().taglia === '52' && giuLo().prezzo_pubblico === 320, 'Riga modificata: colore NERO, taglia e prezzo al pubblico conservati');
     ok([...document.querySelectorAll('#lo-form .lo-campo-abb')].every(d => d.style.display === 'none'), 'Dopo il salvataggio il modulo della lista torna senza taglia e colore');
-    campo('lo-categoria', 'ABBIGLIAMENTO'); _aggiornaCampiAbbLo();
-    campo('lo-codice', 'GUA-01-9'); campo('lo-nome', 'guanti'); campo('lo-taglia', '9'); campo('lo-colore', 'nero'); campo('lo-giacenza', '2');
-    document.getElementById('lo-form').onsubmit({ preventDefault() {} });
-    const gua = Object.values(fb.leggi('lista_ordini') || {}).find(x => x.codice === 'GUA-01-9');
-    ok(gua && gua.taglia === '9' && gua.colore === 'NERO', 'Lista da ordinare: guanti inseriti a mano con taglia 9');
-    if (gua) await spostaInMagazzino(gua.id);
-    const guaM = fb.leggi('magazzino/GUA-01-9');
-    ok(guaM && guaM.taglia === '9' && guaM.colore === 'NERO' && guaM.categoria === 'ABBIGLIAMENTO' && guaM.giacenza === 2, 'Arrivo merce: i guanti entrano in magazzino con taglia e colore');
+    const guanti = () => Object.values(fb.nodo('magazzino')).filter(x => x.sku === 'GUA-01');
+    for (const q of ['2', '1']) {
+      campo('lo-categoria', 'ABBIGLIAMENTO'); _aggiornaCampiAbbLo();
+      campo('lo-codice', 'GUA-01'); campo('lo-nome', 'guanti'); campo('lo-taglia', '9'); campo('lo-colore', 'nero'); campo('lo-giacenza', q);
+      document.getElementById('lo-form').onsubmit({ preventDefault() {} });
+      const gua = lo().find(x => x.codice === 'GUA-01');
+      ok(gua && gua.taglia === '9' && gua.colore === 'NERO', 'Lista da ordinare: guanti GUA-01 inseriti a mano con taglia 9 (×' + q + ')');
+      if (gua) await spostaInMagazzino(gua.id);
+    }
+    ok(guanti().length === 1 && guanti()[0].taglia === '9' && guanti()[0].colore === 'NERO' && guanti()[0].categoria === 'ABBIGLIAMENTO' && guanti()[0].giacenza === 3, 'Arrivo merce: i guanti entrano con SKU, taglia e colore; il secondo arrivo si somma (3 pezzi)');
 
     // Excel
     const origURL = URL.createObjectURL, origClick = HTMLAnchorElement.prototype.click;
@@ -1010,10 +1043,11 @@
     HTMLAnchorElement.prototype.click = function () {};
     try { esportaExcelMag(); } finally { URL.createObjectURL = origURL; HTMLAnchorElement.prototype.click = origClick; }
     const csv = blob ? await blob.text() : '';
-    ok(csv.includes('CATEGORIA;TAGLIA;COLORE;STOCK') && csv.includes('AGV-K1-M;CASCO AGV K1;AGV;CASCHI;M;NERO;2;') && csv.includes('OLIO-01;OLIO 10W40;MOTUL;LUBRIFICANTI;;;'), 'Excel: colonne Taglia e Colore (vuote per i ricambi)');
+    ok(csv.includes('CATEGORIA;TAGLIA;COLORE;STOCK') && csv.includes('\nAGV-K1;CASCO AGV K1;AGV;CASCHI;M;NERO;2;') && csv.includes('OLIO-01;OLIO 10W40;MOTUL;LUBRIFICANTI;;;'), 'Excel: SKU del modello, colonne Taglia e Colore (vuote per i ricambi)');
 
     // Cambio categoria: l'articolo passa all'altra scheda
-    modificaArticoloMag('GUA-01-9', 'categoria', 'ACCESSORI'); renderTableMag();
+    const kGua = guanti()[0].codice;
+    modificaArticoloMag(kGua, 'categoria', 'ACCESSORI'); renderTableMag();
     ok(/spostato in "Ricambi"/.test((document.querySelector('.toast-msg') || {}).textContent || '') && righeCat('ACCESSORI').length === 0, 'Categoria cambiata in Accessori: avviso e articolo passato nei Ricambi');
     await attendi(700);
     const regole = [...document.styleSheets].flatMap(f => { try { return [...f.cssRules]; } catch (e) { return []; } }).flatMap(r => r.cssRules ? [...r.cssRules] : [r]);
