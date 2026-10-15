@@ -1086,6 +1086,18 @@
                     <div id="stat-mese-lordo" class="stat-val" style="color:var(--success);">0.00 €</div>
                     <div id="stat-mese-count" style="font-size:0.75rem; color:var(--muted); margin-top:4px;">0 lavori chiusi</div>
                 </div>
+                <div class="stat-card" style="border-top-color:#14b8a6">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                        <span style="font-size:0.82rem; color:var(--muted);">Incasso Settimana</span>
+                        <span style="display:flex; gap:4px;">
+                            <button type="button" onclick="cambiaSettStats(-1)" aria-label="Settimana precedente" title="Settimana precedente" style="background:#0f172a; border:1px solid #334155; color:white; border-radius:6px; padding:2px 9px; cursor:pointer; width:auto; margin:0; font-size:0.8rem;">◀</button>
+                            <button type="button" id="stat-sett-succ" onclick="cambiaSettStats(1)" aria-label="Settimana successiva" title="Settimana successiva" style="background:#0f172a; border:1px solid #334155; color:white; border-radius:6px; padding:2px 9px; cursor:pointer; width:auto; margin:0; font-size:0.8rem;">▶</button>
+                        </span>
+                    </div>
+                    <div id="stat-sett-periodo" style="font-size:0.75rem; color:var(--muted); margin-top:2px;"></div>
+                    <div id="stat-sett-lordo" class="stat-val" style="color:#14b8a6;">0.00 €</div>
+                    <div id="stat-sett-count" style="font-size:0.75rem; color:var(--muted); margin-top:4px;"></div>
+                </div>
                 <div class="stat-card" style="border-top-color:var(--info)">
                     <div style="font-size:0.82rem; color:var(--muted);">Acconti in Cassa</div>
                     <div id="stat-acconti" class="stat-val" style="color:var(--info);">0.00 €</div>
@@ -2766,7 +2778,7 @@
             if(viewId === 'nuova' && !isEditing) clearForm();
             if(viewId === 'nuovo-cliente') _resetNuovoClienteForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
-            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') refreshStats(); if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'incidentate') refreshIncidentate(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); } if(viewId === 'usate') { refreshUsate(); }
+            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') { statsSettOffset = 0; refreshStats(); } if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'incidentate') refreshIncidentate(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); } if(viewId === 'usate') { refreshUsate(); }
         }
 
         function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; const _sc=$('f_search_cliente'); if(_sc) _sc.value=''; refreshMiniAgenda(); }
@@ -6143,6 +6155,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if(currentView === 'archivio') setTimeout(refreshArchive, 300);
         }
 
+        let statsSettOffset = 0;   // 0 = settimana in corso, -1 = quella prima…
+        function cambiaSettStats(d) { statsSettOffset = Math.min(0, statsSettOffset + d); refreshStats(); }
+
         function refreshStats() {
             const ora = new Date();
             const aC = ora.getFullYear();
@@ -6176,6 +6191,26 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const lordo = meseJobs.reduce((a, j) => a + (parseFloat(j.totale_lordo) || 0), 0);
             if ($('stat-mese-lordo')) $('stat-mese-lordo').innerText = lordo.toFixed(2) + " €";
             if ($('stat-mese-count')) $('stat-mese-count').innerText = `${meseJobs.length} lavori chiusi`;
+
+            // Incasso settimana (lunedì–domenica), stessa regola del mese: lavori chiusi nel periodo
+            const incassoTra = (da, a) => {
+                const jj = done.filter(j => { const d = j.data_chiusura || j.data; return d && d >= da && d <= a; });
+                return { tot: jj.reduce((s, j) => s + (parseFloat(j.totale_lordo) || 0), 0), n: jj.length };
+            };
+            const lun = new Date(); lun.setHours(0, 0, 0, 0);
+            lun.setDate(lun.getDate() - (lun.getDay() + 6) % 7 + 7 * statsSettOffset);
+            const giorno = n => { const x = new Date(lun); x.setDate(x.getDate() + n); return formatDateISO(x); };
+            const sett = incassoTra(giorno(0), giorno(6)), prec = incassoTra(giorno(-7), giorno(-1));
+            if ($('stat-sett-periodo')) $('stat-sett-periodo').innerText = `${formattaData(giorno(0)).slice(0, 5)} – ${formattaData(giorno(6))}${statsSettOffset === 0 ? ' (in corso)' : ''}`;
+            if ($('stat-sett-lordo')) $('stat-sett-lordo').innerText = sett.tot.toFixed(2) + " €";
+            if ($('stat-sett-count')) {
+                const diff = prec.tot > 0 ? Math.round((sett.tot - prec.tot) / prec.tot * 100) : null;
+                $('stat-sett-count').innerHTML = `${sett.n} lavor${sett.n === 1 ? 'o chiuso' : 'i chiusi'} · `
+                    + (diff === null ? `settimana prima ${prec.tot.toFixed(2)} €`
+                        : `<span style="color:${diff >= 0 ? 'var(--success)' : 'var(--accent)'}; font-weight:700;">${diff >= 0 ? '▲ +' : '▼ '}${diff}%</span> sulla settimana prima (${prec.tot.toFixed(2)} €)`);
+            }
+            const succ = $('stat-sett-succ');
+            if (succ) { succ.disabled = statsSettOffset >= 0; succ.style.opacity = statsSettOffset >= 0 ? '0.35' : '1'; succ.style.cursor = statsSettOffset >= 0 ? 'default' : 'pointer'; }
             if ($('stat-acconti')) $('stat-acconti').innerText = db.filter(j => ['todo','doing'].includes(j.stato)).reduce((a,j) => a + (j.acconti||[]).reduce((x,y) => x + (parseFloat(y.val)||0), 0), 0).toFixed(2) + " €";
             if ($('stat-moto-ponte')) $('stat-moto-ponte').innerText = db.filter(j => j.stato === 'doing').length;
 
