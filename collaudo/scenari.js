@@ -1184,6 +1184,37 @@
     switchView('board');
   });
 
+  await passo('Incasso settimanale', async () => {
+    const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const lun = new Date(); lun.setHours(0, 0, 0, 0); lun.setDate(lun.getDate() - (lun.getDay() + 6) % 7);
+    const g = n => { const x = new Date(lun); x.setDate(x.getDate() + n); return iso(x); };
+    const ita = d => d.split('-').reverse().join('/');
+    fb.scritturaRemota({
+      'db/k901': { id: 901, cognome: 'SETTIMANA', nome: 'PRIMA', stato: 'archived', data: g(-12), data_chiusura: g(-5), totale_lordo: 100 },
+      'db/k902': { id: 902, cognome: 'SETTIMANA', nome: 'QUESTA', stato: 'done', data: g(-1), data_chiusura: g(0), totale_lordo: 250 },
+      'db/k903': { id: 903, cognome: 'SETTIMANA', nome: 'APERTA', stato: 'doing', data: g(0), data_chiusura: g(0), totale_lordo: 999 }
+    }, false);
+    const somma = (da, a) => { const jj = db.filter(j => ['done', 'archived'].includes(j.stato)).filter(j => { const d = j.data_chiusura || j.data; return d && d >= da && d <= a; }); return { tot: jj.reduce((s, j) => s + (parseFloat(j.totale_lordo) || 0), 0), n: jj.length }; };
+    switchView('stats'); await attendi(50);
+    const qs = somma(g(0), g(6)), pr = somma(g(-7), g(-1));
+    const txt = id => document.getElementById(id).textContent;
+    ok(qs.tot >= 250 && txt('stat-sett-lordo') === qs.tot.toFixed(2) + ' €', 'Incasso settimana in corso: ' + txt('stat-sett-lordo') + ' (atteso ' + qs.tot.toFixed(2) + ' €, la moto ancora sul ponte non conta)');
+    ok(txt('stat-sett-periodo') === ita(g(0)).slice(0, 5) + ' – ' + ita(g(6)) + ' (in corso)', 'Periodo da lunedì a domenica: ' + txt('stat-sett-periodo'));
+    ok(txt('stat-sett-count').startsWith(qs.n + ' lavor') && txt('stat-sett-count').includes(pr.tot.toFixed(2) + ' €'), 'Lavori chiusi e confronto con la settimana prima: ' + txt('stat-sett-count'));
+    const diff = Math.round((qs.tot - pr.tot) / pr.tot * 100);
+    ok(txt('stat-sett-count').includes((diff >= 0 ? '+' : '') + diff + '%'), 'Percentuale sulla settimana prima (' + diff + '%)');
+    ok(document.getElementById('stat-sett-succ').disabled, 'Settimana in corso: freccia ▶ disattivata');
+    cambiaSettStats(-1);
+    ok(txt('stat-sett-lordo') === pr.tot.toFixed(2) + ' €' && pr.tot >= 100 && txt('stat-sett-periodo') === ita(g(-7)).slice(0, 5) + ' – ' + ita(g(-1)), '◀: settimana precedente ' + txt('stat-sett-periodo') + ' = ' + txt('stat-sett-lordo'));
+    ok(!document.getElementById('stat-sett-succ').disabled, 'Settimana passata: freccia ▶ attiva');
+    cambiaSettStats(1); cambiaSettStats(1);
+    ok(txt('stat-sett-periodo').includes('(in corso)'), '▶ non va oltre la settimana in corso');
+    cambiaSettStats(-3); switchView('board'); switchView('stats');
+    ok(txt('stat-sett-periodo').includes('(in corso)'), 'Riaprendo le Statistiche si riparte dalla settimana in corso');
+    fb.scritturaRemota({ 'db/k901': null, 'db/k902': null, 'db/k903': null }, false);
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
