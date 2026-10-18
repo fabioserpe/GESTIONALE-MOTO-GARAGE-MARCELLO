@@ -7648,20 +7648,55 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const el = $('oa-righe');
             if (!el || !_oaEdit) return;
             $('oa-righe-tot').textContent = _oaEdit.righe.length ? _pezziAbb(_oaEdit.righe) + ' pz' : '';
-            el.innerHTML = _oaEdit.righe.length ? _gruppiRigheAbb(_oaEdit.righe).map(rr => `<div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 0; border-top:1px dashed #334155; font-size:1rem;">
+            el.innerHTML = _oaEdit.righe.length ? _gruppiRigheAbb(_oaEdit.righe).map(rr => {
+                    const hasMod = rr.some(r => !r.arrivata);
+                    const encSku = encodeURIComponent(rr[0].sku || '');
+                    const encCol = encodeURIComponent(rr[0].colore || '');
+                    return `<div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 0; border-top:1px dashed #334155; font-size:1rem;">
                     <span style="font-family:monospace; font-weight:800; color:var(--muted);">${htmlEsc(rr[0].sku)}</span>
                     <b style="color:white;">${htmlEsc(rr[0].nome)}</b>
                     ${rr[0].colore ? `<b style="color:#fbbf24;">${htmlEsc(rr[0].colore)}</b>` : ''}
+                    ${hasMod ? `<button type="button" onclick="modificaRigheOrdineAbb('${encSku}','${encCol}')" title="Modifica quantità o colore" style="background:transparent; border:1px solid var(--warning); color:var(--warning); border-radius:8px; padding:2px 9px; cursor:pointer; font-size:0.82rem; width:auto; margin:0;">✏️ modifica</button>` : ''}
                     <span style="display:flex; flex-wrap:wrap; gap:6px; margin-left:auto;">${rr.map(r => r.arrivata
                         ? `<span title="Già arrivato" style="${_OA_CHIP_OK}">✓ ${htmlEsc(r.taglia || '—')} ×${r.qta}</span>`
                         : `<span style="background:#0f172a; border:1px solid #475569; color:white; display:inline-flex; align-items:center; gap:6px; ${_OA_CHIP}">${htmlEsc(r.taglia || '—')} ×${r.qta}<button type="button" onclick="togliRigaOrdineAbb('${r.id}')" aria-label="Togli la taglia ${htmlEsc(r.taglia || '')}" title="Togli" style="background:none; border:none; color:var(--accent); cursor:pointer; padding:0; width:auto; margin:0; font-size:0.95rem;">✕</button></span>`).join('')}</span>
-                </div>`).join('')
+                </div>`;}).join('')
                 : '<p style="color:var(--muted); margin:8px 0 0;">Nessun modello ancora: compila i campi qui sopra, scrivi i pezzi per taglia e premi "✚ Aggiungi all\'ordine".</p>';
         }
         function togliRigaOrdineAbb(rid) {
             if (!_oaEdit) return;
             _oaEdit.righe = _oaEdit.righe.filter(r => r.arrivata || String(r.id) !== String(rid));
             _renderRigheOrdineAbb();
+        }
+        function modificaRigheOrdineAbb(encodedSku, encodedColore) {
+            if (!_oaEdit) return;
+            const sku = decodeURIComponent(encodedSku);
+            const colore = decodeURIComponent(encodedColore);
+            const righe = _oaEdit.righe.filter(r => !r.arrivata && _up(r.sku) === _up(sku) && _up(r.colore) === _up(colore));
+            if (!righe.length) return;
+            const ref = righe[0];
+            // Rileva il set di taglie giusto
+            const setGiusto = Object.entries(OA_SET_TAGLIE).find(([, ts]) => righe.some(r => ts.includes(r.taglia)));
+            cambiaSetTaglieAbb(setGiusto ? setGiusto[0] : 'lettere');
+            // Carica i dati nel form
+            if ($('oa-sku')) $('oa-sku').value = ref.sku || '';
+            if ($('oa-nome')) $('oa-nome').value = ref.nome || '';
+            if ($('oa-marca')) $('oa-marca').value = ref.marca || '';
+            if ($('oa-colore')) $('oa-colore').value = ref.colore || '';
+            if ($('oa-prezzo')) $('oa-prezzo').value = ref.prezzo || '';
+            if ($('oa-prezzo-pubblico')) $('oa-prezzo-pubblico').value = ref.prezzo_pubblico || '';
+            if (ref.categoria && $('oa-categoria')) $('oa-categoria').value = ref.categoria;
+            // Rimuovi le righe non arrivate dal gruppo
+            _oaEdit.righe = _oaEdit.righe.filter(r => r.arrivata || !(_up(r.sku) === _up(sku) && _up(r.colore) === _up(colore)));
+            // Popola la griglia con le quantità esistenti
+            righe.forEach(r => {
+                const inp = document.querySelector(`#oa-griglia .oa-q[data-taglia="${r.taglia}"]`);
+                if (inp) { inp.value = r.qta; }
+                else if (r.taglia) { if ($('oa-altra-taglia')) $('oa-altra-taglia').value = r.taglia; if ($('oa-altra-qta')) $('oa-altra-qta').value = r.qta; }
+            });
+            _totaleGrigliaAbb();
+            _renderRigheOrdineAbb();
+            if ($('oa-colore')) $('oa-colore').focus();
         }
         function salvaOrdineAbb() {
             if (!_oaEdit) return;
