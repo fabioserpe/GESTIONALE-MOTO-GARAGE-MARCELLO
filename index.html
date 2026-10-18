@@ -2848,6 +2848,36 @@
                 dlApp.innerHTML = opts.join('');
             }
         }
+        // Ricerca cliente/moto nei moduli (Nuova, Preventivo, Appuntamento): una riga per targa con i dati della scheda più recente;
+        // tutte le parole scritte devono comparire (cognome e nome in qualsiasi ordine); prima chi combacia col nome
+        function _cercaMotoClienti(q, conPreventivi) {
+            const parole = String(q || '').toUpperCase().trim().split(/\s+/).filter(Boolean);
+            if (!parole.length) return [];
+            const mappa = {};
+            const completa = (a, b) => { ['tel', 'marca', 'modello', 'km', 'clientId', 'nome', 'cognome'].forEach(c => { if (!a[c] && b[c]) a[c] = b[c]; }); };
+            db.forEach(j => {
+                if (!j || (!conPreventivi && j.stato === 'preventivo')) return;
+                const key = chiaveTarga(j.targa) || 'NO_TARGA_' + (j.cognome || '').toUpperCase().trim() + '_' + (j.nome || '').toUpperCase().trim();
+                const dj = String(j.data_chiusura || j.data || '');
+                const prec = mappa[key];
+                if (!prec) { mappa[key] = { ...j, nLavori: 1, _d: dj }; return; }
+                if (dj >= prec._d) { const nuovo = { ...j, nLavori: prec.nLavori + 1, _d: dj }; completa(nuovo, prec); mappa[key] = nuovo; }
+                else { prec.nLavori++; completa(prec, j); }
+            });
+            const frase = parole.join(' ');
+            const fraseTarga = chiaveTarga(frase);
+            return Object.values(mappa).map(j => {
+                const cog = (j.cognome || '').toUpperCase().trim(), nom = (j.nome || '').toUpperCase().trim();
+                const testo = [cog, nom, (j.targa || '').toUpperCase(), chiaveTarga(j.targa), String(j.tel || '').replace(/\s/g, ''), (j.marca || '').toUpperCase(), (j.modello || '').toUpperCase()].join(' ');
+                if (!parole.every(p => testo.includes(p))) return null;
+                const nelNome = parole.every(p => cog.includes(p) || nom.includes(p));
+                const esatto = cog === frase || (cog + ' ' + nom) === frase || (nom + ' ' + cog) === frase;
+                const punti = esatto ? 4
+                    : (nelNome && (cog.startsWith(parole[0]) || nom.startsWith(parole[0]))) || (fraseTarga && chiaveTarga(j.targa).startsWith(fraseTarga)) ? 3
+                    : nelNome ? 2 : 1;
+                return { ...j, _punti: punti, _esatto: esatto };
+            }).filter(Boolean).sort((a, b) => b._punti - a._punti || b.nLavori - a.nLavori);
+        }
         function cercaClienteNuova() {
             const searchEl = $('f_search_cliente');
             const res = $('nuova-cliente-results');
@@ -2855,28 +2885,7 @@
             const q = (searchEl?.value || '').trim();
             if (q.length < 2) { res.style.display = 'none'; return; }
 
-            // Raggruppa per targa (veicolo unico = cliente unico)
-            const clientiMap = {};
-            db.forEach(j => {
-                if (j.stato === 'preventivo') return;
-                const key = j.targa ? j.targa : `NO_TARGA_${(j.cognome||'').toUpperCase()}_${(j.nome||'').toUpperCase()}`;
-                if (!clientiMap[key]) clientiMap[key] = { ...j, nLavori: 0 };
-                clientiMap[key].nLavori++;
-            });
-
-            const qU = q.toUpperCase();
-            const matches = Object.values(clientiMap)
-                .filter(j => {
-                    const cog = (j.cognome || '').toUpperCase();
-                    const nom = (j.nome || '').toUpperCase();
-                    const tar = (j.targa || '').toUpperCase();
-                    const tel = (j.tel || '').replace(/\s/g, '');
-                    const marc = (j.marca || '').toUpperCase();
-                    const mod = (j.modello || '').toUpperCase();
-                    return cog.startsWith(qU) || cog.includes(qU) || nom.includes(qU) || tar.startsWith(qU) || tel.includes(q.replace(/\s/g,'')) || marc.includes(qU) || mod.includes(qU);
-                })
-                .sort((a, b) => b.nLavori - a.nLavori)
-                .slice(0, 8);
+            const matches = _cercaMotoClienti(q, false).slice(0, 8);
 
             if (!matches.length) { res.style.display = 'none'; return; }
 
@@ -2885,19 +2894,19 @@
                 matches.map(j => {
                     const nomeCompl = `${j.cognome || ''} ${j.nome || ''}`.trim();
                     const moto = `${j.marca || ''} ${j.modello || ''}`.trim();
-                    const isExact = (j.cognome || '').toUpperCase().trim() === qU && (!nQ || (j.nome || '').toUpperCase().trim() === nQ);
+                    const isExact = j._esatto;
                     const hlStyle = isExact ? 'border-left:3px solid var(--warning);' : 'border-left:3px solid transparent;';
-                    const d = JSON.stringify({ targa: j.targa||'', nome: j.nome||'', cognome: j.cognome||'', tel: j.tel||'', marca: j.marca||'', modello: j.modello||'', km: j.km||'', clientId: j.clientId||'' }).replace(/"/g, '&quot;');
+                    const d = htmlEsc(JSON.stringify({ targa: j.targa||'', nome: j.nome||'', cognome: j.cognome||'', tel: j.tel||'', marca: j.marca||'', modello: j.modello||'', km: j.km||'', clientId: j.clientId||'' }));
                     return `<div onmousedown="selezionaClienteNuova(${d})"
                         style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);${hlStyle}"
                         onmouseover="this.style.background='rgba(245,158,11,0.12)'"
                         onmouseout="this.style.background=''">
                         <div>
-                            <span style="font-weight:bold;color:white;">${nomeCompl}</span>
-                            ${j.targa ? `<span style="color:var(--info);font-family:monospace;font-size:0.85rem;margin-left:8px;">${j.targa}</span>` : ''}
+                            <span style="font-weight:bold;color:white;">${htmlEsc(nomeCompl)}</span>
+                            ${j.targa ? `<span style="color:var(--info);font-family:monospace;font-size:0.85rem;margin-left:8px;">${htmlEsc(j.targa)}</span>` : ''}
                             ${isExact ? '<span style="color:var(--warning);font-size:0.68rem;margin-left:6px;font-weight:bold;">⚠️ STESSO NOME</span>' : ''}
                         </div>
-                        <div style="font-size:0.75rem;color:var(--muted);">${moto}${j.tel ? ' · 📞' + j.tel : ''}${j.nLavori > 0 ? ' · ' + j.nLavori + ' lavori' : ''}</div>
+                        <div style="font-size:0.75rem;color:var(--muted);">${htmlEsc(moto)}${j.tel ? ' · 📞' + htmlEsc(j.tel) : ''}${j.nLavori > 0 ? ' · ' + j.nLavori + (j.nLavori === 1 ? ' lavoro' : ' lavori') : ''}</div>
                     </div>`;
                 }).join('');
         }
@@ -2941,40 +2950,22 @@
             if (!res) return;
             const q = (searchEl?.value || '').trim();
             if (q.length < 2) { res.style.display = 'none'; return; }
-            const clientiMap = {};
-            db.forEach(j => {
-                const key = j.targa ? j.targa : 'NO_TARGA_' + (j.cognome||'').toUpperCase() + '_' + (j.nome||'').toUpperCase();
-                if (!clientiMap[key]) clientiMap[key] = { ...j, nLavori: 0 };
-                clientiMap[key].nLavori++;
-            });
-            const qU = q.toUpperCase();
-            const matches = Object.values(clientiMap)
-                .filter(j => {
-                    const cog = (j.cognome || '').toUpperCase();
-                    const nom = (j.nome || '').toUpperCase();
-                    const tar = (j.targa || '').toUpperCase();
-                    const tel = (j.tel || '').replace(/\s/g, '');
-                    const marc = (j.marca || '').toUpperCase();
-                    const mod = (j.modello || '').toUpperCase();
-                    return cog.startsWith(qU) || cog.includes(qU) || nom.includes(qU) || tar.startsWith(qU) || tel.includes(q.replace(/\s/g,'')) || marc.includes(qU) || mod.includes(qU);
-                })
-                .sort((a, b) => b.nLavori - a.nLavori)
-                .slice(0, 8);
+            const matches = _cercaMotoClienti(q, true).slice(0, 8);
             if (!matches.length) { res.style.display = 'none'; return; }
             res.style.display = 'block';
             res.innerHTML = '<div style="font-size:0.72rem;color:var(--purple);padding:6px 12px;border-bottom:1px solid #334155;font-weight:bold;letter-spacing:0.3px;">⚡ Già in anagrafica — clicca per compilare in automatico</div>' +
                 matches.map(j => {
                     const nomeCompl = ((j.cognome || '') + ' ' + (j.nome || '')).trim();
                     const moto = ((j.marca || '') + ' ' + (j.modello || '')).trim();
-                    const d = JSON.stringify({ targa: j.targa||'', nome: j.nome||'', cognome: j.cognome||'', tel: j.tel||'', marca: j.marca||'', modello: j.modello||'', km: j.km||'', clientId: j.clientId||'' }).replace(/"/g, '&quot;');
+                    const d = htmlEsc(JSON.stringify({ targa: j.targa||'', nome: j.nome||'', cognome: j.cognome||'', tel: j.tel||'', marca: j.marca||'', modello: j.modello||'', km: j.km||'', clientId: j.clientId||'' }));
                     return '<div onmousedown="selezionaClientePreventivo(' + d + ')"' +
                         ' style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);border-left:3px solid transparent;"' +
                         ' onmouseover="this.style.background=\'rgba(168,85,247,0.12)\'"' +
                         ' onmouseout="this.style.background=\'\'">' +
-                        '<div><span style="font-weight:bold;color:white;">' + nomeCompl + '</span>' +
-                        (j.targa ? '<span style="color:var(--info);font-family:monospace;font-size:0.85rem;margin-left:8px;">' + j.targa + '</span>' : '') +
+                        '<div><span style="font-weight:bold;color:white;">' + htmlEsc(nomeCompl) + '</span>' +
+                        (j.targa ? '<span style="color:var(--info);font-family:monospace;font-size:0.85rem;margin-left:8px;">' + htmlEsc(j.targa) + '</span>' : '') +
                         '</div>' +
-                        '<div style="font-size:0.75rem;color:var(--muted);">' + moto + (j.tel ? ' · 📞' + j.tel : '') + (j.nLavori > 0 ? ' · ' + j.nLavori + ' lavori' : '') + '</div>' +
+                        '<div style="font-size:0.75rem;color:var(--muted);">' + htmlEsc(moto) + (j.tel ? ' · 📞' + htmlEsc(j.tel) : '') + (j.nLavori > 0 ? ' · ' + j.nLavori + (j.nLavori === 1 ? ' lavoro' : ' lavori') : '') + '</div>' +
                         '</div>';
                 }).join('');
         }
@@ -2999,16 +2990,7 @@
             const query = q.toUpperCase().trim();
             if (!query) { res.style.display = 'none'; return; }
 
-            // Raccogli clienti unici per targa o per nome
-            const clientiMap = {};
-            db.forEach(j => {
-                const key = j.targa || `${j.cognome}_${j.nome}`;
-                if (!clientiMap[key]) clientiMap[key] = j;
-            });
-            const clienti = Object.values(clientiMap).filter(j => {
-                const h = `${j.targa||''} ${j.cognome||''} ${j.nome||''} ${j.marca||''} ${j.modello||''}`.toUpperCase();
-                return h.includes(query);
-            }).slice(0, 8);
+            const clienti = _cercaMotoClienti(query, true).slice(0, 8);
 
             if (!clienti.length) {
                 res.style.display = 'block';
@@ -3023,16 +3005,16 @@
             res.innerHTML = clienti.map(j => {
                 const nome = `${j.cognome||''} ${j.nome||''}`.trim();
                 const moto = `${j.marca||''} ${j.modello||''}`.trim();
-                return `<div onclick="selezionaClienteAgenda(${JSON.stringify({
+                return `<div onclick="selezionaClienteAgenda(${htmlEsc(JSON.stringify({
                     targa: j.targa||'', nome: j.nome||'', cognome: j.cognome||'',
                     marca: j.marca||'', modello: j.modello||'', tel: j.tel||''
-                }).replace(/"/g,'&quot;')})"
+                }))})"
                     style="padding:10px 15px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.05); transition:background 0.15s;"
                     onmouseover="this.style.background='rgba(59,130,246,0.15)'"
                     onmouseout="this.style.background=''"
                 >
-                    <div style="font-weight:bold; color:white;">${nome}</div>
-                    <div style="font-size:0.78rem; color:var(--muted);">${j.targa ? '🏍️ '+j.targa+' · ' : ''}${moto}${j.tel?' · 📞'+j.tel:''}</div>
+                    <div style="font-weight:bold; color:white;">${htmlEsc(nome)}</div>
+                    <div style="font-size:0.78rem; color:var(--muted);">${j.targa ? '🏍️ '+htmlEsc(j.targa)+' · ' : ''}${htmlEsc(moto)}${j.tel?' · 📞'+htmlEsc(j.tel):''}</div>
                 </div>`;
             }).join('') + `<div onclick="mostraNuovoClienteAgenda()"
                 style="padding:10px 15px; cursor:pointer; color:var(--muted); font-size:0.82rem; border-top:1px solid #334155;"
