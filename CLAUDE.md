@@ -101,13 +101,9 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 - **GitHub**: `git@github.com:fabioserpe/GESTIONALE-MOTO-GARAGE-MARCELLO.git`, sito `https://fabioserpe.github.io/GESTIONALE-MOTO-GARAGE-MARCELLO/`.
 - **jsPDF 2.5.1** da cdnjs, caricato solo al primo PDF.
 
-## In sospeso (da controllare con Fabio sui dati reali)
+## In sospeso
 
-- Preventivi con quantità > 1 modificati più volte prima della v141: i totali possono essere gonfiati, vanno ricontrollati a mano.
-- Schede con telefono "undefined" (difetto corretto in v143): vanno ripulite a mano.
-- Invio al perito: non è ancora confermato se sul Mac di Fabio compare "Condividi" o il ripiego "Scarica allegati e apri email".
-- Scheda SH 150 "persa" (ottobre): Fabio ha scritto "trovato" senza dire dove; l'ipotesi che fosse il preventivo di GURRIERI GRAZIELLA non è confermata.
-- Ordini futuri (v163) usano un nodo nuovo, `/ordini_abb`: se al primo salvataggio reale compare un errore, controllare le regole Firebase (dovrebbero già coprirlo con `auth != null` sulla radice).
+_(nessun punto aperto al 2026-10-18 — tutto risolto)_
 
 ## Ultime versioni
 
