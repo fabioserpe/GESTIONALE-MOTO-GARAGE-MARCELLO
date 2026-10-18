@@ -2890,7 +2890,7 @@
             const q = (searchEl?.value || '').trim();
             if (q.length < 2) { res.style.display = 'none'; return; }
 
-            const tutti = _cercaMotoClienti(q, false), matches = tutti.slice(0, 8);
+            const tutti = _cercaMotoClienti(q, false), matches = tutti.slice(0, 20);
 
             if (!matches.length) { res.style.display = 'none'; return; }
 
@@ -2955,7 +2955,7 @@
             if (!res) return;
             const q = (searchEl?.value || '').trim();
             if (q.length < 2) { res.style.display = 'none'; return; }
-            const tutti = _cercaMotoClienti(q, true), matches = tutti.slice(0, 8);
+            const tutti = _cercaMotoClienti(q, true), matches = tutti.slice(0, 20);
             if (!matches.length) { res.style.display = 'none'; return; }
             res.style.display = 'block';
             res.innerHTML = '<div style="font-size:0.72rem;color:var(--purple);padding:6px 12px;border-bottom:1px solid #334155;font-weight:bold;letter-spacing:0.3px;">⚡ Già in anagrafica — clicca per compilare in automatico</div>' +
@@ -2995,7 +2995,7 @@
             const query = q.toUpperCase().trim();
             if (!query) { res.style.display = 'none'; return; }
 
-            const tutti = _cercaMotoClienti(query, true), clienti = tutti.slice(0, 8);
+            const tutti = _cercaMotoClienti(query, true), clienti = tutti.slice(0, 20);
 
             if (!clienti.length) {
                 res.style.display = 'block';
