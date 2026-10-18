@@ -148,6 +148,7 @@
         .sidebar-overlay.show { display: block; }
         .hamburger-btn { display: flex; align-items: center; background: none; border: none; color: var(--text); font-size: 1.4rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; line-height: 1; flex-shrink: 0; transition: background 0.15s; }
         .hamburger-btn:hover { background: rgba(255,255,255,0.07); }
+        #mob-tabbar, #board-tabs { display: none; }
         .sidebar-close-btn { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.07); border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
         .sidebar-close-btn:hover { background: rgba(255,255,255,0.15); color: white; }
         .mobile-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 0; flex-shrink: 0; background: var(--bg); position: sticky; top: 0; z-index: 10; }
@@ -181,7 +182,8 @@
             .col { min-width: calc(100vw - 28px); max-width: calc(100vw - 28px); scroll-snap-align: start; overflow-y: auto; flex-shrink: 0; }
             .card, .card-compact { padding: 12px; box-sizing: border-box; max-width: 100%; overflow: hidden; }
             .work-box-compact { word-break: break-word; white-space: pre-wrap; }
-            .tel-link { max-width: 38px !important; overflow: hidden !important; padding: 5px 8px !important; gap: 0 !important; }
+            .tel-link { background: rgba(59,130,246,0.25) !important; border-color: rgba(59,130,246,0.6) !important; font-size: 0 !important; width: 42px; height: 42px; padding: 0 !important; gap: 0 !important; justify-content: center; border-radius: 50% !important; }
+            .tel-link::before { content: '📞'; font-size: 1.15rem; }
 
             /* ---- LAVORI LUNGHI (4 col → swipe) ---- */
             .specials-board { display: flex !important; flex-direction: row !important; gap: 10px; overflow-x: auto !important; overflow-y: hidden !important; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; min-height: 0; }
@@ -244,7 +246,9 @@
             #topbar-quicklinks { overflow-x: auto; justify-content: flex-start !important; scrollbar-width: none; -ms-overflow-style: none; }
             #topbar-quicklinks::-webkit-scrollbar { display: none; }
             .topbar-qbtn { padding: 4px 9px !important; font-size: 0.72rem !important; }
-            #topbar-section { display: none; }
+            .mobile-header > span:not(#topbar-section) { display: none !important; }
+            #topbar-quicklinks { display: none !important; }
+            #topbar-section { display: block !important; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.05rem !important; color: white !important; font-weight: 800 !important; letter-spacing: 0.3px !important; }
 
             /* ---- FORM NUOVO CLIENTE ---- */
             #view-nuovo-cliente .form-panel { padding: 20px !important; }
@@ -293,6 +297,26 @@
 
             /* ---- STATISTICHE p-grid ---- */
             .p-grid { grid-template-columns: 1fr !important; }
+
+            /* ---- BARRA IN BASSO ---- */
+            #mob-tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; height: calc(62px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); background: #0b1220; border-top: 1px solid #334155; z-index: 900; }
+            #mob-tabbar button { flex: 1; width: auto; margin: 0; background: none; border: none; border-top: 3px solid transparent; border-radius: 0; color: #94a3b8; font-size: 0.68rem; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 4px 0 0; cursor: pointer; }
+            #mob-tabbar button .ic { font-size: 1.35rem; line-height: 1; filter: grayscale(0.6); }
+            #mob-tabbar button.on { color: white; border-top-color: var(--accent); }
+            #mob-tabbar button.on .ic { filter: none; }
+            .view { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
+            .notes-panel { bottom: calc(74px + env(safe-area-inset-bottom, 0px)) !important; right: 10px !important; width: calc(100vw - 20px) !important; max-height: 60dvh; }
+
+            /* ---- BACHECA A SCHEDE ---- */
+            #view-board > div:first-child h2 { display: none; }
+            #board-tabs { display: flex; gap: 6px; flex: 1; min-width: 0; }
+            #board-tabs button { flex: 1; width: auto; margin: 0; background: #1e293b; border: 1px solid #334155; color: #cbd5e1; border-radius: 10px; padding: 9px 4px; font-size: 0.82rem; font-weight: 800; white-space: nowrap; cursor: pointer; }
+            #board-tabs button b { display: inline-block; min-width: 20px; margin-left: 4px; padding: 1px 6px; border-radius: 10px; background: #334155; color: white; font-size: 0.75rem; }
+            #board-tabs button.on { background: var(--c); border-color: var(--c); color: #0b1220; }
+            #board-tabs button.on b { background: rgba(0,0,0,0.25); }
+            #board-search-toggle { font-size: 0 !important; padding: 8px 11px !important; }
+            #board-search-toggle::before { content: '🔍'; font-size: 1.05rem; }
+            .board .col-title { display: none; }
         }
 
         @media print {
@@ -527,6 +551,13 @@
             </div>
             <span id="topbar-section" style="font-size:0.72rem; color:var(--muted); font-weight:600; letter-spacing:0.5px; text-transform:uppercase; flex-shrink:0;"></span>
         </div>
+        <nav id="mob-tabbar" class="no-print" aria-label="Sezioni principali">
+            <button type="button" class="on" data-view="board" onclick="switchView('board',null)"><span class="ic">📊</span>Bacheca</button>
+            <button type="button" data-view="nuova" onclick="switchView('nuova',null)"><span class="ic">➕</span>Nuova</button>
+            <button type="button" data-view="agenda" onclick="switchView('agenda',null)"><span class="ic">📅</span>Agenda</button>
+            <button type="button" data-view="ordini" onclick="switchView('ordini',null)"><span class="ic">📦</span>Ordini</button>
+            <button type="button" data-view="altro" onclick="toggleSidebar()"><span class="ic">☰</span>Altro</button>
+        </nav>
         <div id="print-area"></div> 
 
         <div id="view-board" class="view">
@@ -534,6 +565,11 @@
 
                 <!-- Header row con titolo + toggle ricerca -->
                 <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px;">
+                    <div id="board-tabs" class="no-print">
+                        <button type="button" class="on" style="--c:var(--accent);" onclick="vaiTabBacheca(0)">Oggi<b>0</b></button>
+                        <button type="button" style="--c:var(--warning);" onclick="vaiTabBacheca(1)">Sul ponte<b>0</b></button>
+                        <button type="button" style="--c:var(--success);" onclick="vaiTabBacheca(2)">Pronte<b>0</b></button>
+                    </div>
                     <h2 style="margin:0; color:var(--text); font-size:1.1rem; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; opacity:0.5;">📊 Officina</h2>
                     <div style="display:flex; align-items:center; gap:8px;">
                         <span id="board-search-query-badge" style="display:none; font-size:0.75rem; font-weight:bold; color:var(--warning); background:rgba(245,158,11,0.15); padding:3px 10px; border-radius:20px; border:1px solid rgba(245,158,11,0.3);"></span>
@@ -559,7 +595,7 @@
                 </div>
 
             </div>
-            <div class="board">
+            <div class="board" onscroll="_tabBachecaAttiva()">
                 <div class="col" ondragover="allowDropBoard(event)" ondragleave="leaveDropBoard(event)" ondrop="dropBoard(event, 'todo')">
                     <div class="col-title" id="title-todo">APPUNTAMENTI OGGI (0)</div>
                     <div class="col-list" id="list-todo"></div>
@@ -2771,6 +2807,7 @@
             ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-incidentate', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa', 'view-usate'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.topbar-qbtn').forEach(b => b.classList.toggle('tq-active', b.dataset.view === viewId));
+            _aggiornaTabbar(viewId);
             const _sidebarBtn = document.querySelector(`[data-nav-id="${viewId}"]`);
             if (_sidebarBtn) _sidebarBtn.classList.add('active');
             const t = $('view-' + viewId); if(t) t.classList.remove('hidden'); if(el) el.classList.add('active');
@@ -4670,6 +4707,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 
                 if(lists[j.stato]) lists[j.stato].appendChild(card);
             });
+            _aggiornaTabBacheca(c);
             if($('title-todo')) $('title-todo').innerText = `APPUNTAMENTI OGGI (${c.todo})`; if($('title-doing')) $('title-doing').innerText = `SUL PONTE (${c.doing})`; if($('title-done')) $('title-done').innerText = `PRONTE / CONSEGNA (${c.done})`;
         }
 
@@ -8561,6 +8599,30 @@ A presto!`;
             currentOrdTab = o.stato; currentOrdFilter = 'all';
             switchView('ordini', null);
             if (!_ordAperti.has(String(o.id))) toggleDettaglioOrdine(o.id);
+        }
+
+        // Telefono: schede della Bacheca (Oggi / Sul ponte / Pronte) e barra in basso
+        function vaiTabBacheca(i) {
+            const b = document.querySelector('#view-board .board');
+            if (b) b.scrollTo({ left: i * b.clientWidth, behavior: 'smooth' });
+        }
+        function _tabBachecaAttiva() {
+            const b = document.querySelector('#view-board .board'), t = $('board-tabs');
+            if (!b || !t) return;
+            const i = Math.round(b.scrollLeft / Math.max(1, b.clientWidth));
+            [...t.children].forEach((x, k) => x.classList.toggle('on', k === i));
+        }
+        function _aggiornaTabBacheca(c) {
+            const t = $('board-tabs');
+            if (!t) return;
+            ['todo', 'doing', 'done'].forEach((s, k) => { const n = t.children[k] && t.children[k].querySelector('b'); if (n) n.textContent = c[s]; });
+            _tabBachecaAttiva();
+        }
+        function _aggiornaTabbar(viewId) {
+            let trovato = false;
+            document.querySelectorAll('#mob-tabbar button').forEach(b => { const on = b.dataset.view === viewId; if (on) trovato = true; b.classList.toggle('on', on); });
+            const altro = document.querySelector('#mob-tabbar button[data-view="altro"]');
+            if (altro && !trovato) altro.classList.add('on');
         }
 
         function toggleBoardSearch() {
