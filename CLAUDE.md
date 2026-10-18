@@ -139,3 +139,4 @@ _(nessun punto aperto al 2026-10-18 — tutto risolto)_
 | v162 | Abbigliamento e Caschi: colonna Colore più larga (i colori lunghi tipo "BIANCO PERLATO" venivano tagliati), testo più piccolo oltre 16 lettere; campo Colore più largo nei moduli. Fix: categorie tagliate in tabella ("ABBIGLIAMEN", "ARIA E CARBURANTE", "LUBRIFICANTI", "TRASMISSIONE"): larghezza della colonna per scheda (`#mag-th-cat`). Prove che misurano il testo |
 | v163 | Abbigliamento e Caschi: "🚚 Ordini futuri" per fornitore con griglia delle taglie; all'arrivo (tutto, per modello o per taglia) i pezzi entrano in magazzino |
 | v164 | Statistiche: riquadro "Incasso Settimana" (lunedì–domenica) con frecce per le settimane precedenti e confronto con la settimana prima |
+| v165 | Ordini futuri abbigliamento: pulsante ✏️ modifica su ogni modello — ricarica SKU, nome, colore e quantità nel form per correzione; le righe già arrivate non vengono toccate |
