@@ -1314,6 +1314,31 @@
     await attendi(300);
   });
 
+  await passo('Cerca cliente: tanti risultati', async () => {
+    const w = {};
+    for (let i = 1; i <= 9; i++) w['db/kan' + i] = { id: 980 + i, cognome: 'COGNOMEPROVA' + i, nome: 'ANGELO', targa: 'AN00' + i, stato: 'archived', data: '2026-01-0' + i };
+    for (let i = 0; i < 3; i++) w['db/kae' + i] = { id: 990 + i, cognome: 'ANGELONE', nome: 'ANTONIO', targa: 'AN0099', stato: 'archived', data: '2026-02-0' + (i + 1) };
+    fb.scritturaRemota(w, false);
+    switchView('nuova');
+    const res = document.getElementById('nuova-cliente-results');
+    const cerca = q => { campo('f_search_cliente', q); cercaClienteNuova(); return [...res.querySelectorAll('div[onmousedown]')].map(r => r.querySelector('span').textContent.trim()); };
+    let n = cerca('ANGELO');
+    const extra = res.querySelector('.altri-risultati');
+    ok(n.length === 8 && n.every(x => x.endsWith(' ANGELO')), 'Cerca cliente: prima chi si chiama esattamente Angelo, poi Angelone (' + n.slice(0, 3).join(', ') + '…)');
+    ok(extra && extra.textContent.includes('altri 2 risultati') && extra.textContent.includes('cognome'), 'Cerca cliente: avviso "altri 2 risultati, scrivi anche il cognome"');
+    n = cerca('ANGELO COGNOMEPROVA1');
+    ok(n.length === 1 && !res.querySelector('.altri-risultati'), 'Cerca cliente: aggiungendo il cognome resta un risultato e l\'avviso sparisce');
+    campo('p_search_cliente', 'angelo'); cercaClientePreventivo();
+    ok(!!document.querySelector('#prev-cliente-results .altri-risultati'), 'Cerca cliente nei Preventivi: avviso altri risultati');
+    campo('app_search_cliente', 'angelo'); cercaClienteAgenda('angelo');
+    ok(!!document.querySelector('#app_search_results .altri-risultati'), 'Cerca cliente nel Nuovo appuntamento: avviso altri risultati');
+    campo('app_search_cliente', ''); cercaClienteAgenda(''); campo('p_search_cliente', ''); cercaClientePreventivo(); clearForm();
+    const via = {}; Object.keys(w).forEach(k => { via[k] = null; });
+    fb.scritturaRemota(via, false);
+    switchView('board');
+    await attendi(300);
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
