@@ -12,8 +12,23 @@ Fabio scrive in italiano e non è uno sviluppatore: rispondi in italiano semplic
 - Se una richiesta ha più interpretazioni, chiedi con opzioni concrete (AskUserQuestion) prima di scrivere codice.
 - Quando trovi un difetto preesistente collegato al lavoro, correggilo e diglielo chiaramente (cosa succedeva, cosa controllare a mano).
 - Dopo ogni pubblicazione ricordagli `Cmd+Shift+R` (il Service Worker tiene la versione vecchia).
+- Non leggere il database di produzione (Firebase) senza un ok esplicito di Fabio.
+- Quando una richiesta ha opzioni, Fabio sceglie quasi sempre quella indicata come consigliata: mettila per prima e spiega in una riga perché.
+
+## Due Mac (dal 2026-10-18)
+
+Fabio lavora al gestionale da **due Mac**, ognuno con VS Code e Claude. GitHub è l'unica cosa condivisa: le conversazioni e la memoria locale di Claude non passano da un Mac all'altro, questa guida sì.
+
+- **Prima di toccare qualsiasi file: `git pull`.** Se l'altro Mac ha pubblicato qualcosa, qui c'è la versione vecchia: lavorarci sopra crea conflitti e rischia di ripubblicare il sito vecchio. Se `git status` mostra modifiche non salvate di cui non sai niente, chiedi a Fabio prima di continuare.
+- **Alla fine: commit e push**, anche quando cambi solo questa guida, così l'altro Mac la trova aggiornata.
+- Tutto quello che va ricordato tra una sessione e l'altra (preferenze di Fabio, decisioni, cose in sospeso) va scritto **qui**, non solo nella memoria locale di Claude.
+- Mai lavorare sui due Mac nello stesso momento.
+- Su un Mac nuovo servono: gli Strumenti da riga di comando (`xcode-select --install`, danno git e python3), Google Chrome in `/Applications` (per il collaudo) e l'accesso a GitHub per pubblicare (chiave SSH aggiunta all'account `fabioserpe`; prova con `ssh -T git@github.com`). Il nome della cartella in cui si clona non conta.
+- Restano solo sul primo Mac (esclusi da git con `.gitignore`): i vecchi backup `index_backup_*.html`, `index.thtml.txt`, `.claude/settings.local.json`; non in git anche `manuale_gestionale.html` (manuale di luglio, non aggiornato).
 
 ## Pubblicare una modifica
+
+Prima di cominciare: `git pull` (vedi "Due Mac").
 
 1. Modifica `index.html`. Per più sostituzioni usa uno script Python con `assert html.count(VECCHIO) == 1` per ognuna (le funzioni lunghe sono su una sola riga, l'Edit tool sbaglia facilmente).
 2. Incrementa la versione cache in `sw.js` (`const CACHE = 'garage-vNNN'`), altrimenti i dispositivi non si aggiornano.
@@ -30,7 +45,7 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 ## Collaudo (`collaudo/`)
 
 - `fake-firebase.js`: finto Firebase v8 (auth + database) con la stessa semantica del vero: array salvati con chiavi numeriche, `null` cancella, eventi sincroni, `once`, `push`. Espone `window.__fb` (scritture, `leggi(path)`, `setConnesso`, `scritturaRemota` per simulare un altro dispositivo).
-- `dati-iniziali.js`: dati finti di partenza. `scenari.js`: le prove (oltre 130), raggruppate con `passo('nome', async () => …)`.
+- `dati-iniziali.js`: dati finti di partenza. `scenari.js`: le prove (oltre 340), raggruppate con `passo('nome', async () => …)`.
 - Il test aspetta che tutti i listener siano registrati: se aggiungi un `database.ref('/nuovo').on('value')`, aggiorna il numero (oggi **16**) in `scenari.js`.
 - Il passo "Tutte le schermate" controlla anche che ogni pagina stia dentro `.main-content` e si veda davvero sullo schermo: dopo modifiche all'HTML delle viste non fidarti solo dell'assenza di errori. Attenzione alle ricerche di `'        </div>'`: la stringa è contenuta anche nelle righe più rientrate.
 - Per vedere una schermata: genera la pagina come fa `collauda.sh` e usa Chrome headless con `--screenshot` (prima chiama `fb.setConnesso(true); fb.rilasciaCaricamento()`, altrimenti resta "Caricamento dati…"). Chrome headless impagina ad almeno 500 px di larghezza: per il telefono usa `--window-size=500,…`, a 400 l'immagine risulta tagliata. Sul Mac Fabio usa Chrome con zoom intorno all'80% (dalle misure delle sue schermate: larghezza utile ~1890 px): per vedere quello che vede lui usa `--window-size=1890,…`; controlla anche 1512 (zoom 100%). Per i PDF generati: `sips -s format png file.pdf --out file.png`.
@@ -85,6 +100,14 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 - **Backup automatico**: Google Apps Script "Backup Gestionale" sull'account Google di Fabio, ogni notte 3–4 salva tutto il database nella cartella Drive "Backup Gestionale" (30 giorni + il primo del mese per 12 mesi), email solo in caso di errore o se i lavori calano di oltre il 10%. Ripristino: console Firebase → Realtime Database → Importa JSON.
 - **GitHub**: `git@github.com:fabioserpe/GESTIONALE-MOTO-GARAGE-MARCELLO.git`, sito `https://fabioserpe.github.io/GESTIONALE-MOTO-GARAGE-MARCELLO/`.
 - **jsPDF 2.5.1** da cdnjs, caricato solo al primo PDF.
+
+## In sospeso (da controllare con Fabio sui dati reali)
+
+- Preventivi con quantità > 1 modificati più volte prima della v141: i totali possono essere gonfiati, vanno ricontrollati a mano.
+- Schede con telefono "undefined" (difetto corretto in v143): vanno ripulite a mano.
+- Invio al perito: non è ancora confermato se sul Mac di Fabio compare "Condividi" o il ripiego "Scarica allegati e apri email".
+- Scheda SH 150 "persa" (ottobre): Fabio ha scritto "trovato" senza dire dove; l'ipotesi che fosse il preventivo di GURRIERI GRAZIELLA non è confermata.
+- Ordini futuri (v163) usano un nodo nuovo, `/ordini_abb`: se al primo salvataggio reale compare un errore, controllare le regole Firebase (dovrebbero già coprirlo con `auth != null` sulla radice).
 
 ## Ultime versioni
 

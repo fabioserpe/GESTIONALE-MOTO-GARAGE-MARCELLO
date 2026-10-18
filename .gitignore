@@ -1,0 +1,5 @@
+# File solo locali: non vanno su GitHub (il repository è pubblico)
+.DS_Store
+.claude/settings.local.json
+index_backup_*.html
+index.thtml.txt
