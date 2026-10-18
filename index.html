@@ -539,7 +539,7 @@
                         <span id="board-search-query-badge" style="display:none; font-size:0.75rem; font-weight:bold; color:var(--warning); background:rgba(245,158,11,0.15); padding:3px 10px; border-radius:20px; border:1px solid rgba(245,158,11,0.3);"></span>
                         <button id="board-search-toggle"
                             onclick="toggleBoardSearch()"
-                            title="Cerca per Targa, Cliente o Moto"
+                            title="Cerca in tutto il gestionale: cliente, targa, moto o telefono"
                             style="background:transparent; border:1px solid #334155; color:var(--muted); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:0.85rem; font-weight:bold; transition:all 0.2s; display:flex; align-items:center; gap:6px;"
                             onmouseover="this.style.borderColor='var(--warning)'; this.style.color='var(--warning)';"
                             onmouseout="if(!document.getElementById('board-search-input').value) { this.style.borderColor='#334155'; this.style.color='var(--muted)'; }">
@@ -551,10 +551,11 @@
                 <!-- Barra di ricerca collassabile -->
                 <div id="board-search-wrapper" style="display:none; overflow:hidden; transition:max-height 0.25s ease; padding-bottom:12px;">
                     <input type="text" id="board-search-input"
-                        placeholder="Cerca per Targa, Cliente o Moto..."
+                        placeholder="Cerca in tutto il gestionale: nome, targa, moto o telefono..."
                         oninput="_dRefreshBoard()"
                         onkeydown="if(event.key==='Escape') chiudiBoardSearch();"
                         style="background:var(--card); border: 2px solid var(--warning); margin-bottom:0;">
+                    <div id="ricerca-globale" style="display:none; margin-top:10px; background:var(--card); border:1px solid #334155; border-radius:10px; max-height:50vh; overflow-y:auto;"></div>
                 </div>
 
             </div>
@@ -2218,7 +2219,7 @@
         function safeDecode(str) { return !str ? '' : decodeURIComponent(str); }
         function htmlEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
         function debounce(fn, ms) { let t; return function(...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); }; }
-        const _dRefreshBoard    = debounce(() => { refreshBoard(); aggiornaSearchBadge(); }, 250);
+        const _dRefreshBoard    = debounce(() => { refreshBoard(); aggiornaSearchBadge(); aggiornaRicercaGlobale(); }, 250);
         const _dRefreshArchive  = debounce(refreshArchive, 250);
         const _dRefreshAgenda   = debounce(refreshAgenda, 250);
         const _dRefreshTagliandi = debounce(refreshTagliandi, 250);
@@ -4651,7 +4652,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 const billBadge = (billingDB[bKey] && (billingDB[bKey].cf || billingDB[bKey].piva)) ? `<span title="Dati fatturazione presenti" style="background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 5px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:4px;">🧾</span>` : '';
                 const targaBadge = noTarga
                     ? `<span class="targa-badge" style="background:rgba(249,115,22,0.2); color:#f97316; border:1px solid #f97316; animation:pulse-orange 1.5s infinite;">⚠️ TARGA MANCANTE</span>`
-                    : `<span class="targa-badge">${j.targa}</span>`;
+                    : `<span class="targa-badge">${htmlEsc(j.targa)}</span>`;
                 const contattatoRow = j.stato === 'done'
                     ? (j.cliente_contattato
                         ? `<div onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); toggleContattato(${j.id})" style="display:inline-flex; align-items:center; gap:5px; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.4); color:#22c55e; font-size:0.82rem; font-weight:700; padding:4px 10px; border-radius:20px; cursor:pointer; margin-top:5px;">✅ Contattato</div>`
@@ -4666,10 +4667,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                     </div>
                     <div class="flex-between" style="align-items:center; margin-top:5px;">
     <div style="line-height:1.2;">
-        <b style="color:white; font-size:0.95rem;">${j.marca||''} ${j.modello||''}</b>
-        <span class="customer-info">${(j.cognome||'').toUpperCase()} ${j.nome||''}</span>
+        <b style="color:white; font-size:0.95rem;">${htmlEsc(j.marca||'')} ${htmlEsc(j.modello||'')}</b>
+        <span class="customer-info">${htmlEsc((j.cognome||'').toUpperCase())} ${htmlEsc(j.nome||'')}</span>
     </div>
-    ${j.tel ? `<a href="tel:${j.tel}" onclick="event.stopPropagation();" class="tel-link" style="display:inline-flex; align-items:center; gap:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.35); color:#93c5fd; font-size:0.88rem; font-weight:700; padding:3px 9px; border-radius:20px; margin-left:6px; text-decoration:none; letter-spacing:0.3px; flex-shrink:0;">📞 ${j.tel}</a>` : ''}
+    ${j.tel ? `<a href="tel:${htmlEsc(j.tel)}" onclick="event.stopPropagation();" class="tel-link" style="display:inline-flex; align-items:center; gap:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.35); color:#93c5fd; font-size:0.88rem; font-weight:700; padding:3px 9px; border-radius:20px; margin-left:6px; text-decoration:none; letter-spacing:0.3px; flex-shrink:0;">📞 ${htmlEsc(j.tel)}</a>` : ''}
 </div>
                     ${accTot>0?`<div style="font-size:0.75rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €${accTot.toFixed(2)}${lordo > 0 && daPagare <= 0.01 ? ` <span style="color:#22c55e; font-weight:600; margin-left:6px;">· acconti = totale attuale</span>` : ''}</div>`:''}
                     ${_badgeRicambi(j.id, j.stato === 'todo' ? ((_appuntamentoDelJob(j.id) || {}).data || j.data) : null)}
@@ -8483,6 +8484,98 @@ A presto!`;
         // =====================================================================
         // BOARD SEARCH — collassabile
         // =====================================================================
+        // Ricerca in tutto il gestionale (campo "Cerca" della Bacheca): dove si trova la moto, conto, ricambi
+        function _statoRicercaGlobale(j) {
+            if (j.stato === 'todo') { const a = _appuntamentoDelJob(j.id); return ['📅', 'Appuntamento' + (a ? ' ' + formattaData(a.data) + (a.ora ? ' ore ' + a.ora : '') : ''), 'var(--accent)']; }
+            if (j.stato === 'doing') return ['🔧', 'Sul ponte', 'var(--warning)'];
+            if (j.stato === 'done') return ['✅', 'Pronta da ritirare', 'var(--success)'];
+            if (j.stato === 'special') return j.special_cat === 'incidentate' ? ['🚗', 'Incidentata', '#f87171'] : ['🕰️', 'Lavori Lunghi', '#d8b4fe'];
+            if (j.stato === 'preventivo') return ['📝', 'Preventivo aperto', 'var(--purple)'];
+            return null;
+        }
+        function aggiornaRicercaGlobale() {
+            const box = $('ricerca-globale');
+            if (!box) return;
+            const q = String(($('board-search-input') || {}).value || '').toLowerCase().trim();
+            if (q.length < 2) { box.innerHTML = ''; box.style.display = 'none'; return; }
+            const termini = q.split(/\s+/);
+            const combacia = s => { const t = String(s).toLowerCase(); return termini.every(x => t.includes(x)); };
+            const sid = v => String(v).replace(/[^\w.-]/g, '');
+            const dataDi = j => String(j.data_chiusura || j.data || '');
+            const stBtn = 'width:auto; margin:0; border:none; border-radius:8px; padding:4px 10px; font-size:0.8rem; font-weight:bold; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:4px;';
+            const gruppi = new Map();
+            db.forEach(j => {
+                if (!j || !combacia(`${j.cognome||''} ${j.nome||''} ${j.targa||''} ${j.marca||''} ${j.modello||''} ${j.tel||''}`)) return;
+                const k = chiaveTarga(j.targa) || j.clientId || `${j.cognome||''} ${j.nome||''}`.toUpperCase().trim();
+                if (!k) return;
+                if (!gruppi.has(k)) gruppi.set(k, []);
+                gruppi.get(k).push(j);
+            });
+            const moto = [...gruppi.values()].map(jj => {
+                jj.sort((a, b) => dataDi(b).localeCompare(dataDi(a)));
+                return { jj, aperti: jj.filter(_statoRicercaGlobale) };
+            }).sort((a, b) => (b.aperti.length ? 1 : 0) - (a.aperti.length ? 1 : 0) || dataDi(b.jj[0]).localeCompare(dataDi(a.jj[0])));
+            const visti = new Set();
+            const schede = moto.slice(0, 8).map(({ jj, aperti }) => {
+                const u = jj[0];
+                const tel = (jj.find(j => j.tel) || {}).tel || '';
+                const wa = formatPhoneForWa(tel);
+                const righe = aperti.map(j => {
+                    const [ic, txt, col] = _statoRicercaGlobale(j);
+                    const lordo = parseFloat(j.totale_lordo) || 0;
+                    const acc = (j.acconti || []).reduce((s, a) => s + (parseFloat(a.val) || 0), 0);
+                    const soldi = j.stato === 'preventivo' ? (lordo ? ' · ' + _eur(lordo) : '')
+                        : (lordo || acc ? ' · conto ' + _eur(lordo) + (acc ? ' · acconti ' + _eur(acc) : '') + (lordo ? ' · <b style="color:white;">da pagare ' + _eur(lordo - acc) + '</b>' : '') : '');
+                    const ord = _ordiniDelJob(j.id).filter(o => o.stato !== 'consegnato');
+                    ord.forEach(o => visti.add(String(o.id)));
+                    const att = ord.filter(_ordineInAttesa).length;
+                    const ric = !ord.length ? '' : att ? ` · <span style="color:#f59e0b; font-weight:bold;">📦 ${att} ricamb${att === 1 ? 'io' : 'i'} in attesa</span>` : ' · <span style="color:var(--success); font-weight:bold;">📦 ricambi arrivati</span>';
+                    const apri = j.stato === 'preventivo' ? `openPreventivoForm('${sid(j.id)}')` : `previewJob('${sid(j.id)}')`;
+                    return `<div class="rg-stato" onclick="${apri}" title="Apri la scheda" style="cursor:pointer; padding:6px 8px; margin-top:6px; border-left:3px solid ${col}; background:rgba(255,255,255,0.03); border-radius:6px; font-size:0.85rem; color:var(--muted);"><b style="color:${col};">${ic} ${htmlEsc(txt)}</b>${soldi}${ric}</div>`;
+                }).join('');
+                const ultimo = jj.find(j => j.stato !== 'cliente');
+                const fermo = aperti.length ? '' : !ultimo ? '<div style="margin-top:6px; font-size:0.82rem; color:var(--muted);">Nessun lavoro registrato</div>'
+                    : `<div class="rg-stato" onclick="previewJob('${sid(ultimo.id)}')" title="Apri l'ultimo lavoro" style="cursor:pointer; margin-top:6px; font-size:0.82rem; color:var(--muted);">Nessun lavoro aperto · ultimo il ${formattaData(dataDi(ultimo)) || '—'}</div>`;
+                return `<div class="rg-moto" style="padding:10px 12px; border-bottom:1px solid #334155;">
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+                        <b style="color:white; font-size:1rem;">${htmlEsc(`${u.cognome||''} ${u.nome||''}`.trim() || '—')}</b>
+                        <span style="color:#fbbf24; font-weight:bold;">${htmlEsc(`${u.marca||''} ${u.modello||''}`.trim())}</span>
+                        ${u.targa ? `<span style="font-family:monospace; color:var(--muted);">${htmlEsc(u.targa)}</span>` : ''}
+                        <span style="margin-left:auto; display:flex; gap:6px; flex-wrap:wrap;">
+                            ${tel ? `<a href="tel:${htmlEsc(tel)}" title="Chiama" style="${stBtn} background:var(--info); color:white;">📞 ${htmlEsc(tel)}</a>` : ''}
+                            ${wa ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener" title="WhatsApp" style="${stBtn} background:var(--whatsapp); color:white;">💬 WA</a>` : ''}
+                            ${u.clientId ? `<button type="button" onclick="viewHistoryCognome('${safeEncode(u.clientId)}')" title="Storico del cliente" style="${stBtn} background:transparent; border:1px solid #475569; color:var(--muted);">📁 Storico</button>` : ''}
+                        </span>
+                    </div>${righe}${fermo}
+                </div>`;
+            }).join('');
+            const statoOrd = o => o.stato === 'todo' ? ['🔴', 'Da ordinare', 'var(--accent)']
+                : o.stato === 'doing' ? ['🔵', 'Ordinato' + (o.data_consegna ? ' · previsto ' + formattaData(o.data_consegna) : ''), 'var(--info)']
+                : ['🟢', 'Arrivato', 'var(--success)'];
+            const ordini = ordiniDB.filter(o => o && ['todo', 'doing', 'done'].includes(o.stato) && !visti.has(String(o.id))
+                && combacia(`${o.cliente||''} ${o.rif||''} ${o.tel_cliente||''} ${o.targa||''} ${o.moto||''}`)).slice(0, 8);
+            const righeOrd = ordini.map(o => {
+                const [ic, txt, col] = statoOrd(o);
+                const q = parseInt(o.qta) || 1;
+                return `<div class="rg-ordine" onclick="apriOrdineDaRicerca('${sid(o.id)}')" title="Apri negli Ordini ricambi" style="cursor:pointer; padding:8px 12px; border-bottom:1px solid #334155; font-size:0.88rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                    <b style="color:white;">📦 ${q > 1 ? q + '× ' : ''}${htmlEsc(o.desc || '')}</b>
+                    <span style="color:var(--info);">${htmlEsc(o.cliente || o.rif || '')}</span>
+                    <b style="color:${col}; margin-left:auto;">${ic} ${htmlEsc(txt)}</b></div>`;
+            }).join('');
+            box.style.display = 'block';
+            box.innerHTML = `<div style="padding:8px 12px; font-size:0.75rem; font-weight:800; letter-spacing:0.05em; color:var(--warning); border-bottom:1px solid #334155;">IN TUTTO IL GESTIONALE${moto.length > 8 ? ' — primi 8 su ' + moto.length + ', scrivi di più per restringere' : ''}</div>`
+                + (schede || righeOrd
+                    ? schede + (righeOrd ? '<div style="padding:8px 12px 4px; font-size:0.72rem; font-weight:800; color:var(--muted);">RICAMBI ORDINATI</div>' + righeOrd : '')
+                    : '<div style="padding:14px; color:var(--muted); text-align:center;">Nessun risultato</div>');
+        }
+        function apriOrdineDaRicerca(id) {
+            const o = ordiniDB.find(x => String(x.id) === String(id));
+            if (!o) return;
+            currentOrdTab = o.stato; currentOrdFilter = 'all';
+            switchView('ordini', null);
+            if (!_ordAperti.has(String(o.id))) toggleDettaglioOrdine(o.id);
+        }
+
         function toggleBoardSearch() {
             const wrapper = $('board-search-wrapper');
             const input   = $('board-search-input');
@@ -8507,6 +8600,7 @@ A presto!`;
             const badge   = $('board-search-query-badge');
 
             wrapper.style.display = 'none';
+            const _rg = $('ricerca-globale'); if (_rg) { _rg.innerHTML = ''; _rg.style.display = 'none'; }
             btn.style.borderColor = '#334155';
             btn.style.color       = 'var(--muted)';
             btn.style.background  = 'transparent';

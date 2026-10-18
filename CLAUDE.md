@@ -67,6 +67,7 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 
 | Sezione | Funzioni |
 |---|---|
+| Ricerca globale | Pulsante 🔍 Cerca della Bacheca: filtra le schede della Bacheca e sotto il campo il riquadro `#ricerca-globale` (`aggiornaRicercaGlobale`, chiamata da `_dRefreshBoard`, quindi si aggiorna anche quando cambiano i dati) mostra tutto il gestionale: una riga per moto (raggruppate per targa) con Chiama/WA/Storico e dove si trova (`_statoRicercaGlobale`: appuntamento, sul ponte, pronta, Lavori Lunghi, Incidentata, preventivo) con conto/acconti/da pagare e ricambi della moto; sotto, i ricambi ordinati a nome del cliente non collegati a una moto (`apriOrdineDaRicerca`). Le altre ricerche di sezione restano |
 | Bacheca | `refreshBoard`, `moveStatus`, `saveJob` (scheda), `openClosingModal` + `saveJobConConto` (conto; "Salva Pre-Conto" = `'doing'`), `previewJob` (anteprima) |
 | Lavori Lunghi / Incidentate | `refreshSpecials`, `refreshIncidentate`, `apriPreventivoIncidentata` (apre il preventivo aperto della targa o ne crea uno) |
 | Preventivi | `refreshPreventivi`, `openPreventivoForm`, `savePreventivo` (una riga lunghissima), `nuovoPreventivoStessaMoto`, `printPreventivo`, `creaPdfPreventivo` (jsPDF), `openInvioPerito`/`inviaAlPerito` |
@@ -140,3 +141,4 @@ _(nessun punto aperto al 2026-10-18 — tutto risolto)_
 | v163 | Abbigliamento e Caschi: "🚚 Ordini futuri" per fornitore con griglia delle taglie; all'arrivo (tutto, per modello o per taglia) i pezzi entrano in magazzino |
 | v164 | Statistiche: riquadro "Incasso Settimana" (lunedì–domenica) con frecce per le settimane precedenti e confronto con la settimana prima |
 | v165 | Ordini futuri abbigliamento: pulsante ✏️ modifica su ogni modello — ricarica SKU, nome, colore e quantità nel form per correzione; le righe già arrivate non vengono toccate |
+| v166 | Ricerca globale dal pulsante Cerca della Bacheca (cliente al telefono: dove si trova la moto, conto, ricambi). Fix: nella scheda della Bacheca nome, moto, targa e telefono non erano protetti con `htmlEsc` (un nome con `<` o `&` si vedeva male o poteva eseguire codice) |

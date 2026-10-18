@@ -1215,6 +1215,62 @@
     switchView('board');
   });
 
+  await passo('Ricerca globale', async () => {
+    const ita = d => d.split('-').reverse().join('/');
+    fb.scritturaRemota({
+      'db/k951': { id: 951, cognome: 'CERCATO', nome: 'UNO', tel: '3471234567', marca: 'APRILIA', modello: 'TUONO', targa: 'ZX951AA', stato: 'doing', data: oggi, totale_lordo: 200, acconti: [{ val: 50, date: oggi }], clientId: 'c-cerc1' },
+      'db/k952': { id: 952, cognome: 'CERCATO', nome: 'UNO', tel: '3471234567', marca: 'APRILIA', modello: 'TUONO', targa: 'ZX951AA', stato: 'archived', data: '2026-01-10', data_chiusura: '2026-01-12', totale_lordo: 90, clientId: 'c-cerc1' },
+      'db/k953': { id: 953, cognome: 'CERCATO', nome: 'DUE', marca: 'VESPA', modello: 'GTS', targa: 'ZX953BB', stato: 'todo', data: oggi, clientId: 'c-cerc2' },
+      'agenda/k953': { id: 9530, tipo: 'officina', jobId: 953, data: oggi, ora: '15:30', cliente: 'CERCATO DUE' },
+      'db/k954': { id: 954, cognome: 'CERCATO', nome: 'TRE', marca: 'SUZUKI', modello: 'GSX', targa: 'ZX954CC', stato: 'special', special_cat: 'incidentate', data: oggi, clientId: 'c-cerc3' },
+      'db/k955': { id: 955, cognome: 'FERMO', nome: 'QUATTRO', targa: 'ZX955DD', stato: 'archived', data: '2026-03-01', data_chiusura: '2026-03-05', clientId: 'c-cerc4' },
+      'db/k956': { id: 956, cognome: '<img src=x onerror="window.__xssRg=1">', nome: 'CERCATO', targa: 'ZX956EE', stato: 'done', data: oggi, totale_lordo: 10 },
+      'ordini/k961': { id: 961, desc: 'CUPOLINO', cliente: 'CERCATO CINQUE', tel_cliente: '3330000000', stato: 'doing', data_consegna: oggi, qta: 1, data: oggi },
+      'ordini/k962': { id: 962, desc: 'PASTIGLIE CERC', jobId: 951, targa: 'ZX951AA', cliente: 'CERCATO UNO', stato: 'doing', qta: 2, data: oggi },
+      'ordini/k963': { id: 963, desc: 'VECCHIO CERC', cliente: 'CERCATO SEI', stato: 'consegnato', qta: 1, data: oggi }
+    }, false);
+    switchView('board');
+    toggleBoardSearch();
+    const box = document.getElementById('ricerca-globale');
+    const cerca = q => { campo('board-search-input', q); aggiornaRicercaGlobale(); return box.textContent.replace(/\s+/g, ' '); };
+    ok(box && box.closest('#board-search-wrapper'), 'Ricerca globale: riquadro dentro la barra del pulsante Cerca della Bacheca');
+    cerca('c');
+    ok(box.style.display === 'none', 'Ricerca globale: con una sola lettera il riquadro resta chiuso');
+    let t = cerca('cercato');
+    ok(box.style.display === 'block' && box.querySelectorAll('.rg-moto').length === 4, 'Ricerca globale: 4 moto trovate (' + box.querySelectorAll('.rg-moto').length + '), i due lavori della stessa targa in una riga sola');
+    ok(t.split('ZX951AA').length === 2, 'Ricerca globale: la targa ZX951AA compare una volta sola');
+    ok(t.includes('Sul ponte') && t.includes('conto € 200,00') && t.includes('acconti € 50,00') && t.includes('da pagare € 150,00'), 'Ricerca globale: sul ponte con conto, acconti e da pagare');
+    ok(t.includes('📦 1 ricambio in attesa') && !t.includes('PASTIGLIE CERC'), 'Ricerca globale: ricambio della moto indicato sulla sua riga, non ripetuto sotto');
+    ok(t.includes('Appuntamento ' + ita(oggi) + ' ore 15:30'), 'Ricerca globale: appuntamento con data e ora dall\'Agenda');
+    ok(t.includes('Incidentata') && t.includes('Pronta da ritirare'), 'Ricerca globale: incidentata e moto pronta');
+    ok(box.querySelectorAll('.rg-ordine').length === 1 && t.includes('CUPOLINO') && t.includes('Ordinato · previsto ' + ita(oggi)) && !t.includes('VECCHIO CERC'), 'Ricerca globale: ricambio ordinato a nome del cliente (senza moto), esclusi quelli già consegnati');
+    ok(!!box.querySelector('a[href="https://wa.me/393471234567"]') && !!box.querySelector('a[href="tel:3471234567"]'), 'Ricerca globale: pulsanti Chiama e WhatsApp');
+    ok(!box.querySelector('img') && !window.__xssRg, 'Ricerca globale: i nomi non eseguono codice');
+    t = cerca('zx951');
+    ok(box.querySelectorAll('.rg-moto').length === 1 && t.includes('CERCATO UNO'), 'Ricerca globale: ricerca per targa');
+    t = cerca('fermo');
+    ok(t.includes('Nessun lavoro aperto · ultimo il 05/03/2026'), 'Ricerca globale: moto senza lavori aperti mostra l\'ultimo lavoro');
+    t = cerca('zzqq nessuno');
+    ok(t.includes('Nessun risultato'), 'Ricerca globale: nessun risultato');
+    cerca('cercato uno'); refreshBoard();
+    ok(document.getElementById('list-doing').textContent.includes('CERCATO'), 'Ricerca globale: la Bacheca continua a filtrare le sue schede');
+    box.querySelector('.rg-stato').click();
+    ok(!document.getElementById('modal-storico').classList.contains('hidden'), 'Ricerca globale: clic sulla riga apre la scheda');
+    closeModal('modal-storico');
+    cerca('cercato due');
+    fb.scritturaRemota({ 'db/k953/stato': 'doing' }, false);
+    await attendi(400);
+    ok(box.textContent.includes('Sul ponte'), 'Ricerca globale: si aggiorna da sola quando un altro dispositivo cambia la scheda');
+    cerca('cinque');
+    apriOrdineDaRicerca('961');
+    ok(currentView === 'ordini' && currentOrdTab === 'doing', 'Ricerca globale: clic sul ricambio apre gli Ordini sulla scheda giusta');
+    switchView('board');
+    chiudiBoardSearch();
+    ok(box.innerHTML === '' && box.style.display === 'none' && document.getElementById('board-search-input').value === '', 'Ricerca globale: chiudendo la ricerca il riquadro si svuota');
+    fb.scritturaRemota({ 'db/k951': null, 'db/k952': null, 'db/k953': null, 'agenda/k953': null, 'db/k954': null, 'db/k955': null, 'db/k956': null, 'ordini/k961': null, 'ordini/k962': null, 'ordini/k963': null }, false);
+    await attendi(300);
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
