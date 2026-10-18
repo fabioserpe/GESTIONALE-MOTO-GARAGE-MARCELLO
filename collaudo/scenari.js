@@ -1271,6 +1271,49 @@
     await attendi(300);
   });
 
+  await passo('Cerca cliente esistente', async () => {
+    fb.scritturaRemota({
+      'db/k971': { id: 971, cognome: 'LEONTI', nome: 'MARIANO', tel: '3330001111', marca: 'SUZUKI', modello: 'GS 400', targa: 'RG 42836', km: '10000', stato: 'archived', data: '2025-05-01', clientId: 'c-leo' },
+      'db/k972': { id: 972, cognome: 'LEONTI', nome: 'MARIANO', tel: '3339998888', marca: 'SUZUKI', modello: 'GS 400', targa: 'RG42836', km: '25000', stato: 'archived', data: '2026-09-01', clientId: 'c-leo' },
+      'db/k973': { id: 973, cognome: 'MARIANO', nome: 'GIOVANNI', marca: 'HONDA', targa: 'ZZ0001', stato: 'archived', data: '2026-01-01' },
+      'db/k974': { id: 974, cognome: 'LEONTINI', nome: 'PAOLA', targa: 'ZZ0002', stato: 'archived', data: '2026-01-01' },
+      'db/k975': { id: 975, cognome: 'LEONTINI', nome: 'PAOLA', targa: 'ZZ0002', stato: 'archived', data: '2026-02-01' },
+      'db/k976': { id: 976, cognome: 'LEONTINI', nome: 'PAOLA', targa: 'ZZ0002', stato: 'archived', data: '2026-03-01' },
+      'db/k977': { id: 977, cognome: "D'ANGELO", nome: '<b>X</b>', targa: 'ZZ0003', stato: 'archived', data: '2026-03-01' }
+    }, false);
+    switchView('nuova');
+    const res = document.getElementById('nuova-cliente-results');
+    const righe = () => [...res.querySelectorAll('div[onmousedown]')];
+    const nomi = () => righe().map(r => r.querySelector('span').textContent.trim());
+    const cerca = q => { campo('f_search_cliente', q); cercaClienteNuova(); return nomi(); };
+    let n = cerca('LEONTI');
+    ok(n[0] === 'LEONTI MARIANO' && n.includes('LEONTINI PAOLA'), 'Cerca cliente: cognome scritto per intero non blocca la ricerca, il cliente esatto è primo anche con meno lavori (' + n.join(', ') + ')');
+    ok(n.filter(x => x === 'LEONTI MARIANO').length === 1, 'Cerca cliente: stessa targa scritta con e senza spazio = una riga sola');
+    ok(righe()[0].textContent.includes('STESSO NOME') && !righe()[1].textContent.includes('STESSO NOME'), 'Cerca cliente: "stesso nome" solo sul cliente che combacia');
+    ok(JSON.stringify(cerca('LEONTI MARIANO')) === '["LEONTI MARIANO"]', 'Cerca cliente: cognome e nome insieme');
+    ok(JSON.stringify(cerca('mariano leonti')) === '["LEONTI MARIANO"]', 'Cerca cliente: nome e cognome al contrario, minuscolo');
+    n = cerca('MARIANO');
+    ok(n[0] === 'MARIANO GIOVANNI' && n.includes('LEONTI MARIANO'), 'Cerca cliente: una parola trova sia il cognome sia il nome, prima il cognome esatto');
+    ok(cerca('rg 428')[0] === 'LEONTI MARIANO', 'Cerca cliente: per targa anche con lo spazio');
+    cerca('LEONTI MARIANO');
+    righe()[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    ok(document.getElementById('f_tel').value === '3339998888' && document.getElementById('f_km').value === '25000' && document.getElementById('f_targa').value === 'RG42836', 'Cerca cliente: compila telefono, km e targa della scheda più recente');
+    n = cerca("d'angelo");
+    ok(n[0] === "D'ANGELO <b>X</b>" && !res.querySelector('span b'), 'Cerca cliente: apostrofi e simboli nel nome mostrati come testo');
+    righe()[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    ok(document.getElementById('f_cognome').value === "D'ANGELO" && document.getElementById('f_nome').value === '<b>X</b>', 'Cerca cliente: scelta di un cognome con apostrofo compila il modulo');
+    clearForm();
+    campo('p_search_cliente', 'mariano leonti'); cercaClientePreventivo();
+    ok(document.querySelectorAll('#prev-cliente-results div[onmousedown]').length === 1, 'Cerca cliente nei Preventivi: nome e cognome al contrario');
+    campo('app_search_cliente', 'mariano leonti'); cercaClienteAgenda('mariano leonti');
+    ok(document.querySelectorAll('#app_search_results div[onclick^="selezionaClienteAgenda"]').length === 1, 'Cerca cliente nel Nuovo appuntamento: nome e cognome al contrario');
+    campo('app_search_cliente', ''); cercaClienteAgenda('');
+    campo('p_search_cliente', ''); cercaClientePreventivo();
+    fb.scritturaRemota({ 'db/k971': null, 'db/k972': null, 'db/k973': null, 'db/k974': null, 'db/k975': null, 'db/k976': null, 'db/k977': null }, false);
+    switchView('board');
+    await attendi(300);
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
