@@ -1339,6 +1339,21 @@
     await attendi(300);
   });
 
+  await passo('Telefono: barra in basso e Bacheca a schede', async () => {
+    const tb = [...document.querySelectorAll('#mob-tabbar button')];
+    ok(tb.map(b => b.dataset.view).join(',') === 'board,nuova,agenda,ordini,altro', 'Telefono: barra in basso con Bacheca, Nuova, Agenda, Ordini, Altro');
+    ok(getComputedStyle(document.getElementById('mob-tabbar')).display === 'none' && getComputedStyle(document.getElementById('board-tabs')).display === 'none', 'Sul Mac la barra in basso e le schede della Bacheca non compaiono');
+    const accesi = () => tb.filter(b => b.classList.contains('on')).map(b => b.dataset.view).join(',');
+    switchView('ordini'); ok(accesi() === 'ordini', 'Telefono: aprendo Ordini si accende il suo pulsante');
+    switchView('archivio'); ok(accesi() === 'altro', 'Telefono: una sezione del menu accende "Altro"');
+    switchView('board'); refreshBoard();
+    ok(accesi() === 'board', 'Telefono: tornando alla Bacheca si accende Bacheca');
+    const num = id => (document.getElementById(id).textContent.match(/\((\d+)\)/) || [])[1];
+    const tab = [...document.querySelectorAll('#board-tabs button b')].map(b => b.textContent);
+    ok(tab.join(',') === [num('title-todo'), num('title-doing'), num('title-done')].join(','), 'Telefono: le schede Oggi / Sul ponte / Pronte riportano i numeri delle colonne (' + tab.join(', ') + ')');
+    ok(document.querySelectorAll('#board-tabs button.on').length === 1, 'Telefono: una sola scheda della Bacheca evidenziata');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);

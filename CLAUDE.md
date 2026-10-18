@@ -80,6 +80,13 @@ In modalità automatica un push su `main` (= rilascio in produzione) può essere
 | Moto usate | `refreshUsate`, `saveUsateDB`, `compressImgUsata` (foto in base64) |
 | Backup manuale | `exportData`/`importData` (salvano solo 8 sezioni su 14: c'è il backup automatico, vedi sotto) |
 
+## Telefono (revisione a passi, dal 2026-10-18)
+
+Fabio trova la versione mobile "troppo confusionaria": la stiamo sistemando un passo alla volta, con anteprima prima di pubblicare (pagina https://claude.ai/artifact/TYk4yg7w7UVUTmkgoaWCgB). Tutto sta nel blocco CSS `@media (max-width: 768px)`: sul Mac non cambia niente.
+- Fatto (v170) passo 1: barra in basso `#mob-tabbar` (Bacheca, Nuova, Agenda, Ordini, Altro = menu; `_aggiornaTabbar` da `switchView`, una sezione fuori dalla barra accende "Altro"), nome della sezione in alto (`#topbar-section`, marchio e pulsanti rapidi nascosti), Bacheca a schede `#board-tabs` Oggi/Sul ponte/Pronte (`vaiTabBacheca`, `_tabBachecaAttiva` sullo scorrimento della `.board`, numeri da `_aggiornaTabBacheca(c)` in `refreshBoard`), telefono della scheda come pulsante rotondo 📞.
+- Da fare: 2 conto leggibile (tabella e riepilogo tagliati a destra), 3 riga degli Ordini che va a capo (il ✓ esce dallo schermo), 4 Nuova con "Salva in Officina" grande, 5 Agenda che si apre su oggi (oggi parte dal lunedì), 6 Anagrafica e Preventivi compatti.
+- Foto del telefono: Chrome senza finestra impagina ad almeno 500 px, quindi metti la pagina in un `<iframe>` largo 390 dentro una finestra di 500, con `--allow-file-access-from-files` e uno `setInterval(()=>scrollTo(0,0),30)` nella pagina esterna. Per ritagliare usa `sips -c 843 389 --cropOffset 1 1` (con offset 0 0 `sips` ritaglia al centro).
+
 ## Convenzioni dati e trappole note
 
 - **Id**: `genId()` restituisce un numero, negli `onclick` arriva come stringa → confronta sempre con `String(a.id) === String(id)`.
@@ -145,3 +152,4 @@ _(nessun punto aperto al 2026-10-18 — tutto risolto)_
 | v167 | Fix "Cerca cliente esistente" (Nuova, Preventivi, Nuovo appuntamento): con il cognome scritto per intero la ricerca si bloccava (`nQ` inesistente, da tempo) e mostrava i risultati della lettera prima; cognome + nome insieme non trovava niente; il cliente giusto poteva finire fuori dai primi 8; telefono e km venivano dalla scheda più vecchia |
 | v168 | Cerca cliente: prima chi si chiama esattamente così ("ANGELO" mette i clienti Angelo prima di ANGELONE), avviso "+ altri N risultati: scrivi anche il cognome o la targa" quando non entrano tutti. Verificato sui dati reali (backup del 18/10) con il permesso di Fabio |
 | v169 | Cerca cliente (Nuova, Preventivi, Nuovo appuntamento): fino a 20 risultati invece di 8, si scorrono nel riquadro |
+| v170 | Telefono, passo 1: barra in basso (Bacheca, Nuova, Agenda, Ordini, Altro), nome della sezione in alto, Bacheca a schede Oggi/Sul ponte/Pronte con i numeri, telefono come pulsante 📞. Sul Mac invariato |
