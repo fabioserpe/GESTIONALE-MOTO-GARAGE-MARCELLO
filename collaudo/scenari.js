@@ -1600,6 +1600,101 @@
     switchView('board');
   });
 
+  await passo('Vendite: consegna e primo tagliando', async () => {
+    const anno = String(new Date().getFullYear());
+    const val = id => document.getElementById(id).value;
+    const txt = id => (document.getElementById(id) || {}).textContent || '';
+    const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const piuAnno = x => { const d = new Date(x); d.setFullYear(d.getFullYear() + 1); return iso(d); };
+    const ita = x => x.split('-').reverse().join('/');
+    const evento = id => document.getElementById(id).dispatchEvent(new Event('input', { bubbles: true }));
+    switchView('stats'); await attendi(30);
+    const statPrima = txt('stat-mese-lordo') + '|' + txt('stat-sett-lordo') + '|' + txt('stat-mese-count');
+
+    // Cliente nuovo, moto nuova
+    nuovaVendita('ordine');
+    campo('vd-cognome', 'ferro'); campo('vd-nome', 'luca'); campo('vd-telefono', '3209998877'); campo('vd-cf', 'FRRLCU90A01H163Z'); campo('vd-indirizzo', 'via etna 5'); campo('vd-citta', 'ragusa'); campo('vd-cap', '97100');
+    campo('vd-marca', 'honda'); campo('vd-modello', 'transalp'); campo('vd-prezzo', '12.900'); evento('vd-cognome');
+    ok(document.getElementById('vd-anagrafica').style.display === 'none', 'Cliente nuovo: nessun "già cliente"');
+    ok(document.getElementById('vd-btn-consegna').style.display === 'none', 'Prima di salvare il pulsante "Moto consegnata" non c\'è');
+    salvaVendita();
+    const KF = _vend.chiave;
+    ok(document.getElementById('vd-btn-consegna').style.display === '', 'Ordine salvato: pulsante "🏁 Moto consegnata"');
+    consegnaVendita();
+    ok(!document.getElementById('modal-consegna-vendita').classList.contains('hidden') && val('vc-data') === oggi && val('vc-targa') === '' && /nuovo in Anagrafica/.test(txt('vc-info')) && txt('vc-info').includes(ita(piuAnno(oggi))), 'Finestra consegna: data di oggi, cliente nuovo, primo tagliando tra un anno');
+    const nDb = db.length;
+    confermaConsegnaVendita();
+    ok(db.length === nDb && !document.getElementById('modal-consegna-vendita').classList.contains('hidden'), 'Senza targa non si conferma');
+    const dCons = anno + '-01-15';
+    campo('vc-data', dCons); campo('vc-targa', 'gh 123 ab'); campo('vc-km', '12');
+    const n0 = nScr();
+    confermaConsegnaVendita();
+    const rec = db.find(j => j.vendita_chiave === KF);
+    ok(rec && rec.stato === 'cliente' && rec.targa === 'GH123AB' && rec.cognome === 'FERRO' && rec.tel === '3209998877' && rec.data === dCons && rec.clientId && rec.totale_lordo === 0, 'Consegna: scheda in Anagrafica (FERRO LUCA, GH123AB) come "Nuovo Cliente"');
+    const tg = fb.leggi('tagliandi/GH123AB');
+    ok(tg && tg.data === piuAnno(dCons) && tg.origine === 'vendita' && tg.dal === dCons, 'Scadenze tagliando: primo tagliando entro il ' + ita(piuAnno(dCons)));
+    const bil = rec ? fb.leggi('billing/' + rec.clientId) : null;
+    ok(bil && bil.cf === 'FRRLCU90A01H163Z' && bil.indirizzo === 'VIA ETNA 5' && bil.cap === '97100', 'Dati di fatturazione salvati per il cliente');
+    const vd = fb.leggi('vendite/' + KF);
+    ok(vd && vd.consegnata_il === dCons && vd.consegna_targa === 'GH123AB' && rec && vd.anagrafica_id === rec.id && vd.targa === 'GH123AB', 'Documento: consegnata il ' + ita(dCons) + ', targa riportata nel foglio');
+    const ch = chiaviDa(n0);
+    ok(fb.scritture.length === n0 + 1 && ch.includes('vendite/' + KF) && ch.includes('tagliandi/GH123AB') && ch.some(k => k.startsWith('db/')) && !ch.includes('db'), 'Un solo salvataggio, nell\'archivio solo la scheda nuova (' + ch + ')');
+    ok(txt('vd-anagrafica').includes('Consegnata il') && txt('vd-btn-consegna').includes('Consegnata il'), 'Nel foglio: "🏁 Consegnata il …"');
+    switchView('stats'); await attendi(30);
+    ok(txt('stat-mese-lordo') + '|' + txt('stat-sett-lordo') + '|' + txt('stat-mese-count') === statPrima, 'Statistiche: incassi e lavori chiusi non cambiano');
+    switchView('tagliandi'); await attendi(30);
+    ok(txt('tagliandi-results').includes('GH123AB') && txt('tagliandi-results').includes('FERRO'), 'La moto compare nelle Scadenze tagliando');
+    switchView('archivio'); campo('search-input', 'ferro'); refreshArchive(); await attendi(30);
+    ok(txt('archive-results').includes('FERRO'), 'Il cliente compare in Anagrafica');
+    campo('search-input', ''); refreshArchive();
+
+    // Tagliando fatto prima della scadenza → logica normale
+    autoRilevaTagliando({ targa: 'GH123AB', lavori_richiesti: 'TAGLIANDO 1000 KM', conto: [], data_chiusura: oggi });
+    const tg2 = fb.leggi('tagliandi/GH123AB');
+    ok(tg2 && tg2.data === piuAnno(oggi) && !tg2.origine && !tg2.note, 'Tagliando fatto prima: si riparte con la logica normale (' + ita(piuAnno(oggi)) + ')');
+    fb.scritturaRemota({ 'tagliandi/AB12345': { data: '2099-01-01', km: '', note: 'MANUALE' } }, false);
+    autoRilevaTagliando({ targa: 'AB12345', lavori_richiesti: 'TAGLIANDO', conto: [], data_chiusura: oggi });
+    ok(fb.leggi('tagliandi/AB12345').data === '2099-01-01', 'Una scadenza futura messa a mano resta com\'era (come prima)');
+    fb.scritturaRemota({ 'tagliandi/AB12345': null }, false);
+
+    // Già cliente
+    nuovaVendita('ordine');
+    campo('vd-cerca-cliente', 'rossi'); cercaClienteVendita();
+    const ris = [...document.querySelectorAll('#vd-cliente-results .vend-risultato')].find(d => d.textContent.includes('ROSSI MARIO'));
+    if (ris) ris.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    ok(/Già cliente/.test(txt('vd-anagrafica')) && txt('vd-anagrafica').includes('ROSSI') && !!document.querySelector('#vd-anagrafica button'), 'Cliente scelto dall\'anagrafica: "👤 Già cliente" con il pulsante Storico');
+    campo('vd-marca', 'bmw'); campo('vd-modello', 'r 1300 gs');
+    salvaVendita();
+    const KR = _vend.chiave;
+    ok(fb.leggi('vendite/' + KR).clientId, 'Il documento ricorda il cliente scelto');
+    chiudiVendita(); setVendTab('ordine');
+    const riga = k => [...document.querySelectorAll('#vend-lista .vend-riga')].find(r => (r.getAttribute('onclick') || '').includes("'" + k + "'"));
+    ok(riga(KR) && riga(KR).querySelector('.vg-gia') && riga(KF) && !riga(KF).querySelector('.vg-gia') && riga(KF).textContent.includes('🏁'), 'Elenco: "👤 già cliente" per ROSSI, non per FERRO (nuovo); 🏁 sulla moto consegnata');
+    nuovaVendita('ordine'); campo('vd-cognome', 'bianchi'); campo('vd-nome', 'luca'); evento('vd-cognome');
+    ok(/Già cliente/.test(txt('vd-anagrafica')) && txt('vd-anagrafica').includes('BIANCHI'), 'Cliente scritto a mano già in anagrafica: riconosciuto');
+    campo('vd-targa', 'AB12345'); evento('vd-targa');
+    ok(/già in Anagrafica/.test(txt('vd-anagrafica')), 'Moto con targa già in anagrafica: indica l\'ultimo proprietario');
+    chiudiVendita();
+
+    // Moto usata consegnata → Venduta
+    fb.scritturaRemota({ 'moto_usate/4343': { id: 4343, marca: 'KAWASAKI', modello: 'Z900', anno: 2020, km: 9000, targa: 'GH999ZZ', prezzo: 7000, stato: 'disponibile', cognome: 'VECCHIO', data_ins: oggi } }, false);
+    venditaDaUsata(4343);
+    campo('vd-cognome', 'nuovo'); campo('vd-nome', 'proprietario'); salvaVendita();
+    consegnaVendita();
+    ok(val('vc-targa') === 'GH999ZZ' && val('vc-km') === '9000', 'Moto usata: targa e km proposti dal documento');
+    confermaConsegnaVendita();
+    const mu = fb.leggi('moto_usate/4343');
+    ok(mu && mu.stato === 'venduta' && mu.data_vendita === oggi && mu.prezzo_vendita === 7000 && fb.leggi('tagliandi/GH999ZZ').origine === 'vendita', 'Consegna della moto usata: "Venduta" nelle Moto Usate e primo tagliando');
+    const KU = _vend.chiave;
+    eliminaVendita();
+    ok(fb.leggi('vendite/' + KU) == null && !db.some(j => j.vendita_chiave === KU) && fb.leggi('tagliandi/GH999ZZ') == null, 'Eliminando l\'ordine consegnato si tolgono anche la scheda in Anagrafica e il primo tagliando');
+    nuovaVendita('preventivo'); campo('vd-cognome', 'x'); salvaVendita();
+    ok(document.getElementById('vd-btn-consegna').style.display === 'none', 'Nei preventivi il pulsante "Moto consegnata" non c\'è');
+    eliminaVendita();
+    fb.scritturaRemota({ 'vendite': null, 'moto_usate/4343': null }, false);
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
