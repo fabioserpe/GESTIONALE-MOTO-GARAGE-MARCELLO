@@ -17,12 +17,12 @@
   const campo = (id, v) => { const e = document.getElementById(id); if (!e) throw new Error('campo mancante ' + id); e.value = v; };
   async function passo(nome, fn) { try { await fn(); } catch (e) { ok(false, nome + ': eccezione ' + (e && e.message)); } }
 
-  for (let i = 0; i < 300 && fb.inAttesa.length < 17; i++) await attendi(20);
+  for (let i = 0; i < 300 && fb.inAttesa.length < 18; i++) await attendi(20);
   await attendi(50);
 
   await passo('Avvio', async () => {
     ok(document.getElementById('app-shell').style.display === 'flex', 'Avvio: accesso simulato, gestionale visibile');
-    ok(fb.inAttesa.length === 17, 'Avvio: tutte le 17 sezioni in ascolto (' + fb.inAttesa.length + ')');
+    ok(fb.inAttesa.length === 18, 'Avvio: tutte le 18 sezioni in ascolto (' + fb.inAttesa.length + ')');
     ok(ovVisibile() && ovTitolo() === 'Caricamento dati…', 'Avvio: pannello "Caricamento dati…" finché i dati non arrivano');
     const n = nScr(), a = fb.alerts.length;
     db.push({ id: 999, cognome: 'PRIMA DEL CARICAMENTO' });
@@ -197,7 +197,7 @@
 
   await passo('Tutte le schermate', async () => {
     const viste = ['board', 'nuova', 'archivio', 'nuovo-cliente', 'stats', 'preventivi', 'crea-prev', 'agenda', 'ledger', 'ordini', 'rubrica',
-                   'specials', 'incidentate', 'magazzino', 'nuova-app', 'tagliandi', 'scadenze', 'lista-attesa', 'usate', 'garanzie'];
+                   'specials', 'incidentate', 'magazzino', 'nuova-app', 'tagliandi', 'scadenze', 'lista-attesa', 'usate', 'garanzie', 'vendite'];
     const conErrori = [];
     for (const v of viste) {
       const e0 = window.__errori.length;
@@ -205,7 +205,7 @@
       await attendi(150);
       if (window.__errori.length > e0) conErrori.push(v + ': ' + window.__errori.slice(e0).join(' | '));
     }
-    ok(conErrori.length === 0, 'Tutte le 20 schermate si aprono senza errori' + (conErrori.length ? ' → ' + conErrori.join(' ; ') : ''));
+    ok(conErrori.length === 0, 'Tutte le 21 schermate si aprono senza errori' + (conErrori.length ? ' → ' + conErrori.join(' ; ') : ''));
     const fuori = [...document.querySelectorAll('[id^="view-"]')].filter(el => !el.parentElement.classList.contains('main-content')).map(el => el.id);
     ok(fuori.length === 0, 'Struttura: tutte le pagine stanno dentro il contenitore principale' + (fuori.length ? ' → fuori: ' + fuori.join(', ') : ''));
     const nere = [];
@@ -1448,6 +1448,115 @@
     const ordineGar = [...document.querySelectorAll('#gar-lista .gar-riga')].map(r => r.textContent.match(/CONAPP|AVVISATO|DACHIAMARE/)[0]);
     ok(uguali(ordineGar, ['DACHIAMARE', 'AVVISATO', 'CONAPP']), 'Da contattare: prima da chiamare, poi avvisati, poi con appuntamento (' + ordineGar + ')');
     fb.scritturaRemota({ 'garanzie': null, 'agenda/kg61': null }, false);
+    switchView('board');
+  });
+
+  await passo('Vendite', async () => {
+    const anno = String(new Date().getFullYear());
+    const N1 = anno + '/001', K1 = anno + '_001', K2 = anno + '_002', K3 = anno + '_003';
+    const val = id => document.getElementById(id).value;
+    const txt = id => (document.getElementById(id) || {}).textContent || '';
+    const eur = x => String(x).replace(/\s/g, '');
+    const led = () => Object.values(fb.leggi('ledger') || {}).filter(Boolean);
+    const imp = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); };
+    const cid = (db.find(j => j.id === 1001) || {}).clientId || 'ROSSI MARIO';
+    fb.scritturaRemota({ ['billing/' + cid]: { cf: 'RSSMRA80A01H163X', indirizzo: 'VIA ROMA 1', citta: 'RAGUSA', cap: '97100' } }, false);
+    switchView('vendite'); await attendi(50);
+    ok(!document.getElementById('view-vendite').classList.contains('hidden') && /Nessun documento/.test(txt('vend-lista')), 'Vendite: pagina aperta, nessun documento');
+
+    nuovaVendita('ordine');
+    ok(document.getElementById('vend-editor').style.display === '' && val('vd-numero') === N1 && val('vd-data') === oggi.split('-').reverse().join('/') && document.getElementById('vd-logo').src.startsWith('data:image/jpeg') && txt('vd-titolo') === "Conferma d'Ordine", 'Nuova conferma d\'ordine: numero ' + N1 + ', data di oggi, logo');
+    campo('vd-cerca-cliente', 'rossi'); cercaClienteVendita();
+    const ris = [...document.querySelectorAll('#vd-cliente-results .vend-risultato')].find(d => d.textContent.includes('ROSSI MARIO'));
+    if (ris) ris.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    ok(val('vd-cognome') === 'ROSSI' && val('vd-nome') === 'MARIO' && val('vd-telefono') === '3331112222' && val('vd-cf') === 'RSSMRA80A01H163X' && val('vd-indirizzo') === 'VIA ROMA 1' && val('vd-cap') === '97100', 'Cliente dall\'anagrafica con i dati di fatturazione (codice fiscale, indirizzo, CAP)');
+    imp('vd-citta', 'Modica');
+    ok(val('vd-cap') === '97015', 'Città Modica: CAP 97015 da solo');
+    campo('vd-marca', 'honda'); campo('vd-modello', 'africa twin');
+    imp('vd-prezzo', '12.500');
+    ok(eur(val('vd-totale')) === '12.500,00€', 'Prezzo "12.500" = 12.500,00 € (il vecchio programma lo leggeva 12,50): ' + val('vd-totale'));
+    imp('vd-spese', '350'); imp('vd-permuta', '2.000');
+    aggiungiRigaVendita();
+    const ultima = [...document.querySelectorAll('#vd-righe tr.vd-extra')].pop();
+    ultima.querySelector('.vd-desc').value = 'bauletto';
+    const am = ultima.querySelector('.vd-amount'); am.value = '199,90'; am.dispatchEvent(new Event('input', { bubbles: true }));
+    imp('vd-acconto', '1.000');
+    ok(eur(val('vd-totale')) === '11.049,90€' && eur(val('vd-saldo')) === '10.049,90€', 'Totale 12.500 + 350 − 2.000 + 199,90 = 11.049,90 €, saldo 10.049,90 € (' + val('vd-totale') + ' / ' + val('vd-saldo') + ')');
+    const n0 = nScr(), led0 = led().length;
+    salvaVendita();
+    const v1 = fb.leggi('vendite/' + K1);
+    ok(v1 && v1.cognome === 'ROSSI' && v1.marca === 'HONDA' && v1.prezzoVeicolo === '12.500' && v1.totale === 11049.9 && Object.values(v1.vociExtra || {})[0].desc === 'BAULETTO', 'Salvato nel gestionale: dati in maiuscolo, importi come scritti, totale 11.049,90');
+    const mov = led().find(m => String(m.id) === String(v1 && v1.acconto_ledger_id));
+    ok(mov && mov.importo === 1000 && mov.tipo === 'in' && mov.cat === 'vendita' && mov.collab === 'INTERNO' && mov.desc.includes('ACCONTO ORDINE ' + N1) && mov.desc.includes('ROSSI') && led().length === led0 + 1, 'Acconto di 1.000 € nella Prima Nota (Cassa INTERNA, vendita)');
+    ok(fb.scritture.length === n0 + 1 && uguali(ordina(chiaviDa(n0)), ['ledger', 'vendite/' + K1]), 'Un solo salvataggio: documento + Prima Nota (' + chiaviDa(n0) + ')');
+    imp('vd-acconto', '1.500'); salvaVendita();
+    ok(led().length === led0 + 1 && led().find(m => String(m.id) === String(v1.acconto_ledger_id)).importo === 1500, 'Acconto cambiato in 1.500: stesso movimento aggiornato, nessun doppione');
+
+    nuovaVendita('preventivo');
+    ok(val('vd-numero') === anno + '/002' && txt('vd-titolo') === 'Preventivo' && txt('vd-note-legali').includes('15 giorni'), 'Nuovo preventivo: numero successivo, titolo e validità di 15 giorni');
+    campo('vd-numero', N1); campo('vd-cognome', 'bianchi'); campo('vd-modello', 'mt07'); imp('vd-prezzo', '7200'); imp('vd-acconto', '500');
+    const n1 = nScr(); salvaVendita();
+    ok(nScr() === n1, 'Numero già usato da un altro documento: non si salva');
+    campo('vd-numero', anno + '/002'); salvaVendita();
+    const v2 = fb.leggi('vendite/' + K2);
+    ok(v2 && v2.tipoDocumento === 'preventivo' && !v2.acconto_ledger_id && led().length === led0 + 1, 'Preventivo salvato senza movimento in Prima Nota');
+    chiudiVendita();
+    const righe = [...document.querySelectorAll('#vend-lista .vend-riga')];
+    ok(righe.length === 2 && righe[0].textContent.includes('PREVENTIVO') && righe[1].textContent.includes('ORDINE') && eur(righe[1].textContent).includes('11.049,90€'), 'Elenco: 2 documenti, il più recente per primo, con il totale');
+    campo('vend-cerca', 'africa'); refreshVendite();
+    ok(document.querySelectorAll('#vend-lista .vend-riga').length === 1, 'Ricerca per modello');
+    campo('vend-cerca', ''); refreshVendite();
+
+    apriVendita(K1);
+    ok(val('vd-prezzo') === '12.500' && document.querySelectorAll('#vd-righe tr.vd-extra').length === 1 && val('vd-stato') === 'NUOVO' && val('vd-pagamento') === 'BONIFICO BANCARIO' && val('vd-cf') === 'RSSMRA80A01H163X', 'Riapertura: importi, voce extra, stato, pagamento e codice fiscale');
+    campo('vd-consegna', 'fine mese'); document.getElementById('vend-foglio').dispatchEvent(new Event('input'));
+    const conf = window.confirm; window.confirm = () => false;
+    try { chiudiVendita(); } finally { window.confirm = conf; }
+    ok(document.getElementById('vend-editor').style.display === '', 'Modifiche non salvate: chiudendo chiede conferma, con "Annulla" si resta nel foglio');
+
+    const pr = window.print; let stampato = false; window.print = () => { stampato = true; };
+    try { stampaVendita(); await attendi(250); } finally { window.print = pr; }
+    const pa = document.getElementById('print-area');
+    ok(stampato && pa.textContent.includes("Conferma d'Ordine") && pa.textContent.includes('ROSSI') && pa.textContent.includes('FINE MESE') && pa.querySelector('img').src.startsWith('data:image/jpeg') && eur(pa.textContent).includes('9549,90€'), 'Stampa: documento con logo, cliente, consegna e saldo 9549,90 €');
+    let pdf = null;
+    window.html2pdf = () => { const c = { set(o) { pdf = { o }; return c; }, from(x, t) { pdf.x = x; pdf.t = t; return c; }, save() { pdf.salvato = true; return Promise.resolve(); } }; return c; };
+    try { await pdfVendita(); } finally { delete window.html2pdf; }
+    ok(pdf && pdf.salvato && pdf.o.filename === 'Ordine_' + anno + '-001_MARIO_ROSSI.pdf' && pdf.t === 'string' && pdf.x.includes('vdoc'), 'PDF: ' + (pdf && pdf.o.filename));
+    const op = window.open; let wa = '';
+    window.open = u => { wa = u; return null; };
+    window.html2pdf = () => { const c = { set() { return c; }, from() { return c; }, save() { return Promise.resolve(); } }; return c; };
+    try { whatsappVendita(); await attendi(30); } finally { window.open = op; delete window.html2pdf; }
+    ok(wa.startsWith('https://wa.me/393331112222') && decodeURIComponent(wa).includes("conferma d'ordine"), 'WhatsApp al cliente con il messaggio e il PDF da allegare');
+
+    fb.scritturaRemota({ 'moto_usate/4242': { id: 4242, marca: 'YAMAHA', modello: 'MT07', anno: 2019, km: 15000, targa: 'GH123AB', colore: 'NERO', prezzo: 6500, stato: 'disponibile', cognome: 'PROPRIETARIO', data_ins: oggi } }, false);
+    switchView('usate'); await attendi(50);
+    ok([...document.querySelectorAll('#view-usate button')].some(b => b.getAttribute('onclick') === "venditaDaUsata('4242')"), 'Moto Usate: pulsante "📄 Conferma d\'ordine" sulla scheda');
+    venditaDaUsata(4242);
+    ok(currentView === 'vendite' && val('vd-marca') === 'YAMAHA' && val('vd-targa') === 'GH123AB / 2019' && val('vd-km') === '15.000 km' && val('vd-stato') === 'USATO' && val('vd-prezzo') === '6500,00' && val('vd-numero') === anno + '/003', 'Dalla moto usata: veicolo compilato (targa / anno, km, Usato, prezzo 6500,00)');
+    campo('vd-cognome', 'verdi'); salvaVendita();
+    ok(fb.leggi('vendite/' + K3).usata_id === '4242' && fb.leggi('moto_usate/4242').stato === 'riservata', 'Salvando l\'ordine la moto usata diventa Riservata');
+    venditaDaUsata(4242);
+    ok(_vend && _vend.chiave === K3, 'Dalla stessa moto si riapre l\'ordine già fatto');
+    eliminaVendita();
+    ok(fb.leggi('vendite/' + K3) == null && fb.leggi('moto_usate/4242').stato === 'disponibile' && document.getElementById('vend-elenco').style.display === '', 'Elimina: documento tolto, moto di nuovo Disponibile, si torna all\'elenco');
+    apriVendita(K1); const idMov = _vend.acconto_ledger_id;
+    eliminaVendita();
+    ok(fb.leggi('vendite/' + K1) == null && !led().some(m => String(m.id) === String(idMov)) && led().length === led0, 'Elimina l\'ordine con acconto: tolto anche il movimento dalla Prima Nota');
+
+    _importaVendite({ '2025_007': { id: '2025/007', tipoDocumento: 'ordine', dataOrdine: '10/05/2025', nome: 'LUCA', cognome: 'BIANCHI', marca: 'KTM', modello: 'DUKE', stato: 'NUOVO', pagamento: 'CONTANTI', prezzoVeicolo: '9.800,00', acconto: '1000', vociExtra: [{ desc: 'CASCO', amount: '150' }] }, 'rotto': 'x' });
+    const v7 = fb.leggi('vendite/2025_007');
+    ok(v7 && v7.importato && v7.totale === 9950 && v7.acconto_registrato === 1000 && led().length === led0, 'Importazione dal vecchio programma: documento con il totale, acconto non aggiunto alla Prima Nota');
+    apriVendita('2025_007');
+    ok(val('vd-stato') === 'NUOVO' && val('vd-pagamento') === 'CONTANTI' && val('vd-numero') === '2025/007' && document.querySelectorAll('#vd-righe tr.vd-extra').length === 1, 'Documento importato: si apre con stato, pagamento e voce extra');
+    salvaVendita();
+    ok(led().length === led0, 'Risalvando un documento importato l\'acconto non finisce in Prima Nota');
+    nuovaVendita('ordine');
+    ok(val('vd-numero') === anno + '/003', 'La numerazione dell\'anno in corso non è toccata dai documenti del 2025');
+    chiudiVendita();
+    fb.scritturaRemota({ 'vendite/X_1': { id: 'X/1', cognome: '<img src=x onerror="window.__xssV=1">', marca: '<b>M</b>' } }, false);
+    await attendi(30);
+    ok(!window.__xssV && txt('vend-lista').includes('<b>M</b>'), 'Testi dei documenti mostrati come testo (nessun codice eseguito)');
+    fb.scritturaRemota({ 'vendite': null, 'moto_usate/4242': null }, false);
     switchView('board');
   });
 
