@@ -1678,6 +1678,7 @@
                     </div>
                 </div>
                 <div id="vd-legame" style="display:none; max-width:850px; margin:0 auto 12px;"></div>
+                <div id="vd-anagrafica" style="display:none; max-width:850px; margin:0 auto 12px; flex-direction:column; gap:8px;"></div>
                 <div class="vfoglio" id="vend-foglio" oninput="_vendModificata(event)" onchange="_vendModificata(event)" onkeydown="_vendInvio(event)">
                     <div class="vf-head">
                         <img id="vd-logo" alt="Moto Garage Marcello">
@@ -1746,6 +1747,7 @@
                     <button type="button" class="btn btn-dark w-auto" onclick="stampaVendita()" style="margin:0;">🖨️ Stampa</button>
                     <button type="button" class="btn btn-info w-auto" onclick="pdfVendita()" style="margin:0;">📄 PDF</button>
                     <button type="button" class="btn btn-success w-auto" onclick="whatsappVendita()" style="margin:0;">💬 WhatsApp</button>
+                    <button type="button" id="vd-btn-consegna" class="btn btn-success w-auto" onclick="consegnaVendita()" title="Moto consegnata al cliente: entra in Anagrafica e nelle Scadenze tagliando" style="margin:0; display:none;">🏁 Moto consegnata</button>
                     <button type="button" id="vd-btn-trasforma" class="btn btn-accent w-auto" onclick="trasformaInOrdine()" title="Il cliente ha accettato: prepara la conferma d'ordine con gli stessi dati" style="margin:0; display:none;">➡️ Trasforma in conferma d'ordine</button>
                     <button type="button" id="vd-btn-elimina" class="btn btn-dark w-auto" onclick="eliminaVendita()" style="margin:0; color:#f87171;">🗑️ Elimina</button>
                 </div>
@@ -2127,6 +2129,27 @@
             <div class="flex-row mt-15">
                 <button type="button" class="btn btn-dark" onclick="closeModal('modal-ordine-abb')" style="flex:1;">Annulla</button>
                 <button type="button" class="btn btn-info" onclick="salvaOrdineAbb()" style="flex:2; font-weight:800;">💾 Salva ordine</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-consegna-vendita" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:540px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h2 style="margin:0; color:var(--success);">🏁 Moto consegnata</h2>
+                <button type="button" onclick="closeModal('modal-consegna-vendita')" aria-label="Chiudi" style="background:none; border:none; color:var(--muted); font-size:1.8rem; cursor:pointer; line-height:1; width:auto;">×</button>
+            </div>
+            <p style="margin:0 0 14px; font-size:0.88rem; color:var(--muted);">La moto entra in Anagrafica e nelle Scadenze tagliando: il primo tagliando va fatto entro un anno dalla consegna (avviso 2 mesi prima).</p>
+            <label for="vc-data">Data di consegna</label>
+            <input type="date" id="vc-data" oninput="_infoConsegnaVendita()">
+            <label for="vc-targa">Targa *</label>
+            <input type="text" id="vc-targa" placeholder="Es. GH123AB" autocomplete="off" oninput="_infoConsegnaVendita()">
+            <label for="vc-km">Km alla consegna</label>
+            <input type="number" id="vc-km" min="0" step="1" placeholder="0">
+            <div id="vc-info" style="font-size:0.9rem; color:#e2e8f0; background:rgba(0,0,0,0.2); border:1px solid #334155; border-radius:10px; padding:10px 12px; margin-top:4px; line-height:1.5;"></div>
+            <div class="flex-row mt-15">
+                <button type="button" class="btn btn-dark" onclick="closeModal('modal-consegna-vendita')" style="flex:1;">Annulla</button>
+                <button type="button" class="btn btn-success" onclick="confermaConsegnaVendita()" style="flex:2; font-weight:800;">✓ Conferma consegna</button>
             </div>
         </div>
     </div>
@@ -3870,8 +3893,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             return `<div class="vend-griglia vend-riga${prev ? ' vg-prev' : ''}" role="button" tabindex="0" onclick="apriVendita('${k}')" onkeydown="if(event.key==='Enter'){event.preventDefault(); apriVendita('${k}');}" title="Apri il documento">
                 <span class="vg-data" style="color:var(--muted); font-size:0.9rem;">${htmlEsc(v.dataOrdine || '')}</span>
                 <span class="vg-n" style="font-family:monospace; font-weight:800; color:white;">${htmlEsc(v.id || '')}</span>
-                <b class="vg-cliente" style="color:white;">${htmlEsc(nome || '—')}</b>
-                <b class="vg-moto" style="color:#fbbf24;">${htmlEsc(moto || '—')}</b>
+                <span class="vg-cliente"><b style="color:white;">${htmlEsc(nome || '—')}</b>${_anagraficaVendita(v) ? ' <span class="vg-gia" title="Cliente già presente in Anagrafica" style="font-size:0.72rem; font-weight:800; padding:1px 7px; border-radius:10px; background:rgba(52,211,153,0.15); color:#34d399; white-space:nowrap;">👤 già cliente</span>' : ''}</span>
+                <span class="vg-moto"><b style="color:#fbbf24;">${htmlEsc(moto || '—')}</b>${v.consegnata_il ? ` <span title="Consegnata il ${formattaData(v.consegnata_il)}" style="white-space:nowrap;">🏁</span>` : ''}</span>
                 ${esito}
             </div>`;
         }
@@ -3907,6 +3930,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const c = $('vd-cerca-cliente'); if (c) c.value = '';
             _vendTipo();
             calcolaVendita();
+            _renderAnagraficaVendita();
         }
         function _datiVendita() {
             const v = id => ($(id) ? $(id).value : '').trim();
@@ -3923,9 +3947,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             $('vd-saldo').value = _eurIt(saldo);
         }
         function _aggiornaBottoniVendita() {
-            const salvato = !!(_vend && _vend.chiave);
+            const salvato = !!(_vend && _vend.chiave), prev = $('vd-tipo').value === 'preventivo';
             $('vd-btn-elimina').style.display = salvato ? '' : 'none';
-            $('vd-btn-trasforma').style.display = salvato && $('vd-tipo').value === 'preventivo' ? '' : 'none';
+            $('vd-btn-trasforma').style.display = salvato && prev ? '' : 'none';
+            const bc = $('vd-btn-consegna');
+            bc.style.display = salvato && !prev ? '' : 'none';
+            bc.textContent = _vend && _vend.consegnata_il ? '🏁 Consegnata il ' + formattaData(_vend.consegnata_il).slice(0, 5) : '🏁 Moto consegnata';
         }
         function _renderLegameVendita() {
             const el = $('vd-legame');
@@ -3947,6 +3974,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         }
         function _vendModificata(e) {
             _vendSporco = true;
+            const id = e && e.target ? e.target.id : '';
+            if (_vend && (id === 'vd-nome' || id === 'vd-cognome')) _vend.clientId = '';   // cliente scritto a mano: non è più quello scelto
+            if (!id || ['vd-nome', 'vd-cognome', 'vd-telefono', 'vd-targa'].includes(id)) _renderAnagraficaVendita();
             if (e && e.target && e.target.id === 'vd-citta' && e.type === 'input') {
                 const cap = VEND_CAP[e.target.value.trim().toLowerCase()];
                 if (cap) $('vd-cap').value = cap;
@@ -3977,7 +4007,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (!_vendLasciare()) return;
             if (currentView !== 'vendite') switchView('vendite');
             _vend = { chiave: null, usata_id: (preset && preset.usata_id) || '', acconto_ledger_id: '', acconto_registrato: 0, creato: '',
-                ordine_chiave: '', ordine_id: '', da_preventivo: (preset && preset.da_preventivo) || '', da_preventivo_id: (preset && preset.da_preventivo_id) || '' };
+                ordine_chiave: '', ordine_id: '', da_preventivo: (preset && preset.da_preventivo) || '', da_preventivo_id: (preset && preset.da_preventivo_id) || '',
+                clientId: (preset && preset.clientId) || '', consegnata_il: '', consegna_targa: '', consegna_km: '', anagrafica_id: '' };
             _compilaVendita({ tipoDocumento: tipo, id: _prossimoNumeroVendita(), dataOrdine: formattaData(getOggiLocale()), stato: 'NUOVO', pagamento: 'BONIFICO BANCARIO', ...(preset || {}) });
             _vendSporco = false;
             currentVendTab = tipo === 'preventivo' ? 'preventivo' : 'ordine';
@@ -3990,7 +4021,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (!v || !_vendLasciare()) return;
             if (currentView !== 'vendite') switchView('vendite');
             _vend = { chiave: v.chiave, usata_id: v.usata_id || '', acconto_ledger_id: v.acconto_ledger_id || '', acconto_registrato: v.acconto_registrato || 0, creato: v.creato || '',
-                ordine_chiave: v.ordine_chiave || '', ordine_id: v.ordine_id || '', da_preventivo: v.da_preventivo || '', da_preventivo_id: v.da_preventivo_id || '' };
+                ordine_chiave: v.ordine_chiave || '', ordine_id: v.ordine_id || '', da_preventivo: v.da_preventivo || '', da_preventivo_id: v.da_preventivo_id || '',
+                clientId: v.clientId || '', consegnata_il: v.consegnata_il || '', consegna_targa: v.consegna_targa || '', consegna_km: v.consegna_km || '', anagrafica_id: v.anagrafica_id || '' };
             _compilaVendita(v);
             _vendSporco = false;
             currentVendTab = _tipoVendita(v);
@@ -4018,7 +4050,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const doc = { ...d, chiave, totale: _tondo(_totaliVendita(d).totale), usata_id: _vend.usata_id || '', acconto_ledger_id: _vend.acconto_ledger_id || '',
                 acconto_registrato: _vend.acconto_registrato || 0, creato: _vend.creato || ora, modificato: ora,
                 ordine_chiave: (prec && prec.ordine_chiave) || _vend.ordine_chiave || '', ordine_id: (prec && prec.ordine_id) || _vend.ordine_id || '',
-                da_preventivo: (prec && prec.da_preventivo) || _vend.da_preventivo || '', da_preventivo_id: (prec && prec.da_preventivo_id) || _vend.da_preventivo_id || '' };
+                da_preventivo: (prec && prec.da_preventivo) || _vend.da_preventivo || '', da_preventivo_id: (prec && prec.da_preventivo_id) || _vend.da_preventivo_id || '',
+                clientId: _vend.clientId || '', consegnata_il: (prec && prec.consegnata_il) || _vend.consegnata_il || '', consegna_targa: (prec && prec.consegna_targa) || _vend.consegna_targa || '',
+                consegna_km: (prec && prec.consegna_km) || _vend.consegna_km || '', anagrafica_id: (prec && prec.anagrafica_id) || _vend.anagrafica_id || '' };
             const updates = { ['vendite/' + chiave]: doc };
             if (_vend.chiave && _vend.chiave !== chiave) updates['vendite/' + _vend.chiave] = null;
             // Preventivo accettato: il preventivo ricorda l'ordine nato da lui (e viceversa), anche se cambia il numero
@@ -4065,7 +4099,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             }
             database.ref('/').update(JSON.parse(JSON.stringify(updates))).then(showCloudCheck).catch(_onSaveError);
             _vend = { chiave, usata_id: doc.usata_id, acconto_ledger_id: doc.acconto_ledger_id, acconto_registrato: doc.acconto_registrato, creato: doc.creato,
-                ordine_chiave: doc.ordine_chiave, ordine_id: doc.ordine_id, da_preventivo: doc.da_preventivo, da_preventivo_id: doc.da_preventivo_id };
+                ordine_chiave: doc.ordine_chiave, ordine_id: doc.ordine_id, da_preventivo: doc.da_preventivo, da_preventivo_id: doc.da_preventivo_id,
+                clientId: doc.clientId, consegnata_il: doc.consegnata_il, consegna_targa: doc.consegna_targa, consegna_km: doc.consegna_km, anagrafica_id: doc.anagrafica_id };
             _vendSporco = false;
             currentVendTab = _tipoVendita(doc);
             _aggiornaBottoniVendita();
@@ -4076,7 +4111,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const v = _vend && _vend.chiave ? venditeDB.find(x => x.chiave === _vend.chiave) : null;
             if (!v) return;
             if (!confirm(`Eliminare per sempre ${v.tipoDocumento === 'preventivo' ? 'il preventivo' : "l'ordine"} N° ${v.id}?`)) return;
-            if (!_puoSalvare('vendite', 'ledger', 'moto_usate')) return;
+            if (!_puoSalvare('vendite', 'ledger', 'moto_usate', 'db', 'tagliandi')) return;
             const updates = { ['vendite/' + v.chiave]: null };
             const p = v.da_preventivo ? venditeDB.find(x => x.chiave === v.da_preventivo && x.ordine_chiave === v.chiave) : null;
             if (p) { updates['vendite/' + p.chiave + '/ordine_chiave'] = null; updates['vendite/' + p.chiave + '/ordine_id'] = null; }
@@ -4084,14 +4119,135 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (o) { updates['vendite/' + o.chiave + '/da_preventivo'] = null; updates['vendite/' + o.chiave + '/da_preventivo_id'] = null; }
             const iL = v.acconto_ledger_id ? ledgerDB.findIndex(m => m && String(m.id) === String(v.acconto_ledger_id)) : -1;
             if (iL > -1 && confirm(`Togliere anche l'acconto di ${_eurIt(ledgerDB[iL].importo)} dalla Prima Nota?`)) { ledgerDB.splice(iL, 1); updates.ledger = JSON.parse(JSON.stringify(ledgerDB)); }
+            const recA = v.anagrafica_id ? db.find(j => String(j.id) === String(v.anagrafica_id) && j.vendita_chiave === v.chiave && j.stato === 'cliente') : null;
+            let dbCambiato = false;
+            if (recA && confirm(`La moto ${v.consegna_targa || ''} è stata consegnata: togliere anche la sua scheda dall'Anagrafica e il primo tagliando dalle Scadenze?`)) {
+                db = db.filter(j => j !== recA);
+                dbCambiato = true;
+                const t = taggliandiDB[v.consegna_targa];
+                if (t && t.origine === 'vendita') { delete taggliandiDB[v.consegna_targa]; updates['tagliandi/' + v.consegna_targa] = null; }
+            }
             const u = v.usata_id && v.tipoDocumento !== 'preventivo' ? motoUsateDB.find(m => String(m.id) === String(v.usata_id)) : null;
             if (u && u.stato === 'riservata' && confirm(`Rimettere la ${u.marca} ${u.modello} come Disponibile tra le Moto Usate?`)) { u.stato = 'disponibile'; updates.moto_usate = _usateComeOggetto(); }
-            database.ref('/').update(updates).then(showCloudCheck).catch(_onSaveError);
+            if (dbCambiato) _salvaSezioni([['db', db]], updates);
+            else database.ref('/').update(updates).then(showCloudCheck).catch(_onSaveError);
             _vend = null;
             _vendSporco = false;
             _mostraEditorVendita(false);
             refreshVendite();
             mostraToast('Documento eliminato');
+        }
+
+        // ── Cliente e moto già in Anagrafica (esclusa la scheda creata dalla consegna di questo stesso documento) ──
+        function _anagraficaVendita(v) {
+            if (!v) return null;
+            const up = s => String(s || '').toUpperCase().trim();
+            const proprio = j => !j || (v.chiave && j.vendita_chiave === v.chiave);
+            const telV = String(v.telefono || '').replace(/\D/g, '').slice(-9);
+            let jobs = [];
+            if (v.clientId) jobs = db.filter(j => !proprio(j) && j.clientId === v.clientId);
+            if (!jobs.length && up(v.cognome)) jobs = db.filter(j => !proprio(j) && up(j.cognome) === up(v.cognome) && up(j.nome) === up(v.nome));
+            if (!jobs.length && telV.length >= 9) jobs = db.filter(j => !proprio(j) && String(j.tel || '').replace(/\D/g, '').slice(-9) === telV);
+            if (!jobs.length) return null;
+            const j0 = jobs.find(j => j.clientId) || jobs[0];
+            return { clientId: j0.clientId || '', chiave: j0.clientId || `${up(j0.cognome)} ${up(j0.nome)}`.trim(), nome: `${j0.cognome || ''} ${j0.nome || ''}`.trim(),
+                lavori: jobs.filter(j => ['done', 'archived', 'doing', 'todo', 'special'].includes(j.stato)).length };
+        }
+        function _targaVendita(v) { return chiaveTarga(String((v && (v.consegna_targa || v.targa)) || '').split('/')[0]); }
+        function _renderAnagraficaVendita() {
+            const el = $('vd-anagrafica');
+            if (!el || !_vend) return;
+            const v = { ..._datiVendita(), chiave: _vend.chiave, clientId: _vend.clientId, consegna_targa: _vend.consegna_targa };
+            const righe = [];
+            const box = (col, testo, bottone) => `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:10px 14px; border:1px solid ${col}; border-radius:10px; background:rgba(0,0,0,0.2); color:#e2e8f0; font-size:0.95rem;"><span>${testo}</span>${bottone || ''}</div>`;
+            if (_vend.consegnata_il) {
+                const t = taggliandiDB[_vend.consegna_targa];
+                righe.push(box('#34d399', `🏁 Consegnata il <b style="color:white;">${formattaData(_vend.consegnata_il)}</b> · targa <b style="color:white;">${htmlEsc(_vend.consegna_targa)}</b> · in Anagrafica e Scadenze tagliando${t && t.data ? ` · prossimo tagliando entro il <b style="color:white;">${formattaData(t.data)}</b>` : ''}`));
+            }
+            const a = _anagraficaVendita(v);
+            if (a) righe.push(box('#34d399', `👤 <b style="color:white;">Già cliente:</b> ${htmlEsc(a.nome)}${a.lavori ? ` — ${a.lavori} lavor${a.lavori === 1 ? 'o' : 'i'} in officina` : ''}`,
+                `<button type="button" class="btn btn-dark w-auto" onclick="viewHistoryCognome('${safeEncode(a.chiave)}')" style="margin:0;">📂 Storico</button>`));
+            const tg = _targaVendita(v);
+            const altro = tg ? db.filter(j => j && chiaveTarga(j.targa) === tg && !(v.chiave && j.vendita_chiave === v.chiave)).pop() : null;
+            if (altro) righe.push(box('#fbbf24', `🏍️ La moto <b style="color:white;">${htmlEsc(altro.targa)}</b> è già in Anagrafica (ultimo proprietario: ${htmlEsc(`${altro.cognome || ''} ${altro.nome || ''}`.trim() || '—')})`));
+            el.innerHTML = righe.join('');
+            el.style.display = righe.length ? 'flex' : 'none';
+        }
+        function _unAnnoDopo(iso) { const d = new Date(iso); d.setFullYear(d.getFullYear() + 1); return formatDateISO(d); }
+        function _infoConsegnaVendita() {
+            const el = $('vc-info'); if (!el) return;
+            const v = _vend && _vend.chiave ? venditeDB.find(x => x.chiave === _vend.chiave) : null;
+            if (!v) { el.innerHTML = ''; return; }
+            const data = $('vc-data').value, targa = String($('vc-targa').value || '').toUpperCase().replace(/\s+/g, '');
+            const a = _anagraficaVendita(v);
+            el.innerHTML = `👤 <b style="color:white;">${htmlEsc(`${v.cognome || ''} ${v.nome || ''}`.trim() || '—')}</b> ${a ? '<span style="color:#34d399;">(già cliente)</span>' : '<span style="color:var(--muted);">(nuovo in Anagrafica)</span>'}<br>
+                🏍️ ${htmlEsc(`${v.marca || ''} ${v.modello || ''}`.trim() || '—')}${targa ? ' · <b style="color:white;">' + htmlEsc(targa) + '</b>' : ''}<br>
+                🔧 Primo tagliando entro il <b style="color:#fbbf24;">${data ? formattaData(_unAnnoDopo(data)) : '—'}</b>`;
+        }
+        // ── Moto consegnata: Anagrafica (scheda "cliente", come "Nuovo Cliente": non conta nelle Statistiche) + primo tagliando entro un anno ──
+        function consegnaVendita() {
+            if (!_vend || !_vend.chiave) return;
+            if (_vendSporco) { salvaVendita(); if (_vendSporco) return; }
+            const v = venditeDB.find(x => x.chiave === _vend.chiave);
+            if (!v || _tipoVendita(v) !== 'ordine') return;
+            $('vc-data').value = v.consegnata_il || getOggiLocale();
+            $('vc-targa').value = v.consegna_targa || String(v.targa || '').split('/')[0].toUpperCase().replace(/\s+/g, '');
+            $('vc-km').value = v.consegna_km || (String(v.km || '').replace(/\D/g, '') || '');
+            _infoConsegnaVendita();
+            openModal('modal-consegna-vendita');
+            setTimeout(() => { const t = $('vc-targa'); if (t) t.focus(); }, 50);
+        }
+        function confermaConsegnaVendita() {
+            const v = _vend && _vend.chiave ? venditeDB.find(x => x.chiave === _vend.chiave) : null;
+            if (!v) return;
+            const data = $('vc-data').value;
+            const targa = String($('vc-targa').value || '').toUpperCase().replace(/\s+/g, '');
+            const km = String($('vc-km').value || '').trim();
+            if (!data) return mostraErrore('Scrivi la data di consegna');
+            if (!/^[A-Z0-9]{4,10}$/.test(targa)) return mostraErrore('Scrivi la targa della moto (solo lettere e numeri)');
+            if (!_puoSalvare('db', 'tagliandi', 'vendite', 'moto_usate', 'billing')) return;
+            // niente "Annulla ultima mossa": riporterebbe indietro solo l'Anagrafica; per correggere si rifà la consegna
+            const extra = {};
+            const a = _anagraficaVendita(v);
+            const clientId = v.clientId || (a && a.clientId) || genClientId();
+            const tel = /@/.test(v.telefono || '') ? '' : (v.telefono || '');
+            const desc = `VENDITA ${v.stato || 'MOTO'} — ORDINE N° ${v.id}`.replace(/\s+/g, ' ');
+            // Scheda in Anagrafica (una per documento: rifacendo la consegna si aggiorna la stessa)
+            let rec = v.anagrafica_id ? db.find(j => String(j.id) === String(v.anagrafica_id) && j.vendita_chiave === v.chiave) : null;
+            if (!rec) { rec = { id: genId() }; db.push(rec); }
+            Object.assign(rec, { clientId, cognome: v.cognome || '', nome: v.nome || '', tel, targa, marca: v.marca || '', modello: v.modello || '', km, stato: 'cliente', data,
+                descrizione: desc, lavori_richiesti: desc, totale_lordo: 0, acconti: [], vendita_chiave: v.chiave, vendita_id: v.id });
+            // Dati di fatturazione, se il cliente non li ha già
+            if (!billingDB[clientId] && (v.cf || v.indirizzo || v.citta)) {
+                const cf = String(v.cf || '').trim(), piva = /^\d{11}$/.test(cf);
+                billingDB[clientId] = { ragione_sociale: '', cf: piva ? '' : cf, piva: piva ? cf : '', indirizzo: v.indirizzo || '', cap: v.cap || '', citta: v.citta || '', provincia: '',
+                    email: /@/.test(v.telefono || '') ? v.telefono : '', pec: '' };
+                extra['billing/' + clientId] = billingDB[clientId];
+            }
+            // Primo tagliando entro un anno dalla consegna (avviso giallo 2 mesi prima, come gli altri)
+            const vecchiaTarga = v.consegna_targa && v.consegna_targa !== targa ? v.consegna_targa : '';
+            if (vecchiaTarga && taggliandiDB[vecchiaTarga] && taggliandiDB[vecchiaTarga].origine === 'vendita') { delete taggliandiDB[vecchiaTarga]; extra['tagliandi/' + vecchiaTarga] = null; }
+            const tEs = taggliandiDB[targa];
+            if (!tEs || tEs.origine === 'vendita' || !tEs.data || tEs.data < data) {
+                taggliandiDB[targa] = { data: _unAnnoDopo(data), km: '', note: `PRIMO TAGLIANDO · moto consegnata il ${formattaData(data)}`, origine: 'vendita', dal: data };
+                extra['tagliandi/' + targa] = taggliandiDB[targa];
+            }
+            // Moto usata: venduta
+            const u = v.usata_id ? motoUsateDB.find(m => String(m.id) === String(v.usata_id)) : null;
+            if (u && u.stato !== 'venduta') {
+                u.stato = 'venduta'; u.data_vendita = data;
+                if (!u.prezzo_vendita) u.prezzo_vendita = _numIt(v.prezzoVeicolo) || u.prezzo || 0;
+                extra['moto_usate/' + u.id] = JSON.parse(JSON.stringify(u));
+            }
+            const doc = { ...v, clientId, consegnata_il: data, consegna_targa: targa, consegna_km: km, anagrafica_id: rec.id, targa: v.targa || targa, modificato: new Date().toISOString() };
+            extra['vendite/' + v.chiave] = doc;
+            _salvaSezioni([['db', db]], JSON.parse(JSON.stringify(extra)));
+            Object.assign(_vend, { clientId, consegnata_il: data, consegna_targa: targa, consegna_km: km, anagrafica_id: rec.id });
+            if (!$('vd-targa').value) $('vd-targa').value = targa;
+            closeModal('modal-consegna-vendita');
+            _aggiornaBottoniVendita();
+            _renderAnagraficaVendita();
+            mostraToast(`🏁 Consegnata: ${`${v.cognome || ''} ${v.nome || ''}`.trim()} in Anagrafica · primo tagliando entro il ${formattaData(_unAnnoDopo(data))}`);
         }
 
         // ── Preventivo accettato → conferma d'ordine con gli stessi dati, numero e data nuovi (si salva con 💾) ──
@@ -4103,7 +4259,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const o = p.ordine_chiave ? venditeDB.find(x => x.chiave === p.ordine_chiave) : null;
             if (o) { if (confirm(`Questo preventivo è già diventato la conferma d'ordine N° ${o.id}.\nAprirla?`)) apriVendita(o.chiave); return; }
             const copia = { ...p };
-            ['id', 'chiave', 'dataOrdine', 'totale', 'acconto_ledger_id', 'acconto_registrato', 'creato', 'modificato', 'importato', 'ordine_chiave', 'ordine_id', 'da_preventivo', 'da_preventivo_id'].forEach(k => delete copia[k]);
+            ['id', 'chiave', 'dataOrdine', 'totale', 'acconto_ledger_id', 'acconto_registrato', 'creato', 'modificato', 'importato', 'ordine_chiave', 'ordine_id', 'da_preventivo', 'da_preventivo_id',
+                'consegnata_il', 'consegna_targa', 'consegna_km', 'anagrafica_id'].forEach(k => delete copia[k]);
             nuovaVendita('ordine', { ...copia, tipoDocumento: 'ordine', da_preventivo: p.chiave, da_preventivo_id: p.id });
             _vendSporco = true;
             mostraToast(`Conferma d'ordine preparata dal preventivo N° ${p.id}: controlla i dati e premi 💾 Salva`);
@@ -4142,6 +4299,8 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const sc = $('vd-cerca-cliente'); if (sc) sc.value = '';
             const res = $('vd-cliente-results'); if (res) res.style.display = 'none';
             _vendModificata();
+            if (_vend) _vend.clientId = data.clientId || '';
+            _renderAnagraficaVendita();
             mostraToast(conFatt ? '👤 Cliente compilato con i dati di fatturazione' : '👤 Cliente compilato (nessun dato di fatturazione salvato)');
         }
 
@@ -9334,8 +9493,10 @@ A presto!`;
             const tagEsistente = taggliandiDB[targa];
             const oggi = getOggiLocale();
             const haDataFutura = tagEsistente && tagEsistente.data && tagEsistente.data > oggi;
+            // Primo tagliando di una moto venduta (origine 'vendita'): se il tagliando si fa prima, si riparte dalla data del lavoro
+            const primoDaVendita = !!(tagEsistente && tagEsistente.origine === 'vendita' && dataLavoro >= (tagEsistente.dal || ''));
 
-            if (haDataFutura) {
+            if (haDataFutura && !primoDaVendita) {
                 // C'è già una scadenza futura impostata — non sovrascrivere
                 return;
             }
@@ -9348,7 +9509,7 @@ A presto!`;
             taggliandiDB[targa] = {
                 data:  dataScadenzaStr,
                 km:    tagEsistente?.km || '',
-                note:  noteAuto || tagEsistente?.note || ''
+                note:  noteAuto || (primoDaVendita ? '' : (tagEsistente?.note || ''))
             };
 
             saveTagliandi();
@@ -9465,7 +9626,9 @@ A presto!`;
             Object.entries(perTarga).forEach(([targa, job]) => {
                 // Non sovrascrivere date future già impostate manualmente
                 const esistente = taggliandiDB[targa];
-                if (esistente && esistente.data && esistente.data > oggi) {
+                const dataJob = job.data_chiusura || job.data || '';
+                const primoDaVendita = esistente && esistente.origine === 'vendita' && dataJob >= (esistente.dal || '');
+                if (esistente && esistente.data && esistente.data > oggi && !primoDaVendita) {
                     saltati++;
                     return;
                 }
