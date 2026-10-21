@@ -17,12 +17,12 @@
   const campo = (id, v) => { const e = document.getElementById(id); if (!e) throw new Error('campo mancante ' + id); e.value = v; };
   async function passo(nome, fn) { try { await fn(); } catch (e) { ok(false, nome + ': eccezione ' + (e && e.message)); } }
 
-  for (let i = 0; i < 300 && fb.inAttesa.length < 16; i++) await attendi(20);
+  for (let i = 0; i < 300 && fb.inAttesa.length < 17; i++) await attendi(20);
   await attendi(50);
 
   await passo('Avvio', async () => {
     ok(document.getElementById('app-shell').style.display === 'flex', 'Avvio: accesso simulato, gestionale visibile');
-    ok(fb.inAttesa.length === 16, 'Avvio: tutte le 16 sezioni in ascolto (' + fb.inAttesa.length + ')');
+    ok(fb.inAttesa.length === 17, 'Avvio: tutte le 17 sezioni in ascolto (' + fb.inAttesa.length + ')');
     ok(ovVisibile() && ovTitolo() === 'Caricamento dati…', 'Avvio: pannello "Caricamento dati…" finché i dati non arrivano');
     const n = nScr(), a = fb.alerts.length;
     db.push({ id: 999, cognome: 'PRIMA DEL CARICAMENTO' });
@@ -197,7 +197,7 @@
 
   await passo('Tutte le schermate', async () => {
     const viste = ['board', 'nuova', 'archivio', 'nuovo-cliente', 'stats', 'preventivi', 'crea-prev', 'agenda', 'ledger', 'ordini', 'rubrica',
-                   'specials', 'incidentate', 'magazzino', 'nuova-app', 'tagliandi', 'scadenze', 'lista-attesa', 'usate'];
+                   'specials', 'incidentate', 'magazzino', 'nuova-app', 'tagliandi', 'scadenze', 'lista-attesa', 'usate', 'garanzie'];
     const conErrori = [];
     for (const v of viste) {
       const e0 = window.__errori.length;
@@ -205,7 +205,7 @@
       await attendi(150);
       if (window.__errori.length > e0) conErrori.push(v + ': ' + window.__errori.slice(e0).join(' | '));
     }
-    ok(conErrori.length === 0, 'Tutte le 19 schermate si aprono senza errori' + (conErrori.length ? ' → ' + conErrori.join(' ; ') : ''));
+    ok(conErrori.length === 0, 'Tutte le 20 schermate si aprono senza errori' + (conErrori.length ? ' → ' + conErrori.join(' ; ') : ''));
     const fuori = [...document.querySelectorAll('[id^="view-"]')].filter(el => !el.parentElement.classList.contains('main-content')).map(el => el.id);
     ok(fuori.length === 0, 'Struttura: tutte le pagine stanno dentro il contenitore principale' + (fuori.length ? ' → fuori: ' + fuori.join(', ') : ''));
     const nere = [];
@@ -1352,6 +1352,103 @@
     const tab = [...document.querySelectorAll('#board-tabs button b')].map(b => b.textContent);
     ok(tab.join(',') === [num('title-todo'), num('title-doing'), num('title-done')].join(','), 'Telefono: le schede Oggi / Sul ponte / Pronte riportano i numeri delle colonne (' + tab.join(', ') + ')');
     ok(document.querySelectorAll('#board-tabs button.on').length === 1, 'Telefono: una sola scheda della Bacheca evidenziata');
+  });
+
+  await passo('Garanzie', async () => {
+    const gar = () => Object.values(fb.leggi('garanzie') || {});
+    const txt = id => (document.getElementById(id) || {}).textContent || '';
+    switchView('garanzie'); await attendi(50);
+    ok(!document.getElementById('view-garanzie').classList.contains('hidden') && document.querySelector('.topbar-qbtn[data-view="garanzie"]').classList.contains('tq-active'), 'Garanzie: pagina aperta dalla barra, pulsante evidenziato');
+    ok(txt('gar-tabs').includes('Richieste') && txt('gar-tabs').includes('Da contattare') && txt('gar-tabs').includes('Storico') && /Nessuna garanzia in attesa/.test(txt('gar-lista')), 'Schede Richieste / Da contattare / Storico, nessuna garanzia');
+    ok(document.getElementById('gar-badge').style.display === 'none' && document.getElementById('gar-badge-top').style.display === 'none', 'Nessun cliente da contattare: niente numero su menu e barra');
+
+    // Nuova garanzia con il cliente cercato nell'anagrafica
+    apriFormGaranzia();
+    ok(document.getElementById('gar-form').style.display === 'block' && document.getElementById('g_data').value === oggi, 'Modulo aperto, data richiesta = oggi');
+    campo('g_search_cliente', 'rossi'); cercaClienteGaranzia();
+    const ris = [...document.querySelectorAll('#gar-cliente-results .gar-risultato')].find(d => d.textContent.includes('ROSSI MARIO'));
+    ok(ris && ris.textContent.includes('AB12345'), 'Cerca cliente: trova ROSSI MARIO con la targa');
+    if (ris) ris.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    ok(document.getElementById('g_cognome').value === 'ROSSI' && document.getElementById('g_tel').value === '3331112222' && document.getElementById('g_targa').value === 'AB12345' && document.getElementById('g_marca').value === 'HONDA', 'Cliente scelto: cognome, telefono, moto e targa compilati');
+    campo('g_cosa', '');
+    const n0 = gar().length;
+    salvaGaranzia();
+    ok(gar().length === n0 && document.getElementById('gar-form').style.display === 'block', 'Senza "cosa è in garanzia" non si salva');
+    campo('g_cosa', 'pompa freno anteriore che perde'); campo('g_fornitore', 'Honda Italia'); campo('g_pratica', '4512');
+    const n1 = nScr();
+    salvaGaranzia();
+    const g1 = gar()[0];
+    ok(gar().length === 1 && g1.stato === 'richiesta' && g1.cognome === 'ROSSI' && g1.targa === 'AB12345' && g1.data_richiesta === oggi && g1.pratica === '4512', 'Garanzia salvata in "Richieste" con cliente, moto, pratica e data');
+    ok(uguali(chiaviDa(n1), ['garanzie']), 'Salvataggio: scritte solo le garanzie (' + chiaviDa(n1) + ')');
+    ok(document.getElementById('gar-form').style.display === 'none' && txt('gar-lista').includes('ROSSI') && txt('gar-lista').includes('pompa freno') && txt('gar-lista').includes('richiesta oggi'), 'Riga in Richieste: cliente, cosa, "richiesta oggi"');
+    toggleDettaglioGaranzia(g1.id);
+    ok(document.getElementById('gar-det-' + g1.id).style.display === 'grid' && txt('gar-det-' + g1.id).includes('pratica N° 4512') && txt('gar-det-' + g1.id).includes('Honda Italia'), 'Clic sulla riga: dettaglio con casa e numero di pratica');
+
+    // Arriva il materiale → Da contattare
+    garArrivato(g1.id);
+    ok(gar()[0].stato === 'arrivata' && gar()[0].data_arrivo === oggi, 'Materiale arrivato: stato "Da contattare" con la data');
+    ok(txt('gar-badge') === '1' && txt('gar-badge-top') === '1' && document.getElementById('gar-badge-top').style.display !== 'none', 'Numero dei clienti da contattare su menu e barra: 1');
+    switchView('board'); switchView('garanzie');
+    ok(currentGarTab === 'arrivata' && txt('gar-lista').includes('da chiamare'), 'Riaprendo la pagina si apre "Da contattare": "🔴 da chiamare"');
+    const origOpen = window.open; let aperto = '';
+    window.open = u => { aperto = u; return null; };
+    try { garWhatsApp(g1.id); } finally { window.open = origOpen; }
+    ok(aperto.startsWith('https://wa.me/393331112222') && decodeURIComponent(aperto).includes('pompa freno anteriore che perde'), 'WhatsApp al cliente con il messaggio del materiale arrivato');
+    ok(gar()[0].contattato === oggi && txt('gar-lista').includes('avvisato'), 'Dopo WhatsApp: "avvisato oggi"');
+
+    // Appuntamento dalla garanzia
+    garAppuntamento(g1.id);
+    ok(currentView === 'nuova-app' && document.getElementById('app_cognome').value === 'ROSSI' && document.getElementById('app_targa').value === 'AB12345' && /GARANZIA: pompa freno anteriore che perde \(pratica 4512\)/.test(document.getElementById('app_note').value), 'Appuntamento: modulo compilato con cliente, moto e "GARANZIA: …"');
+    const dApp = (() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
+    campo('app_data', dApp);
+    salvaAppuntamento();
+    const app = agendaDB.find(a => String(a.garanzia_id) === String(g1.id));
+    ok(app && app.data === dApp && db.some(j => String(j.id) === String(app.jobId) && j.stato === 'todo' && /GARANZIA/.test(j.lavori_richiesti)), 'Appuntamento salvato in Agenda, collegato alla garanzia, con la scheda in Bacheca');
+    ok(currentView === 'garanzie' && txt('gar-lista').includes('app. ' + dApp.split('-').reverse().join('/').slice(0, 5)) && document.getElementById('gar-badge').style.display === 'none', 'Si torna alle Garanzie: "📅 app." sulla riga, nessun cliente da chiamare');
+    apriModalApp();
+    ok(document.getElementById('app_garanzia_id').value === '', 'Un appuntamento normale aperto dopo non resta collegato alla garanzia');
+    switchView('garanzie');
+    modificaApp(app.id); campo('m_app_note', 'GARANZIA pompa freno (spostato)'); salvaAppuntamento();
+    ok(String(agendaDB.find(a => String(a.id) === String(app.id)).garanzia_id) === String(g1.id), 'Modificando l\'appuntamento il collegamento alla garanzia resta');
+    const azione = document.querySelector('#gar-riga-' + g1.id + ' .gar-azione');
+    ok(azione && azione.textContent.includes('Chiudi'), 'Con l\'appuntamento fissato il pulsante della riga diventa "✓ Chiudi"');
+
+    // Chiusura → Storico, riapertura, rifiuto, modifica, eliminazione
+    garChiudi(g1.id);
+    ok(gar()[0].stato === 'chiusa' && gar()[0].esito === 'fatta' && gar()[0].data_chiusura === oggi, 'Chiudi: garanzia nello Storico come "fatta"');
+    setGarTab('chiusa');
+    ok(txt('gar-lista').includes('ROSSI') && txt('gar-lista').includes('✓ fatta'), 'Storico: la garanzia chiusa con "✓ fatta"');
+    garRiapri(g1.id);
+    ok(gar()[0].stato === 'arrivata' && !gar()[0].esito, 'Riapri: torna in "Da contattare"');
+    garIndietro(g1.id);
+    ok(gar()[0].stato === 'richiesta' && !gar()[0].data_arrivo, 'Riporta in Richieste: tolta la data di arrivo');
+    garRifiutata(g1.id);
+    ok(gar()[0].stato === 'chiusa' && gar()[0].esito === 'rifiutata', 'Garanzia rifiutata: nello Storico come "rifiutata"');
+    apriFormGaranzia(g1.id);
+    ok(document.getElementById('g_cosa').value === 'pompa freno anteriore che perde' && document.getElementById('g_id').value === String(g1.id), 'Modifica: il modulo si riapre con i dati');
+    campo('g_cosa', 'pompa freno anteriore'); salvaGaranzia();
+    ok(gar().length === 1 && gar()[0].cosa === 'pompa freno anteriore' && gar()[0].stato === 'chiusa' && gar()[0].esito === 'rifiutata', 'Modifica salvata: stesso stato, nessun doppione');
+    campo('gar-cerca', 'mt07'); refreshGaranzie();
+    ok(/Nessuna garanzia trovata/.test(txt('gar-lista')), 'Ricerca: niente per una moto diversa');
+    campo('gar-cerca', 'honda'); refreshGaranzie();
+    ok(txt('gar-lista').includes('ROSSI'), 'Ricerca per marca');
+    campo('gar-cerca', '');
+    garElimina(g1.id);
+    ok(gar().length === 0, 'Elimina: garanzia tolta');
+
+    fb.scritturaRemota({ 'garanzie': [{ id: 55, stato: 'arrivata', cognome: '<img src=x onerror="window.__xssGar=1">', cosa: '<b>X</b>', data_arrivo: oggi }] }, false);
+    setGarTab('arrivata'); await attendi(50);
+    ok(!window.__xssGar && txt('gar-lista').includes('<b>X</b>') && txt('gar-badge') === '1', 'Da un altro dispositivo: testi mostrati come testo, numero aggiornato');
+    fb.scritturaRemota({ 'garanzie': [
+      { id: 61, stato: 'arrivata', cognome: 'CONAPP', cosa: 'a', data_arrivo: '2026-01-01' },
+      { id: 62, stato: 'arrivata', cognome: 'AVVISATO', cosa: 'b', data_arrivo: '2026-01-02', contattato: '2026-01-03' },
+      { id: 63, stato: 'arrivata', cognome: 'DACHIAMARE', cosa: 'c', data_arrivo: '2026-01-05' }
+    ], 'agenda/kg61': { id: 6161, tipo: 'officina', data: '2099-01-01', ora: '09:00', cliente: 'CONAPP', garanzia_id: '61' } }, false);
+    setGarTab('arrivata'); await attendi(50);
+    const ordineGar = [...document.querySelectorAll('#gar-lista .gar-riga')].map(r => r.textContent.match(/CONAPP|AVVISATO|DACHIAMARE/)[0]);
+    ok(uguali(ordineGar, ['DACHIAMARE', 'AVVISATO', 'CONAPP']), 'Da contattare: prima da chiamare, poi avvisati, poi con appuntamento (' + ordineGar + ')');
+    fb.scritturaRemota({ 'garanzie': null, 'agenda/kg61': null }, false);
+    switchView('board');
   });
 
   await passo('Offline', async () => {
