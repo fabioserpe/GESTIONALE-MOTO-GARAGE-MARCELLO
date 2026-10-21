@@ -1503,16 +1503,14 @@
     chiudiVendita();
     ok(currentVendTab === 'preventivo' && /Conferme d'ordine\s*1/.test(txt('vend-tabs')) && /Preventivi\s*1/.test(txt('vend-tabs')), 'Schede "Conferme d\'ordine" (1) e "Preventivi" (1); dopo un preventivo si torna sui Preventivi');
     let righe = [...document.querySelectorAll('#vend-lista .vend-riga')];
-    ok(righe.length === 1 && righe[0].textContent.includes(anno + '/002') && txt('vend-lista').includes('Esito'), 'Scheda Preventivi: solo il preventivo, ultima colonna "Esito"');
+    ok(righe.length === 1 && righe[0].textContent.includes(anno + '/002') && txt('vend-lista').includes('Esito') && !/€/.test(txt('vend-lista')), 'Scheda Preventivi: solo il preventivo, colonna "Esito", niente prezzi');
     setVendTab('ordine');
-    fb.scritturaRemota({ 'vendite/T_9': { id: 'T/9', chiave: 'T_9', tipoDocumento: 'ordine', cognome: 'PROVA', prezzoVeicolo: '6600', acconto: '48.128' } }, false);
+    fb.scritturaRemota({ 'vendite/T_9': { id: 'T/9', chiave: 'T_9', tipoDocumento: 'ordine', cognome: 'PROVA', prezzoVeicolo: '6600' } }, false);
     righe = [...document.querySelectorAll('#vend-lista .vend-riga')];
-    ok(righe.length === 2 && !txt('vend-lista').includes(anno + '/002') && righe.some(r => eur(r.textContent).includes('11.049,90€')) && txt('vend-lista').includes('Acconto'), 'Scheda Conferme d\'ordine: solo gli ordini, con totale e acconto');
+    ok(righe.length === 2 && !txt('vend-lista').includes(anno + '/002') && righe.some(r => r.textContent.includes('ROSSI')) && !/€|Totale|Acconto/.test(txt('vend-lista')), 'Scheda Conferme d\'ordine: solo gli ordini, senza colonne di prezzi');
     const testa = document.querySelector('#vend-lista .vend-testa');
     const colonne = r => [...r.children].map(c => Math.round(c.getBoundingClientRect().left));
     ok(testa && testa.textContent.includes('Cliente') && uguali(colonne(righe[0]), colonne(righe[1])) && uguali(colonne(righe[0]), colonne(testa)), 'Elenco a colonne: intestazione e righe allineate (' + colonne(righe[0]) + ')');
-    const rT = righe.find(r => r.textContent.includes('T/9'));
-    ok(rT && rT.querySelector('.vg-acconto').textContent.includes('⚠️'), 'Acconto più alto del totale segnalato in rosso');
     fb.scritturaRemota({ 'vendite/T_9': null }, false);
     campo('vend-cerca', 'africa'); refreshVendite();
     ok(document.querySelectorAll('#vend-lista .vend-riga').length === 1, 'Ricerca per modello');
@@ -1567,6 +1565,13 @@
     ok(val('vd-numero') === anno + '/003', 'La numerazione dell\'anno in corso non è toccata dai documenti del 2025');
     chiudiVendita();
 
+    switchView('stats'); await attendi(30);
+    const statsPrima = document.getElementById('view-stats').textContent;
+    fb.scritturaRemota({ 'vendite/S_1': { id: 'S/1', chiave: 'S_1', tipoDocumento: 'ordine', dataOrdine: oggi.split('-').reverse().join('/'), cognome: 'STAT', prezzoVeicolo: '99999', acconto: '5000' } }, false);
+    refreshStats();
+    ok(document.getElementById('view-stats').textContent === statsPrima, 'Le vendite non cambiano le Statistiche');
+    fb.scritturaRemota({ 'vendite/S_1': null }, false);
+    switchView('vendite');
     // Preventivo accettato → conferma d'ordine
     apriVendita(K2);
     ok(document.getElementById('vd-btn-trasforma').style.display === '', 'Nel preventivo c\'è "➡️ Trasforma in conferma d\'ordine"');
