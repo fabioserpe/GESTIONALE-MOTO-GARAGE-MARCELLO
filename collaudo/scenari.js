@@ -1503,6 +1503,13 @@
     chiudiVendita();
     const righe = [...document.querySelectorAll('#vend-lista .vend-riga')];
     ok(righe.length === 2 && righe[0].textContent.includes('PREVENTIVO') && righe[1].textContent.includes('ORDINE') && eur(righe[1].textContent).includes('11.049,90€'), 'Elenco: 2 documenti, il più recente per primo, con il totale');
+    const testa = document.querySelector('#vend-lista .vend-testa');
+    const colonne = r => [...r.children].map(c => Math.round(c.getBoundingClientRect().left));
+    ok(testa && testa.textContent.includes('Cliente') && testa.textContent.includes('Acconto') && uguali(colonne(righe[0]), colonne(righe[1])) && uguali(colonne(righe[0]), colonne(testa)), 'Elenco a colonne: intestazione e righe allineate (' + colonne(righe[0]) + ')');
+    fb.scritturaRemota({ 'vendite/T_9': { id: 'T/9', chiave: 'T_9', tipoDocumento: 'ordine', cognome: 'PROVA', prezzoVeicolo: '6600', acconto: '48.128' } }, false);
+    const rT = [...document.querySelectorAll('#vend-lista .vend-riga')].find(r => r.textContent.includes('T/9'));
+    ok(rT && rT.querySelector('.vg-acconto').textContent.includes('⚠️'), 'Acconto più alto del totale segnalato in rosso');
+    fb.scritturaRemota({ 'vendite/T_9': null }, false);
     campo('vend-cerca', 'africa'); refreshVendite();
     ok(document.querySelectorAll('#vend-lista .vend-riga').length === 1, 'Ricerca per modello');
     campo('vend-cerca', ''); refreshVendite();
