@@ -498,6 +498,7 @@
         <button class="nav-link" data-nav-id="archivio" onclick="switchView('archivio', this)">📁 Anagrafica</button>
         <button class="nav-link" data-nav-id="preventivi" style="color:var(--purple);" onclick="switchView('preventivi', this)">📝 Preventivi</button>
         <button class="nav-link" data-nav-id="ordini" style="color:#fca5a5;" onclick="switchView('ordini', this)">📦 Ordini Ricambi</button>
+        <button class="nav-link" data-nav-id="garanzie" style="color:#34d399;" onclick="switchView('garanzie', this)">🛡️ Garanzie <span id="gar-badge" title="Clienti da contattare" style="display:none; background:#34d399; color:#0f172a; border-radius:10px; padding:0 7px; font-size:0.7rem; font-weight:900; margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="tagliandi" style="color:#fb923c;" onclick="switchView('tagliandi', this)">🔧 Scad. Tagliando</button>
         <button class="nav-link" data-nav-id="ledger" style="color:#34d399;" onclick="switchView('ledger', this)">💸 Prima Nota</button>
         <button class="nav-link" data-nav-id="scadenze" style="color:#f43f5e;" onclick="switchView('scadenze', this)">📅 Scadenzario <span id="scadenze-badge" style="display:none;background:#f43f5e;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
@@ -544,6 +545,7 @@
                 <button class="topbar-qbtn" data-view="archivio" onclick="switchView('archivio',null)">📁 Anagrafica</button>
                 <button class="topbar-qbtn" data-view="magazzino" onclick="switchView('magazzino',null)">📦 Magazzino</button>
                 <button class="topbar-qbtn" data-view="ordini" onclick="switchView('ordini',null)">📦 Ordini Ricambi</button>
+                <button class="topbar-qbtn" data-view="garanzie" onclick="switchView('garanzie',null)">🛡️ Garanzie<span id="gar-badge-top" title="Clienti da contattare" style="display:none; background:#34d399; color:#0f172a; border-radius:10px; padding:0 7px; font-size:0.7rem; font-weight:900; margin-left:4px;"></span></button>
                 <button class="topbar-qbtn" data-view="preventivi" onclick="switchView('preventivi',null)">📝 Preventivi</button>
                 <button class="topbar-qbtn" data-view="nuovo-cliente" onclick="switchView('nuovo-cliente',null)">👤 Cliente</button>
                 <button class="topbar-qbtn" data-view="specials" onclick="switchView('specials',null)">🕰️ Lavori Lunghi</button>
@@ -815,6 +817,7 @@
                     <h2 id="app-form-title" style="color:var(--info);" class="mb-20">📅 Nuovo Appuntamento</h2>
                     <input type="hidden" id="app_id">
                     <input type="hidden" id="app_job_id">
+                    <input type="hidden" id="app_garanzia_id">
 
                     <label>Tipo Voce</label>
                     <select id="app_tipo" onchange="toggleAppFields()">
@@ -1523,6 +1526,47 @@
             </div>
 
             <div id="attesa-list" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
+        </div>
+
+        <div id="view-garanzie" class="view hidden">
+            <div class="flex-between mb-15" style="flex-shrink:0; flex-wrap:wrap; gap:10px;">
+                <h2 style="color:#34d399; margin:0;">🛡️ Garanzie</h2>
+                <input type="search" id="gar-cerca" placeholder="🔍 Cerca cliente, moto, targa, pratica..." oninput="refreshGaranzie()" aria-label="Cerca nelle garanzie" style="max-width:380px; margin:0; background:var(--card); border:2px solid rgba(52,211,153,0.4);">
+            </div>
+            <div style="flex-shrink:0; margin-bottom:10px;">
+                <button type="button" id="gar-form-btn" onclick="apriFormGaranzia()" style="background:rgba(52,211,153,0.12); border:1px solid rgba(52,211,153,0.45); color:#34d399; border-radius:8px; padding:8px 18px; font-size:0.9rem; cursor:pointer; font-weight:bold; width:auto; margin:0;">✚ Nuova garanzia</button>
+            </div>
+            <div id="gar-form" class="card mb-20" style="display:none; border-top:3px solid #34d399; flex-shrink:0;">
+                <input type="hidden" id="g_id">
+                <h3 id="gar-form-titolo" style="color:#34d399; margin:0 0 12px; font-size:1rem;">✚ Nuova garanzia</h3>
+                <label>Cerca cliente esistente</label>
+                <div style="position:relative;">
+                    <input id="g_search_cliente" placeholder="🔍 Cognome, nome o targa..." autocomplete="off" oninput="cercaClienteGaranzia()" onblur="setTimeout(() => { const r = document.getElementById('gar-cliente-results'); if (r) r.style.display = 'none'; }, 200)" style="margin:0; border-color:#34d399;">
+                    <div id="gar-cliente-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--card); border:1px solid #34d399; border-radius:0 0 10px 10px; max-height:260px; overflow-y:auto; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.5);"></div>
+                </div>
+                <div class="mob-form-grid" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:12px;">
+                    <div><label>Cognome *</label><input id="g_cognome" style="margin:0;"></div>
+                    <div><label>Nome</label><input id="g_nome" style="margin:0;"></div>
+                    <div><label>Telefono</label><input id="g_tel" type="tel" style="margin:0;"></div>
+                    <div><label>Marca</label><input id="g_marca" style="margin:0;"></div>
+                    <div><label>Modello</label><input id="g_modello" style="margin:0;"></div>
+                    <div><label>Targa</label><input id="g_targa" style="margin:0;"></div>
+                </div>
+                <div class="mob-form-grid" style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid #334155;">
+                    <div><label>Cosa è in garanzia *</label><input id="g_cosa" placeholder="Es. pompa freno anteriore che perde" style="margin:0;"></div>
+                    <div><label>Casa / fornitore</label><input id="g_fornitore" list="gar-fornitori-list" placeholder="Es. Honda Italia" style="margin:0;"><datalist id="gar-fornitori-list"></datalist></div>
+                    <div><label>N° pratica</label><input id="g_pratica" style="margin:0;"></div>
+                    <div><label>Data richiesta</label><input id="g_data" type="date" style="margin:0;"></div>
+                </div>
+                <label style="margin-top:12px;">Note</label>
+                <textarea id="g_note" rows="2" placeholder="Es. in attesa di risposta dalla casa" style="margin:0;"></textarea>
+                <div class="flex-row mt-15">
+                    <button type="button" class="btn btn-dark" onclick="chiudiFormGaranzia()" style="flex:1;">Annulla</button>
+                    <button type="button" class="btn btn-success" onclick="salvaGaranzia()" style="flex:2;">💾 Salva garanzia</button>
+                </div>
+            </div>
+            <div id="gar-tabs" role="tablist" aria-label="Stato delle garanzie" style="display:flex; gap:2px; flex-wrap:wrap; border-bottom:1px solid #334155; margin-bottom:10px; flex-shrink:0;"></div>
+            <div id="gar-lista" style="flex-grow:1;"></div>
         </div>
 
         <div id="view-usate" class="view hidden">
@@ -2273,6 +2317,7 @@
         let db = [], agendaDB = [], ledgerDB = [], ordiniDB = [], rubricaDB = [];
         let noteDB = "", billingDB = {}, taggliandiDB = {}, scadenzeDB = [], motoUsateDB = [];
         let peritiDB = [], librettiInfo = {};
+        let garanzieDB = [];
         let currentJobId = null, currentEditStoricoId = null, currentEditStoricoPlate = null, isEditing = false, currentView = 'board', currentArchiveFilter = 'all';
         let currentCollabView = null;
         let dataInizioSettimana = new Date(); dataInizioSettimana.setHours(0,0,0,0); const gDay = dataInizioSettimana.getDay(); dataInizioSettimana = new Date(dataInizioSettimana.setDate(dataInizioSettimana.getDate() - gDay + (gDay === 0 ? -6 : 1)));
@@ -2352,6 +2397,8 @@
                 agendaDB = _leggiSezione('agenda', snap);
                 _agendaCleanDone = false;
                 if (currentView === 'agenda') refreshAgenda();
+                aggiornaBadgeGaranzie();
+                if (currentView === 'garanzie') refreshGaranzie();
             });
 
             database.ref('/ledger').on('value', (snap) => {
@@ -2434,6 +2481,13 @@
                 refreshPeritiList();
                 if ($('p_perito')) _popolaSelectPeriti('p_perito', $('p_perito').value);
                 if (_invio && $('ip_perito')) { _popolaSelectPeriti('ip_perito', $('ip_perito').value); aggiornaInvioPerito(); }
+            });
+
+            database.ref('/garanzie').on('value', (snap) => {
+                _segnaCaricato('garanzie');
+                garanzieDB = Object.values(snap.val() || {}).filter(g => g && typeof g === 'object');
+                aggiornaBadgeGaranzie();
+                if (currentView === 'garanzie') refreshGaranzie();
             });
 
             database.ref('/ordini_abb').on('value', (snap) => {
@@ -2790,7 +2844,7 @@
             });
         }
 
-        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Stats', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto' };
+        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Stats', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto', garanzie:'🛡️ Garanzie' };
         function switchView(viewId, el) {
             if (viewId !== 'nuova') _pendingSpecialCat = null;
             closeSidebar();
@@ -2804,7 +2858,7 @@
                 refreshOrdiniAbb();
             }
             chiudiTuttiMenuBoard();
-            ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-incidentate', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa', 'view-usate'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
+            ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-incidentate', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa', 'view-usate', 'view-garanzie'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.topbar-qbtn').forEach(b => b.classList.toggle('tq-active', b.dataset.view === viewId));
             _aggiornaTabbar(viewId);
@@ -2816,7 +2870,7 @@
             if(viewId === 'nuova' && !isEditing) clearForm();
             if(viewId === 'nuovo-cliente') _resetNuovoClienteForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
-            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') { statsSettOffset = 0; refreshStats(); } if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'incidentate') refreshIncidentate(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); } if(viewId === 'usate') { refreshUsate(); }
+            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') { statsSettOffset = 0; refreshStats(); } if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'incidentate') refreshIncidentate(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); } if(viewId === 'usate') { refreshUsate(); } if(viewId === 'garanzie') { currentGarTab = _garTabIniziale(); refreshGaranzie(); }
         }
 
         function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; const _sc=$('f_search_cliente'); if(_sc) _sc.value=''; refreshMiniAgenda(); }
@@ -3534,6 +3588,262 @@
 Puoi passare quando vuoi da Moto Garage Marcello.
 Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             window.open(`https://wa.me/${tel}?text=${encodeURIComponent(txt)}`, '_blank');
+        }
+
+        // =====================================================================
+        // GARANZIE (/garanzie): richiesta → materiale arrivato ("da contattare") → chiusa (storico)
+        // { id, stato: 'richiesta'|'arrivata'|'chiusa', esito: 'fatta'|'rifiutata', cognome, nome, tel, marca, modello, targa,
+        //   cosa, fornitore, pratica, note, data_richiesta, data_arrivo, contattato, data_chiusura }
+        // L'appuntamento in Agenda fissato dalla garanzia porta garanzia_id
+        // =====================================================================
+        let currentGarTab = 'richiesta';
+        const _GAR_TAB = { richiesta: { lbl: '📨 Richieste', col: 'var(--info)' }, arrivata: { lbl: '📞 Da contattare', col: 'var(--warning)' }, chiusa: { lbl: '🗄️ Storico', col: '#94a3b8' } };
+        const _garAperti = new Set();
+        function saveGaranzie() {
+            if (!_puoSalvare('garanzie')) return;
+            database.ref('/').update({ garanzie: JSON.parse(JSON.stringify(garanzieDB)) }).then(showCloudCheck).catch(_onSaveError);
+        }
+        function _garanzia(id) { return garanzieDB.find(g => String(g.id) === String(id)); }
+        function _appGaranzia(id) { return agendaDB.find(a => a && a.garanzia_id != null && String(a.garanzia_id) === String(id)); }
+        function _garDaChiamare(g) { return g.stato === 'arrivata' && !_appGaranzia(g.id); }
+        function aggiornaBadgeGaranzie() {
+            const n = garanzieDB.filter(_garDaChiamare).length;
+            ['gar-badge', 'gar-badge-top'].forEach(id => { const b = $(id); if (b) { b.textContent = n; b.style.display = n ? 'inline-block' : 'none'; } });
+        }
+        function _garTabIniziale() { return garanzieDB.some(g => g.stato === 'arrivata') ? 'arrivata' : 'richiesta'; }
+        function setGarTab(t) { if (_GAR_TAB[t]) currentGarTab = t; refreshGaranzie(); }
+        function refreshGaranzie() {
+            aggiornaBadgeGaranzie();
+            const tabs = $('gar-tabs'), lista = $('gar-lista');
+            if (!tabs || !lista) return;
+            const cnt = { richiesta: 0, arrivata: 0, chiusa: 0 };
+            garanzieDB.forEach(g => { if (cnt[g.stato] !== undefined) cnt[g.stato]++; });
+            tabs.innerHTML = Object.entries(_GAR_TAB).map(([k, t]) => {
+                const on = currentGarTab === k;
+                return `<button type="button" role="tab" id="gar-tab-${k}" aria-selected="${on}" onclick="setGarTab('${k}')" style="background:transparent; border:none; border-bottom:3px solid ${on ? t.col : 'transparent'}; color:${on ? 'white' : 'var(--muted)'}; padding:9px 14px; font-size:0.95rem; font-weight:800; cursor:pointer; width:auto; min-height:44px;">${t.lbl} <span style="background:${on ? t.col : '#334155'}; color:${on ? '#0f172a' : 'white'}; border-radius:12px; padding:1px 8px; font-size:0.8rem; margin-left:4px;">${cnt[k]}</span></button>`;
+            }).join('');
+            const termini = ($('gar-cerca') ? $('gar-cerca').value : '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+            let rows = garanzieDB.filter(g => g.stato === currentGarTab).filter(g => {
+                if (!termini.length) return true;
+                const t = [g.cognome, g.nome, g.tel, g.marca, g.modello, g.targa, g.cosa, g.fornitore, g.pratica, g.note].join(' ').toLowerCase();
+                return termini.every(x => t.includes(x));
+            });
+            if (currentGarTab === 'richiesta') rows.sort((a, b) => String(a.data_richiesta || '').localeCompare(String(b.data_richiesta || '')));
+            else if (currentGarTab === 'arrivata') {
+                // prima chi è ancora da chiamare, poi chi è stato avvisato, per ultimi quelli con l'appuntamento
+                const passo = g => _appGaranzia(g.id) ? 2 : g.contattato ? 1 : 0;
+                rows.sort((a, b) => (passo(a) - passo(b)) || String(a.data_arrivo || '').localeCompare(String(b.data_arrivo || '')));
+            }
+            else rows = rows.sort((a, b) => String(b.data_chiusura || '').localeCompare(String(a.data_chiusura || ''))).slice(0, 200);
+            const aiuto = { richiesta: 'In attesa del materiale. Quando arriva premi "📦 Arrivato": la garanzia passa in "Da contattare".',
+                arrivata: 'Materiale arrivato: avvisa il cliente e fissa l\'appuntamento. A intervento fatto premi "✓ Chiudi".',
+                chiusa: 'Garanzie chiuse, le più recenti per prime.' }[currentGarTab];
+            const vuoto = { richiesta: 'Nessuna garanzia in attesa. Premi "✚ Nuova garanzia" per aprirne una.', arrivata: 'Nessun cliente da contattare.', chiusa: 'Lo storico è vuoto.' }[currentGarTab];
+            lista.innerHTML = `<div style="font-size:0.85rem; color:var(--muted); margin-bottom:8px;">${aiuto}</div>` + (rows.length
+                ? `<div style="border:1px solid #334155; border-radius:10px; background:var(--card); overflow:hidden;">${rows.map(_rigaGaranzia).join('')}</div>`
+                : `<p style="color:var(--muted); text-align:center; padding:24px 0; margin:0;">${termini.length ? 'Nessuna garanzia trovata.' : vuoto}</p>`);
+        }
+        function toggleDettaglioGaranzia(id) {
+            const k = String(id), apri = !_garAperti.has(k);
+            [..._garAperti].forEach(x => {
+                _garAperti.delete(x);
+                const d = document.getElementById('gar-det-' + x); if (d) d.style.display = 'none';
+                const r = document.getElementById('gar-riga-' + x); if (r) r.setAttribute('aria-expanded', 'false');
+            });
+            if (!apri) return;
+            _garAperti.add(k);
+            const d = document.getElementById('gar-det-' + k); if (d) d.style.display = 'grid';
+            const r = document.getElementById('gar-riga-' + k); if (r) r.setAttribute('aria-expanded', 'true');
+        }
+        // Una riga corta per garanzia (cliente, moto, cosa, un'indicazione, un pulsante); il resto nel dettaglio
+        function _rigaGaranzia(g) {
+            const k = String(g.id), id = htmlEsc(k), aperto = _garAperti.has(k), oggi = getOggiLocale();
+            const app = _appGaranzia(g.id);
+            const nome = `${g.cognome || ''} ${g.nome || ''}`.trim(), moto = `${g.marca || ''} ${g.modello || ''}`.trim();
+            const chi = [nome ? `<b style="color:white;">${htmlEsc(nome)}</b>` : '', moto ? `<b style="color:#fbbf24;">${htmlEsc(moto)}</b>` : ''].filter(Boolean).join('<span style="color:var(--muted);"> · </span>');
+            let tag = '', tagCol = 'var(--muted)';
+            if (g.stato === 'richiesta') {
+                const gg = g.data_richiesta ? -_giorniDaOggi(g.data_richiesta) : 0;
+                tag = gg > 0 ? '⏳ da ' + (gg === 1 ? '1 giorno' : gg + ' giorni') : 'richiesta oggi';
+                if (gg > 30) tagCol = '#fbbf24';
+            } else if (g.stato === 'arrivata') {
+                if (app) { tag = '📅 app. ' + formattaData(app.data).slice(0, 5) + (app.ora ? ' ' + app.ora : ''); tagCol = app.data < oggi ? '#fbbf24' : '#4ade80'; }
+                else if (g.contattato) { tag = '💬 avvisato ' + formattaData(g.contattato).slice(0, 5); tagCol = '#cbd5e1'; }
+                else { tag = '🔴 da chiamare'; tagCol = '#f87171'; }
+            } else {
+                tag = (g.esito === 'rifiutata' ? '✕ rifiutata ' : '✓ fatta ') + formattaData(g.data_chiusura);
+                tagCol = g.esito === 'rifiutata' ? '#f87171' : '#4ade80';
+            }
+            const ab = 'background:transparent; border-radius:7px; padding:6px 14px; font-size:0.95rem; font-weight:700; cursor:pointer; white-space:nowrap; width:auto; min-height:38px; margin:0;';
+            let azione = '';
+            if (g.stato === 'richiesta') azione = `<button type="button" class="gar-azione" onclick="event.stopPropagation(); garArrivato('${id}')" title="È arrivato il materiale: passa in Da contattare" style="${ab} border:1px solid #4ade80; color:#4ade80;">📦 Arrivato</button>`;
+            else if (g.stato === 'arrivata') azione = app
+                ? `<button type="button" class="gar-azione" onclick="event.stopPropagation(); garChiudi('${id}')" title="Intervento fatto: va nello Storico" style="${ab} border:1px solid #4ade80; color:#4ade80;">✓ Chiudi</button>`
+                : g.tel
+                    ? `<button type="button" class="gar-azione" onclick="event.stopPropagation(); garWhatsApp('${id}')" title="Avvisa il cliente su WhatsApp" style="${ab} border:1px solid #25d366; color:#25d366;">💬 WhatsApp</button>`
+                    : `<button type="button" class="gar-azione" onclick="event.stopPropagation(); garAppuntamento('${id}')" title="Fissa l'appuntamento per l'intervento" style="${ab} border:1px solid var(--info); color:var(--info);">📅 Appuntamento</button>`;
+
+            const riga = (et, val) => val ? `<div><span style="color:var(--muted);">${et}</span> ${val}</div>` : '';
+            const date = [g.data_richiesta ? 'richiesta ' + formattaData(g.data_richiesta) : '', g.data_arrivo ? 'materiale arrivato ' + formattaData(g.data_arrivo) : '',
+                g.contattato ? 'cliente avvisato ' + formattaData(g.contattato) : '', g.data_chiusura ? (g.esito === 'rifiutata' ? 'rifiutata ' : 'chiusa ') + formattaData(g.data_chiusura) : ''].filter(Boolean).join(' · ');
+            const pb = 'background:transparent; border:1px solid #475569; color:#cbd5e1; border-radius:8px; padding:9px 16px; font-size:1.05rem; cursor:pointer; width:auto; min-height:44px; margin:0; text-decoration:none; display:inline-flex; align-items:center;';
+            const tel = String(g.tel || '').replace(/\s/g, '');
+            const bottoni = (g.stato === 'richiesta' ? [
+                `<button type="button" onclick="garArrivato('${id}')" style="${pb} border-color:#4ade80; color:#4ade80;">📦 Materiale arrivato</button>`,
+                `<button type="button" onclick="garRifiutata('${id}')" style="${pb}">✕ Garanzia rifiutata</button>`
+            ] : g.stato === 'arrivata' ? [
+                g.tel ? `<button type="button" onclick="garWhatsApp('${id}')" style="${pb} border-color:#25d366; color:#25d366;">💬 WhatsApp</button>` : '',
+                g.tel ? `<a href="tel:${htmlEsc(tel)}" onclick="garContattato('${id}')" style="${pb} border-color:#93c5fd; color:#93c5fd;">📞 Chiama</a>` : '',
+                `<button type="button" onclick="garAppuntamento('${id}')" style="${pb} border-color:var(--info); color:var(--info);">📅 ${app ? 'Apri l\'appuntamento' : 'Fissa appuntamento'}</button>`,
+                `<button type="button" onclick="garChiudi('${id}')" style="${pb} border-color:#4ade80; color:#4ade80;">✓ Chiudi: intervento fatto</button>`,
+                `<button type="button" onclick="garIndietro('${id}')" style="${pb}">⬅️ Riporta in Richieste</button>`
+            ] : [
+                `<button type="button" onclick="garRiapri('${id}')" style="${pb}">↩️ Riapri</button>`
+            ]).concat([
+                `<button type="button" onclick="apriFormGaranzia('${id}')" style="${pb}">✏️ Modifica</button>`,
+                `<button type="button" onclick="garElimina('${id}')" style="${pb} border-color:rgba(239,68,68,0.5); color:#f87171;">🗑️ Elimina</button>`
+            ]).filter(Boolean).join('');
+            const dettaglio = `<div id="gar-det-${id}" class="gar-dettaglio" style="display:${aperto ? 'grid' : 'none'}; gap:8px; padding:14px 18px 16px; background:#0f172a; border-bottom:1px solid #334155; font-size:1.1rem; line-height:1.4; color:#e2e8f0;">
+                ${riga('Cliente', htmlEsc(nome || '—') + (g.tel ? ` · <a href="tel:${htmlEsc(tel)}" style="color:#93c5fd;">${htmlEsc(g.tel)}</a>` : ''))}
+                ${riga('Moto', [htmlEsc(moto), g.targa ? `<b>${htmlEsc(g.targa)}</b>` : ''].filter(Boolean).join(' · '))}
+                ${riga('In garanzia', htmlEsc(g.cosa || ''))}
+                ${riga('Casa / fornitore', [htmlEsc(g.fornitore || ''), g.pratica ? 'pratica N° ' + htmlEsc(g.pratica) : ''].filter(Boolean).join(' · '))}
+                ${riga('Appuntamento', app ? `📅 ${formattaData(app.data)}${app.ora ? ' ore ' + htmlEsc(app.ora) : ''} (${_quando(app.data)})` : '')}
+                ${riga('Note', htmlEsc(g.note || ''))}
+                ${riga('Date', date)}
+                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${bottoni}</div>
+            </div>`;
+            return `<div class="gar-riga">
+                <div id="gar-riga-${id}" role="button" tabindex="0" aria-expanded="${aperto}" onclick="toggleDettaglioGaranzia('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); toggleDettaglioGaranzia('${id}');}" title="Clicca per i dettagli"
+                    style="display:flex; flex-wrap:wrap; gap:6px 16px; align-items:center; padding:13px 16px; font-size:1.1rem; border-bottom:1px solid #263142; cursor:pointer;">
+                    <div style="flex:2 1 260px; min-width:0; overflow-wrap:anywhere;">${chi || '<span style="color:var(--muted);">—</span>'}</div>
+                    <div style="flex:2 1 220px; min-width:0; color:#e2e8f0; overflow-wrap:anywhere;">${htmlEsc(g.cosa || '')}</div>
+                    <div class="gar-tag" style="flex:0 0 auto; color:${tagCol}; font-weight:700; font-size:0.95rem; white-space:nowrap;">${tag}</div>
+                    <div style="flex:0 0 auto; margin-left:auto;">${azione}</div>
+                </div>${dettaglio}</div>`;
+        }
+        function _garCambia(id, fn, msg) {
+            const g = _garanzia(id);
+            if (!g || !_puoSalvare('garanzie')) return;
+            fn(g);
+            saveGaranzie();
+            refreshGaranzie();
+            if (msg) mostraToast(msg);
+        }
+        function garArrivato(id) { _garCambia(id, g => { g.stato = 'arrivata'; g.data_arrivo = getOggiLocale(); }, '📦 Materiale arrivato: la garanzia è in "Da contattare"'); }
+        function garRifiutata(id) {
+            const g = _garanzia(id);
+            if (!g || !confirm(`Garanzia di ${g.cognome} rifiutata?\nVa nello Storico.`)) return;
+            _garCambia(id, x => { x.stato = 'chiusa'; x.esito = 'rifiutata'; x.data_chiusura = getOggiLocale(); }, 'Garanzia rifiutata: spostata nello Storico');
+        }
+        function garChiudi(id) {
+            const g = _garanzia(id);
+            if (!g || !confirm(`Intervento in garanzia fatto per ${g.cognome}?\nLa garanzia va nello Storico.`)) return;
+            _garCambia(id, x => { x.stato = 'chiusa'; x.esito = 'fatta'; x.data_chiusura = getOggiLocale(); }, '✓ Garanzia chiusa: la trovi nello Storico');
+        }
+        function garIndietro(id) { _garCambia(id, g => { g.stato = 'richiesta'; delete g.data_arrivo; }, 'Garanzia riportata in "Richieste"'); }
+        function garRiapri(id) { _garCambia(id, g => { g.stato = g.data_arrivo ? 'arrivata' : 'richiesta'; delete g.esito; delete g.data_chiusura; }, 'Garanzia riaperta'); }
+        function garElimina(id) {
+            const g = _garanzia(id);
+            if (!g || !confirm(`Eliminare la garanzia di ${g.cognome}?`) || !_puoSalvare('garanzie')) return;
+            garanzieDB = garanzieDB.filter(x => x !== g);
+            saveGaranzie();
+            refreshGaranzie();
+        }
+        function garContattato(id) {
+            const g = _garanzia(id), oggi = getOggiLocale();
+            if (!g || g.contattato === oggi) return;
+            _garCambia(id, x => { x.contattato = oggi; });
+        }
+        function garWhatsApp(id) {
+            const g = _garanzia(id);
+            if (!g) return;
+            const tel = formatPhoneForWa(g.tel);
+            if (!tel) return mostraErrore('Nessun numero di telefono per questo cliente!');
+            const moto = `${g.marca || ''} ${g.modello || ''}`.trim();
+            const txt = `Ciao ${(g.nome || g.cognome || '').trim()} 👋, ti comunichiamo che è arrivato il materiale in garanzia per la tua ${moto || 'moto'}:
+
+🛡️ *${g.cosa}*
+
+Chiamaci o rispondi a questo messaggio per fissare l'appuntamento.
+Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
+            window.open(`https://wa.me/${tel}?text=${encodeURIComponent(txt)}`, '_blank');
+            garContattato(id);
+        }
+        function garAppuntamento(id) {
+            const g = _garanzia(id);
+            if (!g) return;
+            const app = _appGaranzia(g.id);
+            if (app) { modificaApp(app.id); return; }
+            apriModalApp();
+            const metti = (k, v) => { const e = $(k); if (e) e.value = v || ''; };
+            metti('app_cognome', g.cognome); metti('app_nome', g.nome); metti('app_tel', g.tel);
+            metti('app_marca', g.marca); metti('app_modello', g.modello); metti('app_targa', g.targa);
+            metti('app_note', 'GARANZIA: ' + (g.cosa || '') + (g.pratica ? ' (pratica ' + g.pratica + ')' : ''));
+            metti('app_garanzia_id', String(g.id));
+            if ($('app-form-title')) $('app-form-title').innerText = '📅 Appuntamento per la garanzia';
+        }
+        // Modulo nuova garanzia / modifica
+        function apriFormGaranzia(id) {
+            const g = id != null ? _garanzia(id) : null;
+            const f = $('gar-form');
+            if (!f) return;
+            const metti = (k, v) => { const e = $(k); if (e) e.value = v || ''; };
+            metti('g_id', g ? String(g.id) : '');
+            ['cognome', 'nome', 'tel', 'marca', 'modello', 'targa', 'cosa', 'fornitore', 'pratica', 'note'].forEach(c => metti('g_' + c, g ? g[c] : ''));
+            metti('g_data', g ? g.data_richiesta : getOggiLocale());
+            metti('g_search_cliente', '');
+            const r = $('gar-cliente-results'); if (r) r.style.display = 'none';
+            $('gar-form-titolo').textContent = g ? '✏️ Modifica garanzia' : '✚ Nuova garanzia';
+            const dl = $('gar-fornitori-list');
+            if (dl) dl.innerHTML = [...new Set(garanzieDB.map(x => x.fornitore).filter(Boolean))].sort().map(x => `<option value="${htmlEsc(x)}">`).join('');
+            f.style.display = 'block';
+            const b = $('gar-form-btn'); if (b) b.style.display = 'none';
+            setTimeout(() => { const e = $(g ? 'g_cosa' : 'g_search_cliente'); if (e) e.focus(); }, 50);
+        }
+        function chiudiFormGaranzia() {
+            const f = $('gar-form'); if (f) f.style.display = 'none';
+            const b = $('gar-form-btn'); if (b) b.style.display = '';
+        }
+        function salvaGaranzia() {
+            const v = k => ($(k) ? $(k).value : '').trim();
+            const dati = { cognome: v('g_cognome'), nome: v('g_nome'), tel: v('g_tel'), marca: v('g_marca'), modello: v('g_modello'), targa: v('g_targa').toUpperCase(),
+                cosa: v('g_cosa'), fornitore: v('g_fornitore'), pratica: v('g_pratica'), note: v('g_note'), data_richiesta: v('g_data') || getOggiLocale() };
+            if (!dati.cognome) return mostraErrore('Scrivi il cognome del cliente');
+            if (!dati.cosa) return mostraErrore('Scrivi cosa è in garanzia');
+            if (!_puoSalvare('garanzie')) return;
+            const g = v('g_id') ? _garanzia(v('g_id')) : null;
+            if (g) Object.assign(g, dati);
+            else garanzieDB.push({ id: genId(), stato: 'richiesta', ...dati });
+            saveGaranzie();
+            chiudiFormGaranzia();
+            currentGarTab = g ? g.stato : 'richiesta';
+            refreshGaranzie();
+            mostraToast(g ? '💾 Garanzia aggiornata' : '🛡️ Garanzia aperta: la trovi in "Richieste"');
+        }
+        function cercaClienteGaranzia() {
+            const res = $('gar-cliente-results');
+            if (!res) return;
+            const q = ($('g_search_cliente') ? $('g_search_cliente').value : '').trim();
+            if (q.length < 2) { res.style.display = 'none'; return; }
+            const tutti = _cercaMotoClienti(q, true), matches = tutti.slice(0, 20);
+            res.style.display = 'block';
+            if (!matches.length) { res.innerHTML = '<div style="padding:10px 14px; color:var(--muted); font-size:0.85rem;">Nessun cliente trovato: scrivi i dati qui sotto.</div>'; return; }
+            res.innerHTML = matches.map(j => {
+                const nomeCompl = `${j.cognome || ''} ${j.nome || ''}`.trim(), moto = `${j.marca || ''} ${j.modello || ''}`.trim();
+                const d = htmlEsc(JSON.stringify({ targa: j.targa || '', nome: j.nome || '', cognome: j.cognome || '', tel: j.tel || '', marca: j.marca || '', modello: j.modello || '' }));
+                return `<div class="gar-risultato" onmousedown="selezionaClienteGaranzia(${d})" style="padding:10px 14px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.05);" onmouseover="this.style.background='rgba(52,211,153,0.12)'" onmouseout="this.style.background=''">
+                    <div><span style="font-weight:bold; color:white;">${htmlEsc(nomeCompl)}</span>${j.targa ? `<span style="color:var(--info); font-family:monospace; font-size:0.85rem; margin-left:8px;">${htmlEsc(j.targa)}</span>` : ''}</div>
+                    <div style="font-size:0.75rem; color:var(--muted);">${htmlEsc(moto)}${j.tel ? ' · 📞' + htmlEsc(j.tel) : ''}</div>
+                </div>`;
+            }).join('') + _altriRisultatiCliente(tutti.length - matches.length);
+        }
+        function selezionaClienteGaranzia(data) {
+            if (typeof data === 'string') data = JSON.parse(data);
+            ['nome', 'cognome', 'tel', 'targa', 'marca', 'modello'].forEach(c => { const e = $('g_' + c); if (e) e.value = data[c] || ''; });
+            const sc = $('g_search_cliente'); if (sc) sc.value = '';
+            const res = $('gar-cliente-results'); if (res) res.style.display = 'none';
+            const c = $('g_cosa'); if (c) c.focus();
         }
 
         // ── ORDINI RICAMBI: elenco a righe con schede per stato ─────────────────
@@ -4964,7 +5274,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             }
         }
         function apriModalApp(dataPreimpostata) {
-            $('app_id').value = ''; $('app_job_id').value = ''; $('app_tipo').value = 'officina';
+            $('app_id').value = ''; $('app_job_id').value = ''; $('app_tipo').value = 'officina'; if($('app_garanzia_id')) $('app_garanzia_id').value = '';
             $('app_data').value = dataPreimpostata || getOggiLocale(); $('app_ora').value = '09:00';
             $('app_nome').value = ''; $('app_cognome').value = ''; $('app_marca').value = ''; $('app_modello').value = ''; $('app_targa').value = ''; $('app_tel').value = ''; $('app_note').value = ''; if($('app_km')) $('app_km').value = '';
             if($('app-acconti-container')) $('app-acconti-container').innerHTML = '';
@@ -4999,6 +5309,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const app = { id: idVal ? parseInt(idVal) : genId(), tipo: tipoVal, jobId: (tipoVal === 'officina' && jobIdVal) ? parseInt(jobIdVal) : null, data: dataVal, ora: oraVal, cliente: clienteStr, moto: motoStr, tel: tel, note: note, km: kmVal, raw_nome: nome, raw_cognome: cognome, raw_marca: marca, raw_modello: modello, raw_targa: targa }; 
             
             if(!app.data || !cognome) return mostraErrore("Data e Cognome/Oggetto sono obbligatori!"); 
+            // Appuntamento nato da una garanzia: resta collegato (garanzia_id), anche quando lo si modifica dalla finestra
+            const _garId = (!isModal && $('app_garanzia_id')) ? $('app_garanzia_id').value : '';
+            if (_garId) app.garanzia_id = _garId;
             
             if(tipoVal === 'officina' && !jobIdVal) {
                 const nJobId = genId();
@@ -5017,12 +5330,17 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             } 
             
             const iA = agendaDB.findIndex(x => String(x.id) === String(app.id)); 
+            if (iA > -1 && agendaDB[iA].garanzia_id && !app.garanzia_id) app.garanzia_id = agendaDB[iA].garanzia_id;
             iA > -1 ? agendaDB[iA] = app : agendaDB.push(app); 
             sincronizzaAnagrafica(targa, nome, cognome, tel, marca, modello);
             saveDBAgenda();
             if (isModal) {
                 closeModal('modal-appuntamento');
                 refreshAgenda();
+            } else if (_garId) {
+                $('app_garanzia_id').value = '';
+                switchView('garanzie');
+                mostraToast('📅 Appuntamento fissato per il ' + formattaData(app.data));
             } else {
                 switchView('agenda');
             }
