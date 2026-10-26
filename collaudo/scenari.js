@@ -1734,6 +1734,46 @@
     switchView('board');
   });
 
+  await passo('Lavori Lunghi a schede', async () => {
+    const txt = id => (document.getElementById(id) || {}).textContent || '';
+    fb.scritturaRemota({
+      'db/kSA': { id: 7801, stato: 'special', special_cat: 'specials', data: '2026-10-03', cognome: 'OCCHIPINTI', nome: 'SARO', tel: '3339246240', marca: 'HONDA', modello: 'VT 1100', targa: '', lavori_richiesti: 'TRASFORMAZIONE\nCAFE RACER', conto: [{ desc: 'TELAIETTO', price: 2008, qty: 1, iva: 22 }], acconti: [{ val: 550, date: '2026-10-03' }], totale_lordo: 2008 },
+      'db/kSB': { id: 7802, stato: 'special', special_cat: 'specials', data: '2026-09-29', cognome: 'MONACO', nome: 'ANDREA', tel: '3346370654', marca: 'BMW', modello: 'K 1100', targa: 'AA05526', lavori_richiesti: 'TRASFORMARE', acconti: [{ val: 500, date: '2026-09-29' }] },
+      'db/kSC': { id: 7803, stato: 'special', special_cat: 'restauri', data: '2026-09-24', cognome: 'ALFANO', nome: 'SALVATORE', marca: '<img src=x onerror="window.__xssSp=1">', modello: 'DRAGSTAR', lavori_richiesti: 'METTERE IN FUNZIONE' }
+    }, false);
+    switchView('specials'); setSpTab('specials'); await attendi(50);
+    ok(/Restauri\s*\d/.test(txt('sp-tabs')) && /Specials\s*\d/.test(txt('sp-tabs')) && /Attesa ricambi\s*\d/.test(txt('sp-tabs')), 'Lavori Lunghi: schede Restauri, Specials, Attesa ricambi con i numeri');
+    ok(document.getElementById('sp-col-specials').style.display === '' && document.getElementById('sp-col-restauri').style.display === 'none' && document.getElementById('sp-col-ricambi').style.display === 'none', 'Si vede solo la scheda scelta (Specials)');
+    const rA = document.getElementById('sp-riga-7801'), rB = document.getElementById('sp-riga-7802');
+    ok(rA && rA.textContent.includes('HONDA VT 1100') && rA.textContent.includes('OCCHIPINTI SARO') && rA.querySelector('a[href="tel:3339246240"]') && rA.textContent.includes('TRASFORMAZIONE · CAFE RACER') && rA.textContent.includes('resta € 1458.00'), 'Riga corta: moto, cliente, 📞 telefono, note e "resta € 1458.00"');
+    ok(rB && rB.textContent.includes('acconto € 500.00') && rB.querySelector('.sp-azione button').textContent.includes('Ponte'), 'Senza pre-conto: "acconto € 500.00"; pulsante ⚙️ Ponte sulla riga');
+    const testa = document.querySelector('#sp-col-specials .sp-testa');
+    const colonne = r => [...r.children].map(c => Math.round(c.getBoundingClientRect().left));
+    ok(testa && uguali(colonne(rA), colonne(rB)) && uguali(colonne(rA), colonne(testa)), 'Colonne allineate tra intestazione e righe');
+    ok(document.getElementById('sp-det-7801').style.display === 'none', 'Il dettaglio è chiuso finché non si clicca');
+    rA.click();
+    const dA = document.getElementById('sp-det-7801');
+    ok(dA.style.display === 'grid' && dA.textContent.includes('Pre-conto') && dA.textContent.includes('€ 2008.00') && dA.textContent.includes('Acconti € 550.00') && dA.textContent.includes('Resta € 1458.00') && dA.textContent.includes('Sposta in') && dA.innerHTML.includes('openClosingModal(7801)') && dA.innerHTML.includes('printPreconto(7801)'), 'Clic sulla riga: pre-conto, acconti, resta e tutte le azioni (Pre-conto, Stampa, Sposta…)');
+    rB.click();
+    ok(document.getElementById('sp-det-7801').style.display === 'none' && document.getElementById('sp-det-7802').style.display === 'grid', 'Aprendo un\'altra moto la prima si chiude');
+    spostaCategoriaSp(7802, 'ricambi');
+    ok(recordDi('db', 7802).special_cat === 'ricambi' && /Attesa ricambi\s*\d/.test(txt('sp-tabs')) && document.getElementById('sp-col-ricambi').textContent.includes('BMW K 1100'), '"Sposta in Attesa ricambi": la moto cambia scheda');
+    fb.scritturaRemota({ 'db/kSD': { id: 7804, stato: 'special', special_cat: 'ricambi', data: '2026-10-20', cognome: 'FARNISI', marca: 'ROYAL ENFIELD', modello: 'SUPER METEOR 650', targa: 'FH14077', lavori_richiesti: 'LEVA FRIZIONE', totale_lordo: 156.47, conto: [{ desc: 'LEVA', price: 156.47, qty: 1 }] } }, false);
+    ordiniDB.push({ id: 99801, desc: 'LEVA FRIZIONE', qta: 1, stato: 'doing', jobId: 7804, data: '2026-10-20', data_consegna: '2026-10-28' });
+    setSpTab('ricambi');
+    const rD = document.getElementById('sp-riga-7804'), rB2 = document.getElementById('sp-riga-7802');
+    ok(rD && rD.textContent.includes('Attesa ricambi') && uguali(colonne(rD), colonne(rB2)) && uguali(colonne(rD), colonne(document.querySelector('#sp-col-ricambi .sp-testa'))), 'Attesa ricambi: con l\'etichetta "⏳ Attesa ricambi" le colonne restano allineate');
+    ordiniDB = ordiniDB.filter(o => o.id !== 99801);
+    fb.scritturaRemota({ 'db/kSD': null }, false);
+    const tabR = document.getElementById('sp-tab-restauri');
+    dropSp({ preventDefault() {}, target: tabR, dataTransfer: { getData: () => '7801' } }, 'restauri');
+    ok(recordDi('db', 7801).special_cat === 'restauri', 'Trascinata sulla scheda Restauri: cambia categoria');
+    setSpTab('restauri');
+    ok(!window.__xssSp && document.getElementById('sp-col-restauri').textContent.includes('<img src=x'), 'Testi mostrati come testo, anche nei suggerimenti di targhe e clienti (nessun codice eseguito)');
+    fb.scritturaRemota({ 'db/kSA': null, 'db/kSB': null, 'db/kSC': null }, false);
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);

@@ -391,6 +391,19 @@
             .vfoglio th, .vfoglio td { padding:8px 6px; font-size:13px; }
             .vfoglio .vf-firme { gap:20px; }
         }
+        /* Lavori Lunghi: righe corte allineate, dettaglio al clic */
+        .sp-griglia { display:grid; grid-template-columns:100px minmax(150px,1.1fr) minmax(170px,1.1fr) minmax(170px,1.6fr) 230px 110px; gap:0 14px; align-items:center; padding:11px 16px; border-bottom:1px solid #263142; font-size:1.02rem; }
+        .sp-griglia > * { min-width:0; overflow-wrap:anywhere; }
+        .sp-testa { font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px; text-transform:uppercase; padding:9px 16px; border-bottom:2px solid #334155; background:rgba(0,0,0,0.2); }
+        .sp-riga { cursor:pointer; }
+        .sp-riga:hover { background:rgba(255,255,255,0.04); }
+        .sp-note { color:#94a3b8; font-size:0.9rem; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        @media (max-width: 768px) {
+            .sp-griglia { grid-template-columns:auto 1fr; gap:4px 10px; font-size:0.95rem; }
+            .sp-testa { display:none !important; }
+            .sp-griglia .sp-cliente, .sp-griglia .sp-note { grid-column:1 / -1; }
+            .sp-griglia .sp-azione { justify-self:end; }
+        }
         /* Elenco delle Vendite: colonne allineate */
         .vend-griglia { display:grid; grid-template-columns:105px 95px minmax(170px,1.3fr) minmax(170px,1.3fr); gap:0 14px; align-items:center; padding:11px 16px; border-bottom:1px solid #263142; font-size:1.05rem; }
         .vend-griglia > * { min-width:0; overflow-wrap:anywhere; }
@@ -981,34 +994,15 @@
 
         <!-- SCHERMATA LAVORI LUNGHI / SPECIAL -->
         <div id="view-specials" class="view hidden">
-            <div class="flex-between" style="margin-bottom:15px; flex-shrink:0;">
+            <div class="flex-between" style="margin-bottom:10px; flex-shrink:0; flex-wrap:wrap; gap:10px;">
                 <h2 style="color:#d8b4fe; margin:0;">🕰️ Lavori Lunghi</h2>
-
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <div id="sp-count-restauri"    style="font-size:0.78rem; font-weight:bold; padding:4px 12px; border-radius:20px; background:rgba(245,158,11,0.12); color:#fcd34d; border:1px solid rgba(245,158,11,0.25);"></div>
-                    <div id="sp-count-specials"    style="font-size:0.78rem; font-weight:bold; padding:4px 12px; border-radius:20px; background:rgba(139,92,246,0.12); color:#d8b4fe; border:1px solid rgba(139,92,246,0.25);"></div>
-                    <div id="sp-count-ricambi"     style="font-size:0.78rem; font-weight:bold; padding:4px 12px; border-radius:20px; background:rgba(14,165,233,0.12); color:#7dd3fc; border:1px solid rgba(14,165,233,0.25);"></div>
-                </div>
+                <span style="font-size:0.82rem; color:var(--muted);">Clicca una moto per pre-conto, note e azioni · trascinala su una scheda per cambiarle categoria</span>
             </div>
-            <div class="specials-board" style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; flex-grow:1; overflow:hidden; min-height:400px;">
-                <div style="background:rgba(245,158,11,0.05); border-radius:16px; border:1px solid rgba(245,158,11,0.15); display:flex; flex-direction:column; overflow:hidden;">
-                    <div style="padding:12px 15px 10px; border-bottom:1px solid rgba(245,158,11,0.15); flex-shrink:0;">
-                        <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#fcd34d;">🔨 Restauri</div>
-                    </div>
-                    <div id="sp-col-restauri" style="flex-grow:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:8px;" ondragover="allowDropSp(event)" ondragleave="leaveDropSp(event)" ondrop="dropSp(event,'restauri')"></div>
-                </div>
-                <div style="background:rgba(139,92,246,0.05); border-radius:16px; border:1px solid rgba(139,92,246,0.15); display:flex; flex-direction:column; overflow:hidden;">
-                    <div style="padding:12px 15px 10px; border-bottom:1px solid rgba(139,92,246,0.15); flex-shrink:0;">
-                        <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#d8b4fe;">⚡ Specials</div>
-                    </div>
-                    <div id="sp-col-specials" style="flex-grow:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:8px;" ondragover="allowDropSp(event)" ondragleave="leaveDropSp(event)" ondrop="dropSp(event,'specials')"></div>
-                </div>
-                <div style="background:rgba(14,165,233,0.05); border-radius:16px; border:1px solid rgba(14,165,233,0.2); display:flex; flex-direction:column; overflow:hidden;">
-                    <div style="padding:12px 15px 10px; border-bottom:1px solid rgba(14,165,233,0.2); flex-shrink:0;">
-                        <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#7dd3fc;">📦 Attesa Ricambi</div>
-                    </div>
-                    <div id="sp-col-ricambi" style="flex-grow:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:8px;" ondragover="allowDropSp(event)" ondragleave="leaveDropSp(event)" ondrop="dropSp(event,'ricambi')"></div>
-                </div>
+            <div id="sp-tabs" role="tablist" aria-label="Categorie dei Lavori Lunghi" style="display:flex; gap:2px; flex-wrap:wrap; border-bottom:1px solid #334155; margin-bottom:10px; flex-shrink:0;"></div>
+            <div id="sp-lista" style="flex-grow:1; overflow-y:auto;">
+                <div id="sp-col-restauri" class="sp-gruppo" data-cat="restauri"></div>
+                <div id="sp-col-specials" class="sp-gruppo" data-cat="specials"></div>
+                <div id="sp-col-ricambi" class="sp-gruppo" data-cat="ricambi"></div>
             </div>
         </div>
 
@@ -3146,18 +3140,18 @@
         function updateDatalist() {
             const tU = [...new Set(db.map(j => j.targa).filter(Boolean))];
             const dl = $('targhe-salvate');
-            if (dl) { dl.innerHTML = tU.map(t => { const u = db.filter(j => j.targa === t).pop(); const i = `${u.cognome||''} ${u.nome||''} - ${u.marca||''} ${u.modello||''}`.trim(); return `<option value="${t}">${i}</option>`; }).join(''); }
+            if (dl) { dl.innerHTML = tU.map(t => { const u = db.filter(j => j.targa === t).pop(); const i = `${u.cognome||''} ${u.nome||''} - ${u.marca||''} ${u.modello||''}`.trim(); return `<option value="${htmlEsc(t)}">${htmlEsc(i)}</option>`; }).join(''); }
             // Datalist agenda: include sia targas che cognomi
             const dlApp = $('app-clienti-list');
             if (dlApp) {
                 const opts = [];
                 // Per targa
-                tU.forEach(t => { const u = db.filter(j => j.targa === t).pop(); if (u) opts.push(`<option value="${t}">${u.cognome||''} ${u.nome||''} — ${u.marca||''} ${u.modello||''}</option>`); });
+                tU.forEach(t => { const u = db.filter(j => j.targa === t).pop(); if (u) opts.push(`<option value="${htmlEsc(t)}">${htmlEsc(`${u.cognome||''} ${u.nome||''} — ${u.marca||''} ${u.modello||''}`)}</option>`); });
                 // Per cognome (clienti senza targa o duplicati per nome)
                 const clientiUnici = {};
                 db.forEach(j => { const key = `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim(); if (key && !clientiUnici[key]) { clientiUnici[key] = j; } });
                 Object.entries(clientiUnici).forEach(([key, j]) => {
-                    if (!j.targa) opts.push(`<option value="${key}">${j.marca||''} ${j.modello||''} — ${j.tel||''}</option>`);
+                    if (!j.targa) opts.push(`<option value="${htmlEsc(key)}">${htmlEsc(`${j.marca||''} ${j.modello||''} — ${j.tel||''}`)}</option>`);
                 });
                 dlApp.innerHTML = opts.join('');
             }
@@ -5608,113 +5602,98 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             c.appendChild(list);
         }
 
+        // ── LAVORI LUNGHI: schede Restauri / Specials / Attesa ricambi, una riga corta per moto, dettaglio al clic (uno alla volta) ──
+        // Tutte le righe sono nella pagina (le schede non scelte sono nascoste), così la ricerca nel testo e il trascinamento funzionano sempre
+        let currentSpTab = '';
+        const _SP_TAB = { restauri: { lbl: '🔨 Restauri', col: '#fbbf24' }, specials: { lbl: '⚡ Specials', col: '#a78bfa' }, ricambi: { lbl: '📦 Attesa ricambi', col: '#38bdf8' } };
+        const _spAperti = new Set();
+        function _catSp(j) { return ['restauri', 'specials', 'ricambi'].includes(j.special_cat || '') ? j.special_cat : 'specials'; }
+        function setSpTab(t) { if (_SP_TAB[t]) currentSpTab = t; refreshSpecials(); }
+        function toggleDettaglioSp(id) {
+            const k = String(id), apri = !_spAperti.has(k);
+            [..._spAperti].forEach(x => {
+                _spAperti.delete(x);
+                const d = document.getElementById('sp-det-' + x); if (d) d.style.display = 'none';
+                const r = document.getElementById('sp-riga-' + x); if (r) r.setAttribute('aria-expanded', 'false');
+            });
+            if (!apri) return;
+            _spAperti.add(k);
+            const d = document.getElementById('sp-det-' + k); if (d) d.style.display = 'grid';
+            const r = document.getElementById('sp-riga-' + k); if (r) r.setAttribute('aria-expanded', 'true');
+        }
+        function spostaCategoriaSp(id, cat) {
+            const j = db.find(x => String(x.id) === String(id));
+            if (!j || !_SP_TAB[cat] || _catSp(j) === cat || !_puoSalvare('db')) return;
+            j.special_cat = cat;
+            saveDB();
+            refreshSpecials();
+            mostraToast(`${(j.marca || '')} ${(j.modello || '')} spostata in ${_SP_TAB[cat].lbl}`.trim());
+        }
         function refreshSpecials() {
-            const cols = {
-                restauri: $('sp-col-restauri'),
-                specials: $('sp-col-specials'),
-                ricambi:  $('sp-col-ricambi')
-            };
-            if (!cols.restauri) return;
-            Object.values(cols).forEach(c => { c.innerHTML = ''; });
-            const counts = { restauri: 0, specials: 0, ricambi: 0 };
-
-            const specials = db.filter(j => j.stato === 'special' && j.special_cat !== 'incidentate')
-                               .sort((a,b) => new Date(b.data||0) - new Date(a.data||0));
-
-            const borderCol = { restauri: '#fbbf24', specials: '#a78bfa', ricambi: '#38bdf8' };
-
-            if (specials.length === 0) {
-                Object.values(cols).forEach(c => {
-                    c.innerHTML = '<div style="color:#475569; text-align:center; padding:20px; font-size:0.82rem;">Nessuna scheda</div>';
-                });
-                ['restauri','specials'].forEach(k => {
-                    const el = $('sp-count-' + k); if (el) el.style.display = 'none';
-                });
-                return;
-            }
-
-            specials.forEach(j => {
-                const cat    = (['restauri','specials','ricambi'].includes(j.special_cat||'')) ? (j.special_cat||'specials') : 'specials';
-                const col    = cols[cat];
-                const border = borderCol[cat];
-                counts[cat]++;
-
-                const accTot = (j.acconti||[]).reduce((a,b) => a + (parseFloat(b.val)||0), 0);
-                const lordo  = parseFloat(j.totale_lordo) || 0;
-                const menuId = 'smenu-' + j.id;
-
-                const card = document.createElement('div');
-                card.style.cssText = 'background:var(--card); border-radius:10px; border:1px solid rgba(255,255,255,0.06); border-top:3px solid ' + border + '; padding:12px; transition:box-shadow 0.15s; cursor:grab;';
-                card.draggable = true;
-                card.ondragstart = function(ev) { ev.dataTransfer.setData('text/plain', j.id); setTimeout(() => { this.style.opacity = '0.35'; }, 10); };
-                card.ondragend   = function() { this.style.opacity = '1'; };
-                card.onmouseover = function(){ this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'; };
-                card.onmouseout  = function(){ this.style.boxShadow = 'none'; };
-
-                // Build card content with template literals — safe, no quote mixing
-                const daPagare2 = lordo - accTot;
-                const rigaResto = lordo <= 0 ? ''
-                    : daPagare2 <= 0.01
-                    ? `<b style="color:#22c55e;">✓ Saldato</b>`
-                    : `<b style="color:#f59e0b;">Resta € ${daPagare2.toFixed(2)}</b>`;
-                const preContoHtml = (lordo > 0 || accTot > 0) ? `
-                        <div style="margin-top:6px; padding:6px 8px; background:rgba(15,23,42,0.6); border:1px solid #334155; border-radius:6px; font-size:0.75rem; line-height:1.6;">
-                            ${lordo > 0 ? `<div style="display:flex; justify-content:space-between; gap:8px;"><span style="color:var(--muted);">Pre-conto</span><b style="color:white;">€ ${lordo.toFixed(2)}</b></div>` : ''}
-                            <div style="display:flex; justify-content:space-between; gap:8px;"><span style="color:var(--info);">${accTot > 0 ? `Acconti € ${accTot.toFixed(2)}` : 'Nessun acconto'}</span>${rigaResto}</div>
-                        </div>` : '';
-                const telHtml   = j.tel ? ` · 📞 ${j.tel}` : '';
-                const noteText  = (j.lavori_richiesti||'...').split(String.fromCharCode(10)).join(' · ').split(String.fromCharCode(13)).join('');
-
-                card.innerHTML = `
-                    <div style="cursor:pointer;" onclick="previewJob(${j.id})" title="Clicca per dettagli">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
-                            <span class="targa-badge" style="font-size:0.78rem; padding:2px 7px;">${j.targa||'N/D'}</span>
-                            <div style="display:flex; align-items:center; gap:5px;">
-                                <span style="font-size:0.68rem; color:var(--muted);">${formattaData(j.data)}</span>
-                            </div>
-                        </div>
-                        <div style="font-weight:bold; font-size:0.88rem; color:white; margin-bottom:2px;">${j.marca||''} ${j.modello||''}</div>
-                        <div style="font-size:0.78rem; color:var(--muted); margin-bottom:2px;">${(j.cognome||'').toUpperCase()} ${j.nome||''}${telHtml}</div>
-                        ${preContoHtml}
-                        ${_badgeRicambi(j.id)}
-                        <div style="font-size:0.75rem; color:#64748b; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${noteText}</div>
-                    </div>
-                    <div style="display:flex; gap:5px; margin-top:10px; align-items:center;">
-                        <button class="btn btn-warning w-auto" style="flex:1; padding:6px; font-size:0.78rem; color:black;"
-                            onclick="event.stopPropagation(); moveStatus(${j.id},'doing'); refreshSpecials(); switchView('board');">⚙️ Ponte</button>
-                        <button class="btn btn-info w-auto" style="flex:1; padding:6px; font-size:0.78rem;" title="Aggiungi voci e acconti senza chiudere il lavoro"
-                            onclick="event.stopPropagation(); openClosingModal(${j.id})">💰 Pre-conto</button>
-                        <div style="position:relative; flex-shrink:0;" onmousedown="event.stopPropagation();">
-                            <button onclick="event.stopPropagation(); toggleMenuBoard('${menuId}', event)"
-                                style="background:#334155; border:none; color:var(--muted); border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:1rem; font-weight:bold; display:flex; align-items:center; justify-content:center; transition:0.15s; line-height:1;"
-                                title="Altre azioni"
-                                onmouseover="this.style.background='#475569'; this.style.color='white';"
-                                onmouseout="this.style.background='#334155'; this.style.color='var(--muted)';">⋯</button>
-                            <div id="${menuId}" style="display:none; position:absolute; bottom:calc(100% + 4px); right:0; background:var(--card); border:1px solid #334155; border-radius:10px; min-width:190px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:50; overflow:hidden;">
-
-                                <button onclick="editJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">✏️ Modifica scheda</button>
-                    <button onclick="ordinaRicambioPerJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#f59e0b; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">📦 Ordina ricambio</button>
-                                <button onclick="printJobSheet(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🖨️ Stampa scheda</button>
-                                ${(() => { const _c = (Array.isArray(j.conto) ? j.conto : Object.values(j.conto || {})).filter(Boolean); if (!_c.length) return ''; const _chiuso = ['done', 'archived'].includes(j.stato); return `<button onclick="${_chiuso ? 'printInvoice' : 'printPreconto'}(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🖨️ Stampa ${_chiuso ? 'conto' : 'pre-conto'}</button>`; })()}
-                                <div style="border-top:1px solid #334155; margin:4px 0;"></div>
-                                <button onclick="deleteJob(${j.id}); setTimeout(refreshSpecials,500); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--accent); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">🗑️ Elimina</button>
-                            </div>
-                        </div>
-                    </div>`;
-
-                col.appendChild(card);
+            if (!$('sp-lista')) return;
+            const specials = db.filter(j => j && j.stato === 'special' && j.special_cat !== 'incidentate')
+                .sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
+            const per = { restauri: [], specials: [], ricambi: [] };
+            specials.forEach(j => per[_catSp(j)].push(j));
+            if (!_SP_TAB[currentSpTab]) currentSpTab = ['restauri', 'specials', 'ricambi'].find(k => per[k].length) || 'specials';
+            const tabs = $('sp-tabs');
+            if (tabs) tabs.innerHTML = Object.entries(_SP_TAB).map(([k, t]) => {
+                const on = currentSpTab === k;
+                return `<button type="button" role="tab" id="sp-tab-${k}" data-sp-tab="${k}" aria-selected="${on}" onclick="setSpTab('${k}')" ondragover="allowDropSp(event)" ondragleave="leaveDropSp(event)" ondrop="dropSp(event,'${k}')" style="background:transparent; border:none; border-bottom:3px solid ${on ? t.col : 'transparent'}; color:${on ? 'white' : 'var(--muted)'}; padding:9px 16px; font-size:0.98rem; font-weight:800; cursor:pointer; width:auto; min-height:44px; margin:0; border-radius:8px 8px 0 0;">${t.lbl} <span style="background:${on ? t.col : '#334155'}; color:${on ? '#0f172a' : 'white'}; border-radius:12px; padding:1px 8px; font-size:0.8rem; margin-left:4px;">${per[k].length}</span></button>`;
+            }).join('');
+            Object.keys(per).forEach(cat => {
+                const g = $('sp-col-' + cat);
+                if (!g) return;
+                g.style.display = cat === currentSpTab ? '' : 'none';
+                g.innerHTML = per[cat].length
+                    ? `<div style="border:1px solid #334155; border-radius:10px; background:var(--card); overflow:hidden;">
+                        <div class="sp-griglia sp-testa" aria-hidden="true"><span>Targa</span><span>Moto</span><span>Cliente</span><span>Lavori</span><span>Stato</span><span></span></div>
+                        ${per[cat].map(_rigaSp).join('')}</div>`
+                    : '<div style="color:var(--muted); text-align:center; padding:30px; font-size:0.95rem;">Nessuna moto in questa categoria.</div>';
             });
-
-            // Badge contatori
-            const labels = { restauri: '🔨 Restauri', specials: '⚡ Specials', ricambi: '📦 Ricambi' };
-            Object.entries(counts).forEach(([k, n]) => {
-                const el = $('sp-count-' + k);
-                if (el) { el.innerText = labels[k] + ': ' + n; el.style.display = n > 0 ? 'block' : 'none'; }
-            });
-            // Colonne vuote
-            Object.entries(cols).forEach(([k, c]) => {
-                if (counts[k] === 0) c.innerHTML = '<div style="color:#475569; text-align:center; padding:20px; font-size:0.82rem;">Nessuna scheda</div>';
-            });
+        }
+        function _rigaSp(j) {
+            const k = String(j.id), id = htmlEsc(k), aperto = _spAperti.has(k), cat = _catSp(j);
+            const accTot = _listaJob(j.acconti).reduce((a, b) => a + (parseFloat(b.val) || 0), 0);
+            const lordo = parseFloat(j.totale_lordo) || 0, resta = lordo - accTot;
+            const soldi = lordo > 0
+                ? (resta > 0.01 ? `<b style="color:#f59e0b;">resta € ${resta.toFixed(2)}</b>` : '<b style="color:#22c55e;">✓ saldato</b>')
+                : accTot > 0 ? `<span style="color:var(--info); font-weight:700;">acconto € ${accTot.toFixed(2)}</span>` : '';
+            const note = String(j.lavori_richiesti || '').replace(/\r/g, '').split('\n').map(s => s.trim()).filter(Boolean).join(' · ');
+            const tel = String(j.tel || '').replace(/\s/g, '');
+            const preConto = (lordo > 0 || accTot > 0) ? `<div style="padding:8px 12px; background:rgba(15,23,42,0.6); border:1px solid #334155; border-radius:8px; line-height:1.7; max-width:440px;">
+                    ${lordo > 0 ? `<div style="display:flex; justify-content:space-between; gap:12px;"><span style="color:var(--muted);">Pre-conto</span><b style="color:white;">€ ${lordo.toFixed(2)}</b></div>` : ''}
+                    <div style="display:flex; justify-content:space-between; gap:12px;"><span style="color:var(--info);">${accTot > 0 ? `Acconti € ${accTot.toFixed(2)}` : 'Nessun acconto'}</span>${lordo > 0 ? (resta <= 0.01 ? '<b style="color:#22c55e;">✓ Saldato</b>' : `<b style="color:#f59e0b;">Resta € ${resta.toFixed(2)}</b>`) : ''}</div>
+                </div>` : '';
+            const pb = 'background:transparent; border:1px solid #475569; color:#cbd5e1; border-radius:8px; padding:8px 14px; font-size:0.98rem; cursor:pointer; width:auto; min-height:42px; margin:0;';
+            const sposta = Object.entries(_SP_TAB).filter(([c]) => c !== cat).map(([c, t]) => `<button type="button" onclick="spostaCategoriaSp('${id}','${c}')" style="${pb} border-color:${t.col}; color:${t.col};">→ ${t.lbl}</button>`).join('');
+            const dettaglio = `<div id="sp-det-${id}" class="sp-dettaglio" style="display:${aperto ? 'grid' : 'none'}; gap:10px; padding:14px 18px 16px; background:#0f172a; border-bottom:1px solid #334155; font-size:1.02rem; color:#e2e8f0;">
+                ${preConto}
+                <div><span style="color:var(--muted);">In officina dal</span> ${formattaData(j.data)}</div>
+                ${note ? `<div style="white-space:pre-wrap;"><span style="color:var(--muted);">Lavori</span> ${htmlEsc(String(j.lavori_richiesti || '').trim())}</div>` : ''}
+                ${_badgeRicambi(j.id)}
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button type="button" onclick="openClosingModal(${j.id})" title="Aggiungi voci e acconti senza chiudere il lavoro" style="${pb} border-color:var(--info); color:#93c5fd;">💰 Pre-conto</button>
+                    <button type="button" onclick="previewJob(${j.id})" style="${pb}">👁️ Apri scheda</button>
+                    <button type="button" onclick="editJob(${j.id})" style="${pb}">✏️ Modifica</button>
+                    <button type="button" onclick="ordinaRicambioPerJob(${j.id})" style="${pb} border-color:#f59e0b; color:#f59e0b;">📦 Ordina ricambio</button>
+                    <button type="button" onclick="printJobSheet(${j.id})" style="${pb}">🖨️ Stampa scheda</button>
+                    ${_listaJob(j.conto).length ? `<button type="button" onclick="printPreconto(${j.id})" style="${pb}">🖨️ Stampa pre-conto</button>` : ''}
+                </div>
+                <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                    <span style="color:var(--muted); font-size:0.9rem;">Sposta in:</span>${sposta}
+                    <button type="button" onclick="deleteJob(${j.id}); setTimeout(refreshSpecials,500)" style="${pb} margin-left:auto; border-color:rgba(239,68,68,0.5); color:#f87171;">🗑️ Elimina</button>
+                </div>
+            </div>`;
+            return `<div class="sp-blocco">
+                <div id="sp-riga-${id}" class="sp-griglia sp-riga" role="button" tabindex="0" aria-expanded="${aperto}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','${id}')" onclick="toggleDettaglioSp('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); toggleDettaglioSp('${id}');}" title="Clicca per pre-conto, note e azioni · trascina su una scheda in alto per cambiare categoria">
+                    <span class="sp-targa"><span class="targa-badge" style="font-size:0.8rem; padding:2px 7px;">${htmlEsc(j.targa || 'N/D')}</span></span>
+                    <b class="sp-moto" style="color:#fbbf24;">${htmlEsc(`${j.marca || ''} ${j.modello || ''}`.trim() || '—')}</b>
+                    <span class="sp-cliente"><b style="color:white;">${htmlEsc(`${(j.cognome || '').toUpperCase()} ${j.nome || ''}`.trim() || '—')}</b>${tel ? `<br><a href="tel:${htmlEsc(tel)}" onclick="event.stopPropagation()" style="color:#93c5fd; font-size:0.88rem; text-decoration:none;">📞 ${htmlEsc(j.tel)}</a>` : ''}</span>
+                    <span class="sp-note">${htmlEsc(note || '—')}</span>
+                    <span class="sp-stato" style="display:flex; flex-direction:column; align-items:flex-start; gap:3px; font-size:0.92rem;">${_badgeRicambi(j.id)}${soldi}</span>
+                    <span class="sp-azione" style="text-align:right;"><button type="button" class="btn btn-warning w-auto" onclick="event.stopPropagation(); moveStatus(${j.id},'doing'); refreshSpecials(); switchView('board');" title="Porta la moto sul ponte" style="margin:0; padding:7px 14px; font-size:0.9rem; color:black;">⚙️ Ponte</button></span>
+                </div>${dettaglio}</div>`;
         }
 
         function cambiaCategoriaSp(id, nuovaCat) {
@@ -9957,18 +9936,18 @@ A presto!`;
         // =====================================================================
         function allowDropSp(ev) {
             ev.preventDefault();
-            const col = ev.target.closest('[id^="sp-col-"]');
+            const col = ev.target.closest('[id^="sp-col-"], [data-sp-tab]');
             if (col) col.style.background = 'rgba(255,255,255,0.06)';
         }
 
         function leaveDropSp(ev) {
-            const col = ev.target.closest('[id^="sp-col-"]');
+            const col = ev.target.closest('[id^="sp-col-"], [data-sp-tab]');
             if (col) col.style.background = '';
         }
 
         function dropSp(ev, newCat) {
             ev.preventDefault();
-            const col = ev.target.closest('[id^="sp-col-"]');
+            const col = ev.target.closest('[id^="sp-col-"], [data-sp-tab]');
             if (col) col.style.background = '';
             const id = ev.dataTransfer.getData('text/plain');
             if (!id) return;
