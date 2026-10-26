@@ -1726,6 +1726,10 @@
       switchView('specials'); await attendi(50);
       ok(document.getElementById('view-specials').innerHTML.includes('printPreconto(7701)'), 'Lavori Lunghi: "🖨️ Stampa pre-conto" nel menu ⋯');
     } finally { window.print = pr; }
+    const regolePrint = [...document.styleSheets].flatMap(f => { try { return [...f.cssRules]; } catch (e) { return []; } })
+      .filter(r => r.media && /print/.test(r.media.mediaText)).flatMap(r => [...r.cssRules]);
+    const shell = regolePrint.find(r => (r.selectorText || '').includes('#app-shell') && r.style.overflow === 'visible' && r.style.height === 'auto');
+    ok(!!shell && regolePrint.some(r => r.selectorText === '#print-area' && r.style.maxWidth === 'none'), 'Stampa: niente altezza fissa né tagli (le pagine lunghe continuano sul foglio dopo)');
     fb.scritturaRemota({ 'db/kPC': null, 'db/kLL': null }, false);
     switchView('board');
   });

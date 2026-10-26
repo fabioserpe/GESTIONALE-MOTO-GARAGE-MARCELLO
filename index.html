@@ -324,6 +324,14 @@
             html, body { background: white !important; display: block !important; height: auto !important; margin: 0 !important; }
             .sidebar, .main-content > *:not(#print-area), .modal, .no-print, .notes-panel { display: none !important; }
             .main-content { padding: 0 !important; display: block !important; width: 100% !important; }
+            /* lo schermo ha altezza fissa e il resto nascosto: in stampa no, altrimenti esce solo la prima pagina tagliata */
+            html, body, #app-shell, .main-content { height: auto !important; min-height: 0 !important; max-height: none !important; overflow: visible !important; }
+            #app-shell { display: block !important; width: 100% !important; }
+            .main-content { position: static !important; margin: 0 !important; }
+            #print-area { width: 100% !important; max-width: none !important; margin: 0 !important; box-sizing: border-box !important; overflow: visible !important; }
+            #print-area * { box-sizing: border-box; }
+            #print-area .p-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; }
+            table.p-table thead { display: table-header-group; }
             #print-area { display: block !important; position: static !important; max-width: 19cm !important; margin: 0 auto !important; color: black !important; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11pt; }
             .p-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid black; padding-bottom: 15px; margin-bottom: 25px; }
             .p-title-bar { background-color: #f4f4f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 10px 15px; font-weight: bold; border: 1px solid #000; margin-bottom: 20px; border-radius: 5px; display: flex; justify-content: space-between; }
