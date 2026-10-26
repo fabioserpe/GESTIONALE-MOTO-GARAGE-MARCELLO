@@ -2979,7 +2979,7 @@
             const clientId = safeDecode(encodedClientId);
             const nameFallback = encodedNameFallback ? safeDecode(encodedNameFallback) : '';
             $('billing_chiave').value = clientId;
-            $('billing-cliente-info').innerHTML = `Cliente: <b style="color:white;">${clienteLabel || nameFallback}</b>`;
+            $('billing-cliente-info').innerHTML = `Cliente: <b style="color:white;">${htmlEsc(safeDecode(clienteLabel || '') || nameFallback)}</b>`;
             const b = billingDB[clientId] || (nameFallback ? billingDB[nameFallback] : null) || {};
             $('bm_ragione_sociale').value = b.ragione_sociale || '';
             $('bm_cf').value = b.cf || '';
@@ -3508,7 +3508,7 @@
         function editContatto(id) { const c = rubricaDB.find(x => String(x.id) === String(id)); if(!c) return; $('rub_edit_id').value = c.id; $('rub_nome').value = c.nome; $('rub_tel').value = c.tel; $('rub_tel2').value = c.tel2 || ''; $('btn-save-rubrica').className = "btn btn-warning w-auto"; $('btn-save-rubrica').innerHTML = "💾 Salva"; $('btn-cancel-rubrica').classList.remove('hidden'); }
         function cancelEditContatto() { $('rub_edit_id').value = ''; $('rub_nome').value = ''; $('rub_tel').value = ''; $('rub_tel2').value = ''; $('btn-save-rubrica').className = "btn btn-success w-auto"; $('btn-save-rubrica').innerHTML = "➕ Aggiungi"; $('btn-cancel-rubrica').classList.add('hidden'); }
         function deleteContatto(id) { if(confirm("Eliminare contatto?")) { rubricaDB = rubricaDB.filter(x => String(x.id) !== String(id)); saveRubrica(); } }
-        function refreshRubrica() { const c = $('rubrica-results'); if (!c) return; c.innerHTML = ''; [...rubricaDB].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')).forEach(r => { const tw1 = formatPhoneForWa(r.tel), tw2 = r.tel2 ? formatPhoneForWa(r.tel2) : ''; let t2H = r.tel2 ? `<div style="font-size:0.95rem; color:var(--muted); font-weight:bold; text-align:center; margin-top:5px;">📞 ${r.tel2} <a href="tel:${r.tel2}" style="color:var(--info); text-decoration:none; margin-left:10px;">Chiama</a> | <a href="https://wa.me/${tw2}" target="_blank" style="color:var(--whatsapp); text-decoration:none;">WA</a></div>` : ''; c.innerHTML += `<div class="card" style="border-left:6px solid #60a5fa; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><div style="flex: 2;"><div style="font-weight:900; font-size:1.1rem; color:white;">${r.nome}</div></div><div style="flex: 2; text-align:center;"><div style="font-size:1.1rem; color:var(--info); font-weight:bold;">📞 ${r.tel}</div>${t2H}</div><div style="flex: 1.5; display:flex; justify-content:flex-end; gap:8px;"><button class="btn-icon" style="background:var(--whatsapp); padding:8px 12px; border-radius:8px;" onclick="window.open('https://wa.me/${tw1}','_blank')">💬 WA</button><button class="btn-icon" style="background:var(--info); padding:8px 12px; border-radius:8px;" onclick="window.location.href='tel:${r.tel}'">📞 Chiama</button><button class="btn-icon" style="background:transparent; border:1px solid var(--warning); color:var(--warning); padding:8px 12px; border-radius:8px;" onclick="editContatto(${r.id})">✏️</button><button class="btn-icon" style="background:transparent; border:1px solid var(--accent); color:var(--accent); padding:8px 12px; border-radius:8px;" onclick="deleteContatto(${r.id})">🗑️</button></div></div>`; }); if(rubricaDB.length === 0) c.innerHTML = '<p style="color:var(--muted); text-align:center; margin-top:20px;">Nessun contatto.</p>'; }
+        function refreshRubrica() { const c = $('rubrica-results'); if (!c) return; c.innerHTML = ''; [...rubricaDB].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')).forEach(r => { const tw1 = formatPhoneForWa(r.tel), tw2 = r.tel2 ? formatPhoneForWa(r.tel2) : ''; let t2H = r.tel2 ? `<div style="font-size:0.95rem; color:var(--muted); font-weight:bold; text-align:center; margin-top:5px;">📞 ${htmlEsc(r.tel2)} <a href="tel:${htmlEsc(r.tel2)}" style="color:var(--info); text-decoration:none; margin-left:10px;">Chiama</a> | <a href="https://wa.me/${tw2}" target="_blank" style="color:var(--whatsapp); text-decoration:none;">WA</a></div>` : ''; c.innerHTML += `<div class="card" style="border-left:6px solid #60a5fa; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><div style="flex: 2;"><div style="font-weight:900; font-size:1.1rem; color:white;">${htmlEsc(r.nome)}</div></div><div style="flex: 2; text-align:center;"><div style="font-size:1.1rem; color:var(--info); font-weight:bold;">📞 ${htmlEsc(r.tel)}</div>${t2H}</div><div style="flex: 1.5; display:flex; justify-content:flex-end; gap:8px;"><button class="btn-icon" style="background:var(--whatsapp); padding:8px 12px; border-radius:8px;" onclick="window.open('https://wa.me/${tw1}','_blank')">💬 WA</button><button class="btn-icon" style="background:var(--info); padding:8px 12px; border-radius:8px;" onclick="window.location.href='tel:${htmlEsc(r.tel)}'">📞 Chiama</button><button class="btn-icon" style="background:transparent; border:1px solid var(--warning); color:var(--warning); padding:8px 12px; border-radius:8px;" onclick="editContatto(${r.id})">✏️</button><button class="btn-icon" style="background:transparent; border:1px solid var(--accent); color:var(--accent); padding:8px 12px; border-radius:8px;" onclick="deleteContatto(${r.id})">🗑️</button></div></div>`; }); if(rubricaDB.length === 0) c.innerHTML = '<p style="color:var(--muted); text-align:center; margin-top:20px;">Nessun contatto.</p>'; }
 
         let currentOrdFilter = 'all';
 
@@ -5072,7 +5072,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                                 <button onclick="deleteLedgerEntry(${m.id})" style="background:transparent; border:1px solid var(--accent); color:var(--accent); padding:4px 8px; border-radius:6px; font-size:0.8rem; cursor:pointer;">🗑️</button>
                             </div>
                         </div>
-                        <div style="font-size:0.88rem; color:white; margin-bottom:4px;">${m.qta>1?m.qta+'x ':''}${m.desc}</div>
+                        <div style="font-size:0.88rem; color:white; margin-bottom:4px;">${m.qta>1?m.qta+'x ':''}${htmlEsc(m.desc)}</div>
                         <div style="font-weight:900; font-size:1.05rem; color:${colore};">${segno} ${pTxt}</div>
                     </div>`;
                 }
@@ -5189,7 +5189,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                                 ${(s.voci||[]).map(v => `<tr style="border-bottom:1px solid #334155;">
                                     <td style="padding:6px 8px; color:var(--muted); width:100px;">${v.data||''}</td>
                                     <td style="padding:6px 8px;"><span style="background:rgba(255,255,255,0.07); border-radius:4px; padding:2px 7px; font-size:0.75rem;">${v.cat||''}</span></td>
-                                    <td style="padding:6px 8px;">${v.desc||''}</td>
+                                    <td style="padding:6px 8px;">${htmlEsc(v.desc||'')}</td>
                                     <td style="padding:6px 8px; text-align:right; color:${v.tipo==='in'?'var(--success)':'var(--accent)'}; font-weight:700;">${v.tipo==='in'?'+':'-'} €${((parseFloat(v.importo)||0)*(parseFloat(v.qta)||1)).toFixed(2)}</td>
                                 </tr>`).join('')}
                             </table>
@@ -5444,7 +5444,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                             const imp = ivaRate > 0 ? price/(1+ivaRate/100) : price;
                             const qtyLabel = qty > 1 ? ` <span style="color:var(--muted); font-size:0.8rem; font-weight:400;">×${qty}</span>` : '';
                             return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-                                <td style="padding:7px 0;">${c.desc}${qtyLabel}</td>
+                                <td style="padding:7px 0;">${htmlEsc(c.desc)}${qtyLabel}</td>
                                 <td style="padding:7px 8px; text-align:right; font-weight:bold;">€ ${price.toFixed(2)}</td>
                                 ${hasIva ? `<td style="padding:7px 0; text-align:center; color:var(--muted); font-size:0.8rem;">${ivaRate}%</td><td style="padding:7px 0; text-align:right; color:#f59e0b;">€ ${imp.toFixed(2)}</td>` : ''}
                             </tr>`;
@@ -5473,21 +5473,21 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     <div style="margin-top:20px; background:rgba(245,158,11,0.07); border:1px solid rgba(245,158,11,0.3); border-radius:10px; padding:15px;">
                         <div class="flex-between" style="margin-bottom:10px;">
                             <h3 style="color:#f59e0b; margin:0; font-size:0.95rem;">🧾 Dati Fatturazione</h3>
-                            <button onclick="openBillingModal('${_billEncId}','${_billEncFb}','${clienteLabel}')" style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#f59e0b; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.75rem; font-weight:bold;">✏️ Modifica</button>
+                            <button onclick="openBillingModal('${_billEncId}','${_billEncFb}','${safeEncode(clienteLabel)}')" style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#f59e0b; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.75rem; font-weight:bold;">✏️ Modifica</button>
                         </div>
                         <div style="font-size:0.85rem; color:var(--text); line-height:1.8;">
                             ${b.ragione_sociale ? `<div><span style="color:var(--muted);">Rag. Sociale:</span> <b>${b.ragione_sociale}</b></div>` : ''}
-                            ${b.cf ? `<div><span style="color:var(--muted);">C.F.:</span> ${b.cf}</div>` : ''}
-                            ${b.piva ? `<div><span style="color:var(--muted);">P.IVA:</span> ${b.piva}</div>` : ''}
-                            ${b.indirizzo ? `<div><span style="color:var(--muted);">Indirizzo:</span> ${b.indirizzo}${b.cap?' – '+b.cap:''}${b.citta?' '+b.citta:''}${b.provincia?' ('+b.provincia+')':''}</div>` : ''}
-                            ${b.email ? `<div><span style="color:var(--muted);">Email:</span> ${b.email}</div>` : ''}
+                            ${b.cf ? `<div><span style="color:var(--muted);">C.F.:</span> ${htmlEsc(b.cf)}</div>` : ''}
+                            ${b.piva ? `<div><span style="color:var(--muted);">P.IVA:</span> ${htmlEsc(b.piva)}</div>` : ''}
+                            ${b.indirizzo ? `<div><span style="color:var(--muted);">Indirizzo:</span> ${htmlEsc(b.indirizzo)}${b.cap?' – '+b.cap:''}${b.citta?' '+htmlEsc(b.citta):''}${b.provincia?' ('+b.provincia+')':''}</div>` : ''}
+                            ${b.email ? `<div><span style="color:var(--muted);">Email:</span> ${htmlEsc(b.email)}</div>` : ''}
                             ${b.pec ? `<div><span style="color:var(--muted);">PEC/SDI:</span> ${b.pec}</div>` : ''}
                         </div>
                     </div>`;
             } else {
                 billingHtml = `
                     <div style="margin-top:20px;">
-                        <button onclick="openBillingModal('${_billEncId}','${_billEncFb}','${clienteLabel}')" style="background:rgba(245,158,11,0.1); border:1px dashed rgba(245,158,11,0.4); color:#f59e0b; border-radius:8px; padding:10px 15px; cursor:pointer; font-size:0.85rem; font-weight:bold; width:100%; text-align:center;">
+                        <button onclick="openBillingModal('${_billEncId}','${_billEncFb}','${safeEncode(clienteLabel)}')" style="background:rgba(245,158,11,0.1); border:1px dashed rgba(245,158,11,0.4); color:#f59e0b; border-radius:8px; padding:10px 15px; cursor:pointer; font-size:0.85rem; font-weight:bold; width:100%; text-align:center;">
                             🧾 + Aggiungi Dati Fatturazione
                         </button>
                     </div>`;
@@ -5497,10 +5497,10 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             $('st-corpo').innerHTML = `
                 <div style="font-size:1.1rem; line-height:1.4;">
                     <div style="color:var(--muted); margin-bottom:15px; border-bottom:1px solid #334155; padding-bottom:15px;">
-                        <b>Cliente:</b> ${clienteLabel}<br>
-                        <b>Moto:</b> ${j.marca||''} ${j.modello||''}<br>
+                        <b>Cliente:</b> ${htmlEsc(clienteLabel)}<br>
+                        <b>Moto:</b> ${htmlEsc(j.marca||'')} ${htmlEsc(j.modello||'')}<br>
                         <b>KM:</b> ${j.km||'N/D'}<br>
-                        <b>Telefono:</b> ${j.tel||'Nessun numero'}
+                        <b>Telefono:</b> ${htmlEsc(j.tel||'Nessun numero')}
                         ${librettiInfo[chiaveTarga(j.targa)] ? `<br><button type="button" onclick="apriLibretto('${htmlEsc(j.targa)}')" style="margin-top:8px; background:transparent; border:1px solid var(--info); color:var(--info); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:0.85rem; font-weight:700;">📄 Apri libretto</button>` : ''}
                     </div>
                     <h3 style="color:var(--info); margin-bottom:10px;">Note Lavori:</h3>
@@ -5983,10 +5983,10 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     ${a.jobId ? `<span onclick="event.stopPropagation(); previewJob(${a.jobId})" title="Vedi Anteprima Lavori" style="background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px; cursor:zoom-in; pointer-events:auto;">🔍</span>` : ''}
                     </span>
                 </div>
-                <div style="color:white; margin-top:4px; font-weight:bold; pointer-events:none;">${a.cliente}</div>
+                <div style="color:white; margin-top:4px; font-weight:bold; pointer-events:none;">${htmlEsc(a.cliente)}</div>
                 ${a.tipo !== 'personale' ? `<div style="color:var(--muted); font-size:0.75rem; pointer-events:none; margin-top:2px;">
-                    ${a.raw_targa ? `<span style="background:rgba(255,255,255,0.08); padding:1px 6px; border-radius:4px; color:white; font-weight:bold; font-family:monospace;">${a.raw_targa}</span> ` : ''}
-                    ${a.moto ? `🏍️ ${a.moto}` : ''}${a.tel ? ` | 📞 ${a.tel}` : ''}
+                    ${a.raw_targa ? `<span style="background:rgba(255,255,255,0.08); padding:1px 6px; border-radius:4px; color:white; font-weight:bold; font-family:monospace;">${htmlEsc(a.raw_targa)}</span> ` : ''}
+                    ${a.moto ? `🏍️ ${htmlEsc(a.moto)}` : ''}${a.tel ? ` | 📞 ${htmlEsc(a.tel)}` : ''}
                 </div>` : ''}
                 ${a.note ? `<div style="font-size:0.75rem; margin-top:6px; padding-top:6px; border-top:1px dashed #334155; color:var(--info); pointer-events:none;">${htmlEsc(a.note)}</div>` : ''}
                 ${(jobCollegato && !['done', 'archived'].includes(jobCollegato.stato)) ? `<div style="pointer-events:none;">${_badgeRicambi(a.jobId, a.data)}</div>` : ''}
@@ -6305,8 +6305,8 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 const j = a.jobId ? db.find(x => String(x.id) === String(a.jobId)) : null;
                 const stC = j && ['done','archived'].includes(j.stato) ? 'fatto' : j && j.stato==='doing' ? 'in-lavorazione' : '';
                 return `<div class="agenda-card ${a.tipo==='personale'?'personal':''} ${stC}" style="cursor:default;">
-                    <div style="font-weight:bold;">🕒 ${a.ora||'--:--'} — ${a.cliente}</div>
-                    ${a.tipo!=='personale'&&a.moto?`<div style="font-size:0.75rem; color:var(--muted);">🏍️ ${a.moto}</div>`:''}
+                    <div style="font-weight:bold;">🕒 ${a.ora||'--:--'} — ${htmlEsc(a.cliente)}</div>
+                    ${a.tipo!=='personale'&&a.moto?`<div style="font-size:0.75rem; color:var(--muted);">🏍️ ${htmlEsc(a.moto)}</div>`:''}
                     ${a.note?`<div style="font-size:0.75rem; color:var(--info); margin-top:4px;">${htmlEsc(a.note)}</div>`:''}
                 </div>`;
             }).join('');
@@ -6722,7 +6722,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             function _buildVociRows(p) {
                 return (p.conto||[]).map(v =>
                     `<div style="display:flex; justify-content:space-between; padding:3px 8px; background:#0f172a; border-radius:5px; font-size:0.78rem; margin-bottom:2px;">
-                        <span style="color:var(--text);">${v.desc||''}</span>
+                        <span style="color:var(--text);">${htmlEsc(v.desc||'')}</span>
                         <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:8px;">€${_totaleRiga(p, v).toFixed(2)}</span>
                     </div>`
                 ).join('');
@@ -6747,9 +6747,9 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     row.innerHTML = `
                         <!-- COL 1: Nominativo + targa -->
                         <div>
-                            <div style="font-weight:bold; font-size:1rem; color:white; text-transform:uppercase; line-height:1.3;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</div>
+                            <div style="font-weight:bold; font-size:1rem; color:white; text-transform:uppercase; line-height:1.3;">${htmlEsc((p.cognome||'').toUpperCase())} ${htmlEsc(p.nome||'')}</div>
                             <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
-                                <span class="targa-badge" style="background:var(--purple); border:none; font-size:0.68rem; padding:2px 8px;">${p.targa||'NO TARGA'}</span>
+                                <span class="targa-badge" style="background:var(--purple); border:none; font-size:0.68rem; padding:2px 8px;">${htmlEsc(p.targa||'NO TARGA')}</span>
                                 <span style="background:rgba(167,139,250,0.15); color:var(--purple); padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:bold; border:1px solid rgba(167,139,250,0.3);">In attesa risposta</span>
                                 ${p.assicurativo ? `<span style="background:rgba(56,189,248,0.12); color:var(--info); padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:bold; border:1px solid rgba(56,189,248,0.35);">🛡️ ${htmlEsc((_peritoById(p.perito_id) && _nomePerito(_peritoById(p.perito_id))) || 'Assicurativo')}${p.n_sinistro ? ' · n. ' + htmlEsc(p.n_sinistro) : ''}</span>` : ''}
                                 ${p.inviato_perito ? `<span style="color:var(--success); font-size:0.68rem; font-weight:bold;">📤 Inviato il ${formattaData(p.inviato_perito.data)}</span>` : ''}
@@ -6758,14 +6758,14 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                         <!-- COL 2: Moto + data -->
                         <div>
                             <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">MOTO:</div>
-                            <div style="color:var(--text); font-size:0.88rem;">🏍️ ${moto}</div>
+                            <div style="color:var(--text); font-size:0.88rem;">🏍️ ${htmlEsc(moto)}</div>
                             <div style="color:var(--muted); font-size:0.75rem; margin-top:3px;">📅 ${formattaData(p.data)}</div>
                         </div>
                         <!-- COL 3: Totale + tel + voci toggle -->
                         <div>
                             <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">TOTALE:</div>
                             <div style="font-weight:bold; font-size:1.1rem; color:var(--success);">€ ${totale}</div>
-                            ${p.tel ? `<div style="color:var(--info); font-size:0.78rem; margin-top:4px;">📞 ${p.tel}</div>` : ''}
+                            ${p.tel ? `<div style="color:var(--info); font-size:0.78rem; margin-top:4px;">📞 ${htmlEsc(p.tel)}</div>` : ''}
                             <button onclick="_prevToggleVoci('a${p.id}')" id="pv-tog-a${p.id}" style="background:none; border:none; color:var(--muted); font-size:0.72rem; cursor:pointer; padding:0; margin-top:6px; display:block;">${nVoci} voce${nVoci!==1?'i':''} ▼</button>
                         </div>
                         <!-- COL 4: Dropdown azioni -->
@@ -6816,23 +6816,23 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     row.innerHTML = `
                         <!-- COL 1: Nominativo + targa + stato badge -->
                         <div>
-                            <div style="font-weight:bold; font-size:1rem; color:white; text-transform:uppercase; line-height:1.3;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</div>
+                            <div style="font-weight:bold; font-size:1rem; color:white; text-transform:uppercase; line-height:1.3;">${htmlEsc((p.cognome||'').toUpperCase())} ${htmlEsc(p.nome||'')}</div>
                             <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
-                                <span class="targa-badge" style="background:#475569; border:none; font-size:0.68rem; padding:2px 8px;">${p.targa||'—'}</span>
+                                <span class="targa-badge" style="background:#475569; border:none; font-size:0.68rem; padding:2px 8px;">${htmlEsc(p.targa||'—')}</span>
                                 <span style="background:rgba(100,116,139,0.15); color:${sl.col}; padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:bold; border:1px solid ${sl.col}44;">${sl.txt}</span>
                             </div>
                         </div>
                         <!-- COL 2: Moto + date -->
                         <div>
                             <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">MOTO:</div>
-                            <div style="color:var(--text); font-size:0.88rem;">🏍️ ${moto}</div>
+                            <div style="color:var(--text); font-size:0.88rem;">🏍️ ${htmlEsc(moto)}</div>
                             <div style="color:var(--muted); font-size:0.72rem; margin-top:3px;">${dataStr}</div>
                         </div>
                         <!-- COL 3: Totale + tel + voci toggle -->
                         <div>
                             <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">TOTALE:</div>
                             <div style="font-weight:bold; font-size:1.1rem; color:var(--success);">€ ${totale}</div>
-                            ${p.tel ? `<div style="color:var(--info); font-size:0.78rem; margin-top:4px;">📞 ${p.tel}</div>` : ''}
+                            ${p.tel ? `<div style="color:var(--info); font-size:0.78rem; margin-top:4px;">📞 ${htmlEsc(p.tel)}</div>` : ''}
                             <button onclick="_prevToggleVoci('s${p.id}')" id="pv-tog-s${p.id}" style="background:none; border:none; color:var(--muted); font-size:0.72rem; cursor:pointer; padding:0; margin-top:6px; display:block;">${nVoci} voce${nVoci!==1?'i':''} ▼</button>
                         </div>
                         <!-- COL 4: Dropdown azioni -->
@@ -6869,12 +6869,12 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             $('ap-summary').innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
                     <div>
-                        <div style="font-weight:bold; font-size:1.05rem; color:white;">${(p.cognome||'').toUpperCase()} ${p.nome||''}</div>
-                        <div style="color:var(--muted); font-size:0.82rem; margin-top:2px;">🏍️ ${[p.marca,p.modello].filter(Boolean).join(' ')||'—'}</div>
-                        ${p.tel ? `<div style="color:var(--info); font-size:0.82rem;">📞 ${p.tel}</div>` : ''}
+                        <div style="font-weight:bold; font-size:1.05rem; color:white;">${htmlEsc((p.cognome||'').toUpperCase())} ${htmlEsc(p.nome||'')}</div>
+                        <div style="color:var(--muted); font-size:0.82rem; margin-top:2px;">🏍️ ${htmlEsc([p.marca,p.modello].filter(Boolean).join(' ')||'—')}</div>
+                        ${p.tel ? `<div style="color:var(--info); font-size:0.82rem;">📞 ${htmlEsc(p.tel)}</div>` : ''}
                     </div>
                     <div style="text-align:right; flex-shrink:0;">
-                        <span class="targa-badge" style="background:var(--success); border:none;">${p.targa||'—'}</span>
+                        <span class="targa-badge" style="background:var(--success); border:none;">${htmlEsc(p.targa||'—')}</span>
                         <div style="font-weight:bold; font-size:1.2rem; color:var(--success); margin-top:6px;">€ ${(p.totale_lordo||0).toFixed(2)}</div>
                         <div style="color:var(--muted); font-size:0.75rem;">${formattaData(p.data)}</div>
                     </div>
@@ -6884,7 +6884,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             $('ap-voci').innerHTML = (p.conto||[]).length > 0
                 ? (p.conto||[]).map(c => `
                     <div style="display:flex; justify-content:space-between; padding:5px 10px; background:#1e293b; border-radius:6px; font-size:0.83rem;">
-                        <span style="color:var(--text);">${c.desc||''}</span>
+                        <span style="color:var(--text);">${htmlEsc(c.desc||'')}</span>
                         <span style="color:var(--success); font-weight:bold; flex-shrink:0; margin-left:10px;">€${parseFloat(c.price||0).toFixed(2)}</span>
                     </div>`).join('')
                 : `<div style="color:var(--muted); font-size:0.82rem; padding:6px 0;">Nessuna voce registrata</div>`;
@@ -7031,7 +7031,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     } 
                     badgesHtml += `</div>`; 
                     
-                    let veicoliHtml = c.veicoliDettagli.map(v => `<div style="margin-bottom:4px;"><span class="targa-badge" style="font-size:0.75rem; padding:2px 6px;">${v.targa}</span> <span style="color:var(--text); font-size:0.85rem;">${v.marca} ${v.modello}</span></div>`).join(''); if(!veicoliHtml) veicoliHtml = '<small style="color:var(--muted)">Nessun veicolo registrato</small>'; 
+                    let veicoliHtml = c.veicoliDettagli.map(v => `<div style="margin-bottom:4px;"><span class="targa-badge" style="font-size:0.75rem; padding:2px 6px;">${htmlEsc(v.targa)}</span> <span style="color:var(--text); font-size:0.85rem;">${htmlEsc(v.marca)} ${htmlEsc(v.modello)}</span></div>`).join(''); if(!veicoliHtml) veicoliHtml = '<small style="color:var(--muted)">Nessun veicolo registrato</small>'; 
                     
                     let revertHtml = ''; 
                     if (inLavorazione || hasSpecial) { revertHtml = `<button onclick="revertClientJobsToToday('${safeKey}')" style="color:var(--warning); width:100%; text-align:left;">📅 Sposta a OGGI</button>`; } 
@@ -7044,7 +7044,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     const billingBadge = hasBilling ? `<span title="Dati fatturazione presenti" style="font-size:0.7rem; background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 6px; border-radius:4px; font-weight:bold; margin-left:8px;">🧾 FAT.</span>` : '';
                     const omonimoBadge = isOmonimo ? `<span title="Esiste un altro cliente con lo stesso nome" style="font-size:0.65rem; background:rgba(239,68,68,0.15); color:#f87171; padding:2px 6px; border-radius:4px; font-weight:bold; margin-left:8px;">⚠️ OMONIMO</span>` : '';
                     const _billingEncoded = safeEncode(billingKey); const _billingFallbackEncoded = safeEncode(billingNameFallback);
-                    row.innerHTML = `<div style="cursor:pointer;" onclick="viewHistoryCognome('${safeKey}')" title="Clicca per aprire conto e storico lavori"><div style="font-weight:bold; font-size:1.1rem; color:white; line-height:1.2; text-transform:uppercase;">${c.cognome} ${c.nome}${billingBadge}${omonimoBadge}</div>${badgesHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">VEICOLI INTESTATI:</div>${veicoliHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">CONTATTO:</div><div style="color:var(--text); font-size:0.9rem;">📞 ${c.tel || 'N/D'}</div></div><div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;"><div class="dropdown"><button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.85rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button><div class="dropdown-content" style="right:0; top:100%; min-width:180px; z-index:100;"><button onclick="openStatoLavoriModal('${safeKey}')" style="color:var(--info); width:100%; text-align:left; font-weight:bold;">🔄 Cambia Stato Lavori</button>${revertHtml}<button onclick="sendWhatsAppArchiveCognome('${safeKey}')" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button><button onclick="newJobFromArchiveCognome('${safeKey}')" style="color:#10b981; width:100%; text-align:left;">🔧 Lavoro (Commessa)</button><button onclick="newVehicleFromArchiveCognome('${safeKey}')" style="color:#f59e0b; width:100%; text-align:left;">🏍️ Aggiungi Mezzo</button><button onclick="newPreventivoFromArchiveCognome('${safeKey}')" style="color:var(--purple); width:100%; text-align:left;">📝 Preventivo</button><button onclick="viewHistoryCognome('${safeKey}')" style="color:var(--info); width:100%; text-align:left;">📂 Storia Interventi</button><button onclick="openEditClienteCognome('${safeKey}')" style="color:var(--text); width:100%; text-align:left;">✏️ Modifica Cliente / Veicoli</button><button onclick="openBillingModal('${_billingEncoded}','${_billingFallbackEncoded}','${billingNameFallback}')" style="color:#f59e0b; width:100%; text-align:left;">🧾 Fatturazione</button><button onclick="deleteCustomerCognome('${safeKey}')" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina Cliente</button></div></div></div>`; container.appendChild(row); 
+                    row.innerHTML = `<div style="cursor:pointer;" onclick="viewHistoryCognome('${safeKey}')" title="Clicca per aprire conto e storico lavori"><div style="font-weight:bold; font-size:1.1rem; color:white; line-height:1.2; text-transform:uppercase;">${htmlEsc(c.cognome)} ${htmlEsc(c.nome)}${billingBadge}${omonimoBadge}</div>${badgesHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">VEICOLI INTESTATI:</div>${veicoliHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">CONTATTO:</div><div style="color:var(--text); font-size:0.9rem;">📞 ${htmlEsc(c.tel || 'N/D')}</div></div><div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;"><div class="dropdown"><button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.85rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button><div class="dropdown-content" style="right:0; top:100%; min-width:180px; z-index:100;"><button onclick="openStatoLavoriModal('${safeKey}')" style="color:var(--info); width:100%; text-align:left; font-weight:bold;">🔄 Cambia Stato Lavori</button>${revertHtml}<button onclick="sendWhatsAppArchiveCognome('${safeKey}')" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button><button onclick="newJobFromArchiveCognome('${safeKey}')" style="color:#10b981; width:100%; text-align:left;">🔧 Lavoro (Commessa)</button><button onclick="newVehicleFromArchiveCognome('${safeKey}')" style="color:#f59e0b; width:100%; text-align:left;">🏍️ Aggiungi Mezzo</button><button onclick="newPreventivoFromArchiveCognome('${safeKey}')" style="color:var(--purple); width:100%; text-align:left;">📝 Preventivo</button><button onclick="viewHistoryCognome('${safeKey}')" style="color:var(--info); width:100%; text-align:left;">📂 Storia Interventi</button><button onclick="openEditClienteCognome('${safeKey}')" style="color:var(--text); width:100%; text-align:left;">✏️ Modifica Cliente / Veicoli</button><button onclick="openBillingModal('${_billingEncoded}','${_billingFallbackEncoded}','${safeEncode(billingNameFallback)}')" style="color:#f59e0b; width:100%; text-align:left;">🧾 Fatturazione</button><button onclick="deleteCustomerCognome('${safeKey}')" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina Cliente</button></div></div></div>`; container.appendChild(row); 
                 } 
             }); 
         }
@@ -7225,9 +7225,9 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     return `<div style="border:1px solid #334155; border-left:4px solid ${statoAttr.color}; border-radius:10px; padding:14px 16px; margin-bottom:12px;">
                         <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
                             <span style="font-size:0.72rem; font-weight:bold; background:${statoAttr.color}22; color:${statoAttr.color}; border:1px solid ${statoAttr.color}44; border-radius:6px; padding:2px 8px;">${statoAttr.emoji} ${statoAttr.label}</span>
-                            <span style="color:var(--muted); font-size:0.78rem;">${veicolo}</span>
+                            <span style="color:var(--muted); font-size:0.78rem;">${htmlEsc(veicolo)}</span>
                         </div>
-                        <div style="color:var(--text); font-size:0.88rem; margin-bottom:10px; opacity:0.85;">${descr}</div>
+                        <div style="color:var(--text); font-size:0.88rem; margin-bottom:10px; opacity:0.85;">${htmlEsc(descr)}</div>
                         <div style="display:flex; flex-wrap:wrap; gap:6px;">${bottoni}</div>
                     </div>`;
                 }).join('');
@@ -7265,7 +7265,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                         <table style="width:100%; border-collapse:collapse; margin-top:10px; margin-bottom:10px; font-size:0.95rem; color:white;">
                             ${h.conto.map(c => `
                                 <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-                                    <td style="padding:6px 0;">${c.desc}${(parseFloat(c.qty)||1) > 1 ? ` <span style="opacity:.65; font-weight:400;">×${parseFloat(c.qty)}</span>` : ''}</td>
+                                    <td style="padding:6px 0;">${htmlEsc(c.desc)}${(parseFloat(c.qty)||1) > 1 ? ` <span style="opacity:.65; font-weight:400;">×${parseFloat(c.qty)}</span>` : ''}</td>
                                     <td style="padding:6px 0; text-align:right; font-weight:bold;">€ ${_totaleRiga(h, c).toFixed(2)}</td>
                                 </tr>
                             `).join('')}
@@ -7302,7 +7302,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 const actionEdit = isWorking ? `closeModal('modal-storico'); editJob(${h.id});` : `openEditStorico(${h.id}, '${safeTarga}')`;
                 const actionPrint = isWorking ? `printJobSheet(${h.id})` : `printInvoice(${h.id})`;
 
-                return `<div style="padding:15px; background:${bgCol}; border-radius:10px; margin-bottom:15px; border-left:4px solid ${bCol}"><div class="flex-between" style="align-items:flex-start;"><div><b style="color:${bCol}; font-size:1.1rem;">Data: ${formattaData(h.data)}</b><br><span style="color:var(--info); font-size:0.9rem; font-weight:bold;">🏍️ ${h.marca||''} ${h.modello||''} <span class="targa-badge" style="font-size:0.75rem; padding:1px 4px; margin-left:4px;">${h.targa}</span> ${h.km ? `| 🏁 KM: ${h.km}` : ''}</span></div><div class="flex-row" style="flex-wrap:wrap; justify-content:flex-end;">${riapriBtn}<button class="btn btn-warning w-auto" style="padding:8px; cursor:pointer;" onclick="${actionEdit}">✏️ Modifica</button><button class="btn w-auto" style="padding:8px; background:white; color:black; cursor:pointer;" onclick="${actionPrint}">🖨️ Stampa</button><button class="btn w-auto" style="padding:8px; background:transparent; color:var(--accent); border:1px solid var(--accent); cursor:pointer;" onclick="deleteSingleHistoryCognome(${h.id}, '${safeKey}')">🗑️ Elimina</button></div></div>${previewHtml}</div>`;
+                return `<div style="padding:15px; background:${bgCol}; border-radius:10px; margin-bottom:15px; border-left:4px solid ${bCol}"><div class="flex-between" style="align-items:flex-start;"><div><b style="color:${bCol}; font-size:1.1rem;">Data: ${formattaData(h.data)}</b><br><span style="color:var(--info); font-size:0.9rem; font-weight:bold;">🏍️ ${htmlEsc(h.marca||'')} ${htmlEsc(h.modello||'')} <span class="targa-badge" style="font-size:0.75rem; padding:1px 4px; margin-left:4px;">${htmlEsc(h.targa)}</span> ${h.km ? `| 🏁 KM: ${h.km}` : ''}</span></div><div class="flex-row" style="flex-wrap:wrap; justify-content:flex-end;">${riapriBtn}<button class="btn btn-warning w-auto" style="padding:8px; cursor:pointer;" onclick="${actionEdit}">✏️ Modifica</button><button class="btn w-auto" style="padding:8px; background:white; color:black; cursor:pointer;" onclick="${actionPrint}">🖨️ Stampa</button><button class="btn w-auto" style="padding:8px; background:transparent; color:var(--accent); border:1px solid var(--accent); cursor:pointer;" onclick="deleteSingleHistoryCognome(${h.id}, '${safeKey}')">🗑️ Elimina</button></div></div>${previewHtml}</div>`;
             }).join('') || "Nessun intervento."; 
             $('modal-storico').classList.remove('hidden');
         }
@@ -7356,7 +7356,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         function openEditStorico(id, encodedPlate) {
             const plate = safeDecode(encodedPlate); currentEditStoricoId = id; currentEditStoricoPlate = plate; 
             const j = db.find(x => String(x.id) === String(id)); if(!j) return;
-            $('es-header-info').innerHTML = `Cliente: <span style="color:white">${(j.cognome||'').toUpperCase()} ${j.nome||''}</span> | Targa: <span class="targa-badge">${j.targa}</span> | Data: <span style="color:white">${formattaData(j.data)}</span>`;
+            $('es-header-info').innerHTML = `Cliente: <span style="color:white">${htmlEsc((j.cognome||'').toUpperCase())} ${htmlEsc(j.nome||'')}</span> | Targa: <span class="targa-badge">${htmlEsc(j.targa)}</span> | Data: <span style="color:white">${formattaData(j.data)}</span>`;
             $('es-acconti-container').innerHTML=''; (j.acconti||[]).forEach(a=>addAcconto('es-acconti-container','es_acc_val','es_acc_date',calcEditStoricoTotal,a.val,a.date));
             $('es-conto-rows').innerHTML=''; (j.conto||[]).forEach(c=>addVoce('es-conto-rows','es-desc','es-price',calcEditStoricoTotal,((parseFloat(c.qty)||1) > 1 ? c.desc + ' ×' + parseFloat(c.qty) : c.desc),Number(_totaleRiga(j, c).toFixed(2)))); if(!j.conto||j.conto.length===0) addVoce('es-conto-rows','es-desc','es-price',calcEditStoricoTotal);
             calcEditStoricoTotal(); $('modal-edit-storico').classList.remove('hidden');
@@ -7498,7 +7498,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 topEl.innerHTML = top5.length ? top5.map(([nome, val]) =>
                     `<div style="margin-bottom:8px;">
                         <div class="flex-between" style="font-size:0.8rem; margin-bottom:3px;">
-                            <span style="color:white; font-weight:bold;">${nome}</span>
+                            <span style="color:white; font-weight:bold;">${htmlEsc(nome)}</span>
                             <span style="color:var(--info);">€ ${val.toFixed(2)}</span>
                         </div>
                         <div style="background:#1e293b; border-radius:4px; height:6px;">
@@ -7533,7 +7533,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         // =====================================================================
         // 19. STAMPE
         // =====================================================================
-        function renderPrintHeader(title, dataIta) { return `<div class="p-header"><div><h1 style="margin:0;">${MGM_INFO.nome}</h1><p style="margin:5px 0 0 0; color:#555;">${MGM_INFO.via} | Tel: ${MGM_INFO.tel} | P.IVA: ${MGM_INFO.piva}</p></div></div><div class="p-title-bar"><span>${title}</span><span>Data: ${dataIta}</span></div>`; }
+        function renderPrintHeader(title, dataIta) { return `<div class="p-header"><div><h1 style="margin:0;">${htmlEsc(MGM_INFO.nome)}</h1><p style="margin:5px 0 0 0; color:#555;">${MGM_INFO.via} | Tel: ${htmlEsc(MGM_INFO.tel)} | P.IVA: ${htmlEsc(MGM_INFO.piva)}</p></div></div><div class="p-title-bar"><span>${title}</span><span>Data: ${dataIta}</span></div>`; }
 
         // =====================================================================
         // PREVENTIVI ASSICURATIVI: rubrica periti, libretti per targa, invio al perito
@@ -8050,7 +8050,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 setTimeout(()=>window.print(), 100); 
             } 
         }
-        function printJobSheet(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("SCHEDA ACCETTAZIONE OFFICINA", formattaData(j.data || getOggiLocale())) + `<div class="p-grid"><div class="p-box"><h4>Dati Veicolo</h4><p>Targa: <b style="font-size:1.2em;">${j.targa||'N/D'}</b></p><p>Moto: <b>${j.marca||''} ${j.modello||''}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div><div class="p-box"><h4>Dati Cliente</h4><p>Nominativo: <b>${(j.cognome||'').toUpperCase()} ${j.nome||''}</b></p><p>Telefono: <b>${j.tel||''}</b></p></div></div><div class="p-box" style="margin-bottom:20px;"><h4>Note e Lavori Richiesti</h4><div style="min-height:100px; white-space:pre-wrap; font-size:11pt;">${j.lavori_richiesti||''}</div></div><div class="p-box"><h4>Appunti Meccanico</h4><br><hr style="border:0; border-bottom:1px solid #ccc; margin-bottom:20px;"><hr style="border:0; border-bottom:1px solid #ccc; margin-bottom:20px;"><hr style="border:0; border-bottom:1px solid #ccc;"></div><div class="p-signature"><div>Firma Cliente<br><br>___________________________</div><div>Firma Officina<br><br>___________________________</div></div>`; setTimeout(()=>window.print(), 100); } }
+        function printJobSheet(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("SCHEDA ACCETTAZIONE OFFICINA", formattaData(j.data || getOggiLocale())) + `<div class="p-grid"><div class="p-box"><h4>Dati Veicolo</h4><p>Targa: <b style="font-size:1.2em;">${htmlEsc(j.targa||'N/D')}</b></p><p>Moto: <b>${htmlEsc(j.marca||'')} ${htmlEsc(j.modello||'')}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div><div class="p-box"><h4>Dati Cliente</h4><p>Nominativo: <b>${htmlEsc((j.cognome||'').toUpperCase())} ${htmlEsc(j.nome||'')}</b></p><p>Telefono: <b>${htmlEsc(j.tel||'')}</b></p></div></div><div class="p-box" style="margin-bottom:20px;"><h4>Note e Lavori Richiesti</h4><div style="min-height:100px; white-space:pre-wrap; font-size:11pt;">${htmlEsc(j.lavori_richiesti||'')}</div></div><div class="p-box"><h4>Appunti Meccanico</h4><br><hr style="border:0; border-bottom:1px solid #ccc; margin-bottom:20px;"><hr style="border:0; border-bottom:1px solid #ccc; margin-bottom:20px;"><hr style="border:0; border-bottom:1px solid #ccc;"></div><div class="p-signature"><div>Firma Cliente<br><br>___________________________</div><div>Firma Officina<br><br>___________________________</div></div>`; setTimeout(()=>window.print(), 100); } }
         // ── Pre-conto stampato: come la ricevuta, con "PRE-CONTO — documento non fiscale" ──
         function _listaJob(x) { return (Array.isArray(x) ? x : Object.values(x || {})).filter(Boolean); }
         function _htmlPreconto(j, voci, acconti) {
@@ -8086,7 +8086,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             if (!j) return;
             _stampaInArea(_htmlPreconto(j, _listaJob(j.conto), _listaJob(j.acconti)));
         }
-        function printInvoice(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const tA = (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); const l = parseFloat(j.totale_lordo)||0; const dP = l - tA; let sH = dP > 0.01 ? `<h2 style="display:flex; justify-content:space-between; margin-top:10px;"><span>DA PAGARE:</span> <span>${dP.toFixed(2)} €</span></h2>` : `<h2 style="display:flex; justify-content:space-between; margin-top:10px; color:green;"><span>SALDATO:</span> <span>${l.toFixed(2)} €</span></h2>`; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("RICEVUTA INTERVENTO / MEMORANDUM", formattaData(j.data || getOggiLocale())) + `<div class="p-grid"><div class="p-box"><h4>Intestatario</h4><p><b>${(j.cognome||'').toUpperCase()} ${j.nome||''}</b></p></div><div class="p-box"><h4>Riferimento Veicolo</h4><p>Moto: <b>${j.marca||''} ${j.modello||''}</b></p><p>Targa: <b>${j.targa||'N/D'}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div></div><table class="p-table"><thead><tr><th>Descrizione Voci</th><th style="text-align:right; width:150px;">Importo</th></tr></thead><tbody>${(j.conto||[]).map(c=>`<tr><td>${c.desc}${(parseFloat(c.qty)||1) > 1 ? ` <span style="opacity:.65; font-weight:400;">×${parseFloat(c.qty)}</span>` : ''}</td><td style="text-align:right;">${_totaleRiga(j, c).toFixed(2)} €</td></tr>`).join('')}</tbody></table><div class="p-totals"><p style="display:flex; justify-content:space-between;"><span>Intervento Lordo:</span> <span>${l.toFixed(2)} €</span></p>${(j.acconti||[]).map(a=>`<p style="display:flex; justify-content:space-between;"><span>Acconto (${formattaData(a.date)}):</span> <span>- ${(parseFloat(a.val)||0).toFixed(2)} €</span></p>`).join('')}${sH}</div><div style="text-align:center; margin-top:50px; font-size:9pt; color:#666;">I lavori eseguiti sono garantiti a norma di legge.</div>`; setTimeout(()=>window.print(), 100); } }
+        function printInvoice(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const tA = (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); const l = parseFloat(j.totale_lordo)||0; const dP = l - tA; let sH = dP > 0.01 ? `<h2 style="display:flex; justify-content:space-between; margin-top:10px;"><span>DA PAGARE:</span> <span>${dP.toFixed(2)} €</span></h2>` : `<h2 style="display:flex; justify-content:space-between; margin-top:10px; color:green;"><span>SALDATO:</span> <span>${l.toFixed(2)} €</span></h2>`; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("RICEVUTA INTERVENTO / MEMORANDUM", formattaData(j.data || getOggiLocale())) + `<div class="p-grid"><div class="p-box"><h4>Intestatario</h4><p><b>${htmlEsc((j.cognome||'').toUpperCase())} ${htmlEsc(j.nome||'')}</b></p></div><div class="p-box"><h4>Riferimento Veicolo</h4><p>Moto: <b>${htmlEsc(j.marca||'')} ${htmlEsc(j.modello||'')}</b></p><p>Targa: <b>${htmlEsc(j.targa||'N/D')}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div></div><table class="p-table"><thead><tr><th>Descrizione Voci</th><th style="text-align:right; width:150px;">Importo</th></tr></thead><tbody>${(j.conto||[]).map(c=>`<tr><td>${htmlEsc(c.desc)}${(parseFloat(c.qty)||1) > 1 ? ` <span style="opacity:.65; font-weight:400;">×${parseFloat(c.qty)}</span>` : ''}</td><td style="text-align:right;">${_totaleRiga(j, c).toFixed(2)} €</td></tr>`).join('')}</tbody></table><div class="p-totals"><p style="display:flex; justify-content:space-between;"><span>Intervento Lordo:</span> <span>${l.toFixed(2)} €</span></p>${(j.acconti||[]).map(a=>`<p style="display:flex; justify-content:space-between;"><span>Acconto (${formattaData(a.date)}):</span> <span>- ${(parseFloat(a.val)||0).toFixed(2)} €</span></p>`).join('')}${sH}</div><div style="text-align:center; margin-top:50px; font-size:9pt; color:#666;">I lavori eseguiti sono garantiti a norma di legge.</div>`; setTimeout(()=>window.print(), 100); } }
 
         function printGlobalLedger() {
             const sorted = [...ledgerDB].sort((a,b) => { const cA = a.collab || 'INTERNO', cB = b.collab || 'INTERNO'; if(cA !== cB) return cA.localeCompare(cB); if(a.cat !== b.cat) return catOrder.indexOf(a.cat || 'officina') - catOrder.indexOf(b.cat || 'officina'); return new Date(b.data) - new Date(a.data); });
@@ -8094,7 +8094,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             let tHtml = sorted.map(m => {
                 const tot = (m.importo || 0) * (m.qta || 1); if(m.tipo === 'in') ti += tot; else to += tot;
                 const n = m.collab || 'INTERNO'; if(!cs[n]) cs[n] = { in: 0, out: 0 }; if(m.tipo === 'in') cs[n].in += tot; else cs[n].out += tot;
-                const pt = tot > 0 ? `€ ${tot.toFixed(2)}` : 'DA DEF.'; return `<tr><td style="padding:8px; border-bottom:1px solid #ccc;">${formattaData(m.data)}</td><td style="padding:8px; border-bottom:1px solid #ccc;">[${(m.cat||'OFF').toUpperCase()}]</td><td style="padding:8px; border-bottom:1px solid #ccc;">${m.qta>1?m.qta+'x ':''}${m.desc}</td><td style="padding:8px; border-bottom:1px solid #ccc;"><b>${n}</b></td><td style="padding:8px; border-bottom:1px solid #ccc; text-align:right; color:green;">${m.tipo==='in'?'+ '+pt:''}</td><td style="padding:8px; border-bottom:1px solid #ccc; text-align:right; color:red;">${m.tipo==='out'?'- '+pt:''}</td></tr>`;
+                const pt = tot > 0 ? `€ ${tot.toFixed(2)}` : 'DA DEF.'; return `<tr><td style="padding:8px; border-bottom:1px solid #ccc;">${formattaData(m.data)}</td><td style="padding:8px; border-bottom:1px solid #ccc;">[${(m.cat||'OFF').toUpperCase()}]</td><td style="padding:8px; border-bottom:1px solid #ccc;">${m.qta>1?m.qta+'x ':''}${htmlEsc(m.desc)}</td><td style="padding:8px; border-bottom:1px solid #ccc;"><b>${n}</b></td><td style="padding:8px; border-bottom:1px solid #ccc; text-align:right; color:green;">${m.tipo==='in'?'+ '+pt:''}</td><td style="padding:8px; border-bottom:1px solid #ccc; text-align:right; color:red;">${m.tipo==='out'?'- '+pt:''}</td></tr>`;
             }).join('');
             
             let sHtml = '<div style="margin-top:30px; page-break-inside:avoid;"><h3 style="margin-bottom:10px; border-bottom:1px solid black; padding-bottom:5px;">Riepilogo Casse</h3><table class="p-table" style="width:100%;"><thead><tr><th>Cassa / Collab.</th><th style="text-align:right;">Entrate (+)</th><th style="text-align:right;">Uscite (-)</th><th style="text-align:right;">Saldo</th></tr></thead><tbody>';
@@ -8109,12 +8109,12 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             let ti = 0, to = 0;
             const rows = list.map(m => {
                 const tot = (m.importo || 0) * (m.qta || 1); if(m.tipo === 'in') ti += tot; else to += tot; const pt = tot > 0 ? `€ ${tot.toFixed(2)}` : 'DA DEF.';
-                return `<tr><td style="padding:8px; border-bottom:1px solid #ccc;">${formattaData(m.data)}</td><td style="padding:8px; border-bottom:1px solid #ccc;">[${(m.cat||'OFF').toUpperCase()}]</td><td style="padding:8px; border-bottom:1px solid #ccc;">${m.qta>1?m.qta+'x ':''}${m.desc}</td><td style="padding:8px; border-bottom:1px solid #ccc; text-align:right; color:green;">${m.tipo==='in'?'+ '+pt:''}</td><td style="padding:8px; border-bottom:1px solid #ccc; text-align:right; color:red;">${m.tipo==='out'?'- '+pt:''}</td></tr>`;
+                return `<tr><td style="padding:8px; border-bottom:1px solid #ccc;">${formattaData(m.data)}</td><td style="padding:8px; border-bottom:1px solid #ccc;">[${(m.cat||'OFF').toUpperCase()}]</td><td style="padding:8px; border-bottom:1px solid #ccc;">${m.qta>1?m.qta+'x ':''}${htmlEsc(m.desc)}</td><td style="padding:8px; border-bottom:1px solid #ccc; text-align:right; color:green;">${m.tipo==='in'?'+ '+pt:''}</td><td style="padding:8px; border-bottom:1px solid #ccc; text-align:right; color:red;">${m.tipo==='out'?'- '+pt:''}</td></tr>`;
             }).join('');
             
             const bal = to - ti, bC = bal <= 0 ? 'black' : 'red';
             
-            $('print-area').innerHTML = renderPrintHeader(`ESTRATTO CONTO: ${name.toUpperCase()}`, formattaData(getOggiLocale())) + `<div class="p-grid" style="grid-template-columns: 1fr 1fr 1fr;"><div class="p-box"><h4 style="margin:0; color:#555;">Totale Entrate (+)</h4><p style="font-size:1.3rem; color:green; margin-top:5px;"><b>€ ${ti.toFixed(2)}</b></p></div><div class="p-box"><h4 style="margin:0; color:#555;">Totale Uscite (-)</h4><p style="font-size:1.3rem; color:red; margin-top:5px;"><b>€ ${to.toFixed(2)}</b></p></div><div class="p-box" style="background:#f4f4f5;"><h4 style="margin:0; color:#555;">Saldo</h4><p style="font-size:1.3rem; color:${bC}; margin-top:5px;"><b>€ ${bal.toFixed(2)}</b></p></div></div><h3 style="margin-top:20px; margin-bottom:10px;">Dettaglio Movimenti</h3><table class="p-table" style="border:none;"><thead><tr style="border-bottom:2px solid black;"><th style="width:100px; border:none; background:none!important;">Data</th><th style="border:none; background:none!important;">Cat.</th><th style="border:none; background:none!important;">Descrizione</th><th style="text-align:right; width:120px; border:none; background:none!important;">Entrate</th><th style="text-align:right; width:120px; border:none; background:none!important;">Uscite</th></tr></thead><tbody>${rows||'<tr><td colspan="5" style="text-align:center;">Nessun movimento.</td></tr>'}</tbody></table><div style="text-align:center; margin-top:40px; font-size:9pt; color:#666;">Documento generato da Moto Garage Marcello</div>`; setTimeout(() => window.print(), 100);
+            $('print-area').innerHTML = renderPrintHeader(`ESTRATTO CONTO: ${htmlEsc(name.toUpperCase())}`, formattaData(getOggiLocale())) + `<div class="p-grid" style="grid-template-columns: 1fr 1fr 1fr;"><div class="p-box"><h4 style="margin:0; color:#555;">Totale Entrate (+)</h4><p style="font-size:1.3rem; color:green; margin-top:5px;"><b>€ ${ti.toFixed(2)}</b></p></div><div class="p-box"><h4 style="margin:0; color:#555;">Totale Uscite (-)</h4><p style="font-size:1.3rem; color:red; margin-top:5px;"><b>€ ${to.toFixed(2)}</b></p></div><div class="p-box" style="background:#f4f4f5;"><h4 style="margin:0; color:#555;">Saldo</h4><p style="font-size:1.3rem; color:${bC}; margin-top:5px;"><b>€ ${bal.toFixed(2)}</b></p></div></div><h3 style="margin-top:20px; margin-bottom:10px;">Dettaglio Movimenti</h3><table class="p-table" style="border:none;"><thead><tr style="border-bottom:2px solid black;"><th style="width:100px; border:none; background:none!important;">Data</th><th style="border:none; background:none!important;">Cat.</th><th style="border:none; background:none!important;">Descrizione</th><th style="text-align:right; width:120px; border:none; background:none!important;">Entrate</th><th style="text-align:right; width:120px; border:none; background:none!important;">Uscite</th></tr></thead><tbody>${rows||'<tr><td colspan="5" style="text-align:center;">Nessun movimento.</td></tr>'}</tbody></table><div style="text-align:center; margin-top:40px; font-size:9pt; color:#666;">Documento generato da Moto Garage Marcello</div>`; setTimeout(() => window.print(), 100);
         }
 
         // =====================================================================
@@ -8549,8 +8549,8 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                         <td style="padding:6px 12px; background:#f1f5f9; border-right:1px solid #e2e8f0; border-left:3px solid #60a5fa;">
                             <span style="font-family:monospace; font-size:1rem; color:#1e293b; font-weight:800;">${item.codice || '—'}</span>
                         </td>
-                        <td style="padding:6px 12px; background:#f8fafc; font-weight:700; color:#1e293b; border-right:1px solid #e2e8f0;">${item.nome}${_tagliaColoreMag(item) ? ` <span style="color:#0369a1; font-weight:800; white-space:nowrap;">· ${htmlEsc(_tagliaColoreMag(item))}</span>` : ''}</td>
-                        <td style="padding:6px 12px; color:#64748b; border-right:1px solid #e2e8f0;">${item.marca || '—'}</td>
+                        <td style="padding:6px 12px; background:#f8fafc; font-weight:700; color:#1e293b; border-right:1px solid #e2e8f0;">${htmlEsc(item.nome)}${_tagliaColoreMag(item) ? ` <span style="color:#0369a1; font-weight:800; white-space:nowrap;">· ${htmlEsc(_tagliaColoreMag(item))}</span>` : ''}</td>
+                        <td style="padding:6px 12px; color:#64748b; border-right:1px solid #e2e8f0;">${htmlEsc(item.marca || '—')}</td>
                         <td style="padding:6px 12px; background:#cbd5e1; font-weight:700; color:#1e293b; border-right:1px solid #e2e8f0; font-size:0.82rem;">${item.categoria || '—'}</td>
                         <td style="padding:6px 12px; text-align:center; background:#334155; border-right:1px solid #475569;">
                             <span style="font-size:1.3rem; font-weight:900; color:#60a5fa;">${item.giacenza}</span>
@@ -9104,7 +9104,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                                 <span style="width:8px;height:8px;border-radius:50%;background:${sc};flex-shrink:0;"></span>
                                 <div style="min-width:0;">
                                     <div style="font-family:monospace;font-size:0.75rem;color:var(--muted);line-height:1;">${htmlEsc(_skuMag(item))}</div>
-                                    <div style="font-size:0.88rem;font-weight:600;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.nome||'—'}</div>
+                                    <div style="font-size:0.88rem;font-weight:600;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${htmlEsc(item.nome||'—')}</div>
                                     ${_tagliaColoreMag(item) ? `<div style="font-size:0.78rem;font-weight:800;color:var(--info);">${htmlEsc(_tagliaColoreMag(item))}</div>` : ''}
                                 </div>
                             </div>
@@ -9470,22 +9470,22 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
 
                 const extrasHtml = [
                     v.tag.km   ? `<span style="color:var(--muted); font-size:0.72rem;">🏁 ${v.tag.km} km</span>` : '',
-                    v.tag.note ? `<span style="color:var(--info); font-size:0.72rem;">📝 ${v.tag.note}</span>` : ''
+                    v.tag.note ? `<span style="color:var(--info); font-size:0.72rem;">📝 ${htmlEsc(v.tag.note)}</span>` : ''
                 ].filter(Boolean).join('');
 
                 return `<div class="tag-card-row" style="background:var(--card); border-left:4px solid ${ss.border}; ${ss.bg?'background:'+ss.bg+';':''} border-radius:10px; padding:10px 16px; display:grid; grid-template-columns: 120px 1fr auto auto auto; gap:10px; align-items:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">
 
                     <!-- Col 1: Targa + moto -->
                     <div>
-                        <span class="targa-badge" style="font-size:0.82rem; padding:3px 8px;">${v.targa}</span>
-                        <div style="font-size:0.72rem; color:var(--muted); margin-top:4px; line-height:1.3;">${v.marca} ${v.modello}</div>
+                        <span class="targa-badge" style="font-size:0.82rem; padding:3px 8px;">${htmlEsc(v.targa)}</span>
+                        <div style="font-size:0.72rem; color:var(--muted); margin-top:4px; line-height:1.3;">${htmlEsc(v.marca)} ${htmlEsc(v.modello)}</div>
                     </div>
 
                     <!-- Col 2: Cliente + badge + extras -->
                     <div style="min-width:0;">
                         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                            <span style="font-weight:bold; font-size:0.9rem; color:white; white-space:nowrap;">${cliente || 'N/D'}</span>
-                            ${v.tel ? `<span style="font-size:0.78rem; color:var(--muted);">📞 ${v.tel}</span>` : ''}
+                            <span style="font-weight:bold; font-size:0.9rem; color:white; white-space:nowrap;">${htmlEsc(cliente || 'N/D')}</span>
+                            ${v.tel ? `<span style="font-size:0.78rem; color:var(--muted);">📞 ${htmlEsc(v.tel)}</span>` : ''}
                         </div>
                         <div style="display:flex; align-items:center; gap:8px; margin-top:5px; flex-wrap:wrap;">
                             <span style="font-size:0.75rem; font-weight:bold; padding:2px 9px; border-radius:20px; white-space:nowrap; ${ss.badge}">${badgeLabel}</span>
@@ -9623,10 +9623,10 @@ A presto!`;
             const tel     = job ? (job.tel || '') : '';
             $('mt-veicolo-info').innerHTML = `
                 <div style="display:flex; align-items:center; gap:12px;">
-                    <span class="targa-badge" style="font-size:0.9rem;">${targa}</span>
+                    <span class="targa-badge" style="font-size:0.9rem;">${htmlEsc(targa)}</span>
                     <div>
-                        <div style="font-weight:bold; color:white;">${marca || 'Veicolo'}</div>
-                        <div style="font-size:0.8rem; color:var(--muted);">${cliente}${tel ? ' · 📞 '+tel : ''}</div>
+                        <div style="font-weight:bold; color:white;">${htmlEsc(marca || 'Veicolo')}</div>
+                        <div style="font-size:0.8rem; color:var(--muted);">${htmlEsc(cliente)}${tel ? ' · 📞 '+htmlEsc(tel) : ''}</div>
                     </div>
                 </div>`;
 
@@ -10118,8 +10118,8 @@ if ('serviceWorker' in navigator) {
                 <div onclick="selezionaClienteUsate('${safeEncode(j.cognome||'')}','${safeEncode(j.nome||'')}','${safeEncode(j.tel||'')}','${safeEncode(j.marca||'')}','${safeEncode(j.modello||'')}','${j.km||''}','${safeEncode(j.targa||'')}')"
                      style="padding:10px 14px; cursor:pointer; border-bottom:1px solid #334155; font-size:0.88rem;"
                      onmouseover="this.style.background='rgba(245,158,11,0.1)'" onmouseout="this.style.background='transparent'">
-                    <div style="font-weight:700; color:white;">${(j.cognome||'').toUpperCase()} ${j.nome||''}</div>
-                    <div style="font-size:0.78rem; color:var(--muted);">${j.targa||'—'} · ${j.marca||''} ${j.modello||''} · 📞 ${j.tel||'—'}</div>
+                    <div style="font-weight:700; color:white;">${htmlEsc((j.cognome||'').toUpperCase())} ${htmlEsc(j.nome||'')}</div>
+                    <div style="font-size:0.78rem; color:var(--muted);">${htmlEsc(j.targa||'—')} · ${htmlEsc(j.marca||'')} ${htmlEsc(j.modello||'')} · 📞 ${htmlEsc(j.tel||'—')}</div>
                 </div>`).join('');
             box.style.display = 'block';
         }
@@ -10356,7 +10356,7 @@ if ('serviceWorker' in navigator) {
                     </div>
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; border-top:1px solid #1e293b; padding-top:6px;">
                         <span style="color:#cbd5e1; font-size:0.88rem; font-weight:700;">👤 ${htmlEsc(m.cognome)}${m.nome?' '+htmlEsc(m.nome):''}</span>
-                        ${m.tel?`<a href="tel:${m.tel}" onclick="event.stopPropagation()" style="display:inline-flex; align-items:center; gap:4px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); color:#93c5fd; font-size:0.8rem; padding:2px 9px; border-radius:20px; text-decoration:none;">📞 ${m.tel}</a>`:''}
+                        ${m.tel?`<a href="tel:${htmlEsc(m.tel)}" onclick="event.stopPropagation()" style="display:inline-flex; align-items:center; gap:4px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); color:#93c5fd; font-size:0.8rem; padding:2px 9px; border-radius:20px; text-decoration:none;">📞 ${htmlEsc(m.tel)}</a>`:''}
                     </div>
                     ${prezzoStr?`<div style="font-size:1.25rem; font-weight:900; color:#f59e0b;">${prezzoStr}</div>${pvStr}`:pvStr}
                     ${m.note?`<div style="font-size:0.82rem; color:var(--muted); border-left:2px solid #334155; padding-left:8px; line-height:1.4;">${htmlEsc(m.note)}</div>`:''}
@@ -10452,17 +10452,17 @@ if ('serviceWorker' in navigator) {
                 const riapriItem = e.stato!=='attesa' ? `<button onclick="setStatoAttesa(${e.id},'attesa')" style="color:#818cf8;width:100%;text-align:left;">🔵 Riattiva in Attesa</button>` : '';
                 return `<div class="card attesa-card-row" style="display:grid;grid-template-columns:minmax(200px,1.5fr) minmax(200px,1.5fr) 130px auto;align-items:start;padding:15px 20px;margin:0;gap:15px;border-left:6px solid ${statoColor};">
                     <div>
-                        <div style="font-weight:bold;font-size:1.1rem;color:white;line-height:1.2;text-transform:uppercase;">${e.cognome} ${e.nome}</div>
+                        <div style="font-weight:bold;font-size:1.1rem;color:white;line-height:1.2;text-transform:uppercase;">${htmlEsc(e.cognome)} ${htmlEsc(e.nome)}</div>
                         <div style="margin-top:5px;"><span style="font-size:0.7rem;font-weight:bold;padding:2px 7px;border-radius:8px;background:${statoColor}20;color:${statoColor};border:1px solid ${statoColor}40;">${statoIcon} ${statoLabel}</span> <span style="font-size:0.72rem;color:var(--muted);">dal ${formattaData(e.data)}</span></div>
                     </div>
                     <div>
                         <div style="font-size:0.8rem;color:var(--muted);margin-bottom:5px;font-weight:bold;">MOTO CERCATA:</div>
-                        ${moto ? `<div style="color:var(--info);font-size:0.85rem;">🏍️ ${moto}${e.colore?' — '+e.colore:''}</div>` : '<small style="color:var(--muted)">Nessuna moto specificata</small>'}
+                        ${moto ? `<div style="color:var(--info);font-size:0.85rem;">🏍️ ${htmlEsc(moto)}${e.colore?' — '+htmlEsc(e.colore):''}</div>` : '<small style="color:var(--muted)">Nessuna moto specificata</small>'}
                         ${e.note ? `<div style="color:var(--muted);font-size:0.76rem;font-style:italic;margin-top:3px;">${htmlEsc(e.note)}</div>` : ''}
                     </div>
                     <div>
                         <div style="font-size:0.8rem;color:var(--muted);margin-bottom:5px;font-weight:bold;">CONTATTO:</div>
-                        <div style="color:var(--text);font-size:0.9rem;">📞 ${e.tel}</div>
+                        <div style="color:var(--text);font-size:0.9rem;">📞 ${htmlEsc(e.tel)}</div>
                     </div>
                     <div style="display:flex;justify-content:flex-end;align-items:center;align-self:center;">
                         <div class="dropdown">
@@ -10614,10 +10614,10 @@ if ('serviceWorker' in navigator) {
                     <div style="font-size:1.5rem;flex-shrink:0;">${SCAD_CAT_EMOJI[s.categoria]||'📄'}</div>
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:3px;">
-                            <span style="font-weight:800;font-size:0.95rem;color:white;">${s.desc}</span>
+                            <span style="font-weight:800;font-size:0.95rem;color:white;">${htmlEsc(s.desc)}</span>
                             ${badge}${ricBadge}
                         </div>
-                        <div style="font-size:0.78rem;color:var(--muted);">${s.categoria}${s.note ? ' · ' + s.note : ''}</div>
+                        <div style="font-size:0.78rem;color:var(--muted);">${s.categoria}${s.note ? ' · ' + htmlEsc(s.note) : ''}</div>
                     </div>
                     <div style="text-align:right;flex-shrink:0;">
                         <div style="font-size:1.1rem;font-weight:900;color:${col};">${importoStr}</div>
