@@ -7319,7 +7319,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 const voci = _listaJob(j.conto)
                     .filter(c => String(c.desc || '').trim() && (parseFloat(c.price) || 0) >= 0 && !/sconto|abbuono|omaggio/i.test(c.desc))
                     .map(c => { const q = parseFloat(c.qty) || 1; return String(c.desc).trim().toUpperCase() + (q > 1 ? ' ×' + String(q).replace('.', ',') : ''); });
-                return { data: dataDi(j), km: _kmNum(j.km), titolo: voci[0] || 'INTERVENTO IN OFFICINA', voci: voci.slice(1) };
+                return Object.assign({ data: dataDi(j), km: _kmNum(j.km) }, _titoloIntervento(voci, j.lavori_richiesti));
             }).reverse();
             const km = Math.max(0, ...fatti.map(j => _kmNum(j.km) || 0)) || null;
             const kTag = Object.keys(taggliandiDB || {}).find(k => chiaveTarga(k) === key);
@@ -7334,6 +7334,15 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 prossimo: tag && tag.data ? String(tag.data) : null,
                 aggiornato: getOggiLocale()
             };
+        }
+        // Fabio: olio motore + filtro olio (o la parola "tagliando" nella commessa) = un tagliando, va scritto come prima riga
+        function _titoloIntervento(voci, lavori) {
+            const tagl = s => /TAGLIAND/i.test(String(s || ''));
+            const iT = voci.findIndex(tagl);
+            if (iT >= 0) return { titolo: voci[iT].replace(/\s×[\d,]+$/, ''), voci: voci.filter((_, k) => k !== iT) };
+            const olio = voci.some(v => /OLIO/i.test(v) && !/FILTRO/i.test(v)), filtro = voci.some(v => /FILTRO\W*(DELL'?\W*)?OLIO/i.test(v));
+            if ((olio && filtro) || tagl(lavori)) return { titolo: 'TAGLIANDO', voci: voci.slice() };
+            return { titolo: voci[0] || 'INTERVENTO IN OFFICINA', voci: voci.slice(1) };
         }
         function _firmaPassaporto(d) {
             const s = JSON.stringify(Object.assign({}, d, { aggiornato: '' }));
@@ -7374,7 +7383,8 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     </div>
                 </div>
                 <div class="flex-row mt-15" style="gap:8px; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-success w-auto" onclick="stampaAdesivoPassaporto('${e}')" style="${pb}">🖨️ Stampa adesivo</button>
+                    ${p.da_stampare ? `<button type="button" class="btn btn-dark w-auto" onclick="togliDalFoglio('${e}')" style="${pb}" title="Togli dall'elenco da stampare">✓ Nel foglio da stampare ✕</button>` : `<button type="button" class="btn btn-dark w-auto" onclick="aggiungiAlFoglio('${e}')" style="${pb}">➕ Aggiungi al foglio adesivi</button>`}
+                    <button type="button" class="btn btn-success w-auto" onclick="apriFoglioAdesivi()" style="${pb}">🖨️ Foglio adesivi (${_codaAdesivi().length})</button>
                     <a class="btn btn-info w-auto" href="${PASSAPORTO_URL + htmlEsc(p.codice)}" target="_blank" rel="noopener" style="${pb} text-decoration:none;">👁️ Apri la pagina</a>
                     <button type="button" class="btn btn-wa w-auto" onclick="waPassaporto('${e}')" style="${pb}">📲 Manda il link</button>
                     <button type="button" class="btn btn-dark w-auto" onclick="disattivaPassaporto('${e}')" style="${pb} color:#f87171;">⛔ Disattiva</button>
@@ -7396,10 +7406,10 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const vecchio = passaportiIdx[key];
             const codice = (vecchio && vecchio.codice) || _codicePassaporto();
             const d = _datiPassaporto(key);
-            const rec = { codice, targa: key, attivo: true, creato: (vecchio && vecchio.creato) || getOggiLocale(), aggiornato: d.aggiornato, firma: _firmaPassaporto(d) };
+            const rec = { codice, targa: key, attivo: true, creato: (vecchio && vecchio.creato) || getOggiLocale(), aggiornato: d.aggiornato, firma: _firmaPassaporto(d), da_stampare: true };
             passaportiIdx[key] = rec;
             database.ref('/').update({ ['passaporti/' + codice]: d, ['passaporti_idx/' + key]: rec })
-                .then(() => { showCloudCheck(); mostraToast('🛡️ Passaporto attivato: stampa l\'adesivo'); }).catch(_onSaveError);
+                .then(() => { showCloudCheck(); mostraToast('🛡️ Passaporto attivato: l\'adesivo è nel foglio da stampare'); }).catch(_onSaveError);
             apriPassaporto(safeEncode(key));
         }
         function disattivaPassaporto(encTarga) {
@@ -7422,40 +7432,105 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const txt = `Ciao ${(j.nome || j.cognome || '').trim()} 👋, ecco il passaporto della tua ${moto}: tutta la storia della manutenzione fatta da Moto Garage Marcello, sempre aggiornata.\n${PASSAPORTO_URL + p.codice}\nLo apri anche inquadrando l'adesivo con il QR sulla moto. Conservalo: quando vendi la moto vale di più! 🏍️`;
             window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank');
         }
-        function stampaAdesivoPassaporto(encTarga) {
-            const key = chiaveTarga(safeDecode(encTarga)), p = passaportiIdx[key];
-            if (!p || !p.attivo) return;
+        // ── Foglio adesivi: 12 per A4 (3 × 4, 60 × 65 mm) dentro i margini normali di stampa; si parte da una casella a scelta ──
+        const PP_PER_FOGLIO = 12;
+        let _ppPartenza = 1;
+        function _codaAdesivi() {
+            return Object.entries(passaportiIdx || {}).filter(([, p]) => p && p.attivo && p.da_stampare && p.codice)
+                .sort((a, b) => String(a[1].creato || '').localeCompare(String(b[1].creato || '')) || a[0].localeCompare(b[0])).map(([k]) => k);
+        }
+        // Posizioni sul foglio: elenco di pagine da 12 caselle con l'indice dell'adesivo o null (caselle già usate)
+        function _impaginaAdesivi(n, partenza) {
+            const pagine = [];
+            let celle = new Array(Math.max(0, Math.min(PP_PER_FOGLIO, partenza) - 1)).fill(null);
+            for (let i = 0; i < n; i++) {
+                celle.push(i);
+                if (celle.length === PP_PER_FOGLIO) { pagine.push(celle); celle = []; }
+            }
+            if (celle.some(c => c !== null)) { while (celle.length < PP_PER_FOGLIO) celle.push(null); pagine.push(celle); }
+            return pagine;
+        }
+        function _segnaDaStampare(key, si) {
+            if (!passaportiIdx[key] || !_puoSalvare('passaporti_idx')) return false;
+            passaportiIdx[key] = Object.assign({}, passaportiIdx[key], { da_stampare: !!si });
+            database.ref('/passaporti_idx/' + key + '/da_stampare').set(si ? true : null).then(showCloudCheck).catch(_onSaveError);
+            return true;
+        }
+        function aggiungiAlFoglio(encTarga) { const k = chiaveTarga(safeDecode(encTarga)); if (_segnaDaStampare(k, true)) apriPassaporto(safeEncode(k)); }
+        function togliDalFoglio(encTarga) { const k = chiaveTarga(safeDecode(encTarga)); if (_segnaDaStampare(k, false)) apriPassaporto(safeEncode(k)); }
+        function togliDalFoglioElenco(encTarga) { if (_segnaDaStampare(chiaveTarga(safeDecode(encTarga)), false)) apriFoglioAdesivi(); }
+        function scegliPartenzaFoglio(n) { _ppPartenza = Math.max(1, Math.min(PP_PER_FOGLIO, parseInt(n) || 1)); apriFoglioAdesivi(); }
+        function apriFoglioAdesivi() {
+            const coda = _codaAdesivi(), n = coda.length;
+            const pagine = _impaginaAdesivi(n, _ppPartenza), prima = pagine[0] || new Array(PP_PER_FOGLIO).fill(null);
+            const griglia = prima.map((c, i) => {
+                const usata = i < _ppPartenza - 1, sua = c !== null;
+                return `<button type="button" class="pp-casella" onclick="scegliPartenzaFoglio(${i + 1})" title="Parti dalla casella ${i + 1}" aria-label="Parti dalla casella ${i + 1}"
+                    style="width:auto; margin:0; height:46px; border-radius:6px; cursor:pointer; font-weight:800; font-size:0.8rem; border:${sua ? '2px solid #34d399' : '1px dashed #475569'}; background:${usata ? 'repeating-linear-gradient(45deg,#1e293b,#1e293b 4px,#0f172a 4px,#0f172a 8px)' : sua ? 'rgba(52,211,153,0.15)' : 'transparent'}; color:${sua ? '#34d399' : 'var(--muted)'};">${sua ? '🛡️' : usata ? '' : i + 1}</button>`;
+            }).join('');
+            const elenco = coda.map(k => { const d = _datiPassaporto(k); return `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #334155;">
+                <span><b style="color:white;">${htmlEsc(d.moto || 'Moto')}</b> <span class="targa-badge" style="font-size:0.75rem;">${htmlEsc(k)}</span></span>
+                <button type="button" onclick="togliDalFoglioElenco('${safeEncode(k)}')" title="Togli dal foglio" aria-label="Togli ${htmlEsc(k)} dal foglio" style="width:auto; margin:0; background:none; border:none; color:var(--accent); cursor:pointer; font-size:1rem;">✕</button></div>`; }).join('');
+            $('pp-moto').innerHTML = `<b style="color:white;">Foglio adesivi</b> · ${n} ${n === 1 ? 'adesivo da stampare' : 'adesivi da stampare'}`;
+            $('pp-corpo').innerHTML = n ? `
+                <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start;">
+                    <div>
+                        <div style="font-size:0.8rem; color:var(--muted); margin-bottom:6px;">Foglio A4 · tocca la casella da cui partire</div>
+                        <div id="pp-griglia" style="display:grid; grid-template-columns:repeat(3, 46px); gap:5px; padding:8px; background:#fff1; border-radius:8px;">${griglia}</div>
+                        <div style="font-size:0.75rem; color:var(--muted); margin-top:6px;">${_ppPartenza > 1 ? `Le prime ${_ppPartenza - 1} caselle restano vuote` : 'Foglio nuovo'}${pagine.length > 1 ? ` · ${pagine.length} fogli` : ''}</div>
+                    </div>
+                    <div style="flex:1; min-width:200px;">${elenco}</div>
+                </div>
+                <div class="flex-row mt-15" style="gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-success w-auto" onclick="stampaFoglioAdesivi()" style="margin:0;">🖨️ Stampa ${n} ${n === 1 ? 'adesivo' : 'adesivi'}</button>
+                </div>
+                <p style="margin:12px 0 0; font-size:0.8rem; color:var(--muted); line-height:1.5;">Stampa su carta adesiva A4 senza ridimensionare (scala 100%). Se compaiono data e indirizzo in alto e in basso, togli la spunta "Intestazioni e piè di pagina".</p>`
+                : `<p style="margin:0; line-height:1.5;">Nessun adesivo da stampare. Quando attivi un passaporto il suo adesivo finisce qui; da una moto con il passaporto attivo puoi anche premere "➕ Aggiungi al foglio adesivi".</p>`;
+            openModal('modal-passaporto');
+        }
+        function stampaFoglioAdesivi() {
+            const coda = _codaAdesivi();
+            if (!coda.length) return;
             caricaQrcode().then(Q => {
-                const tmp = document.createElement('div');
-                new Q(tmp, { text: PASSAPORTO_URL + p.codice, width: 480, height: 480, correctLevel: Q.CorrectLevel.M });
-                const c = tmp.querySelector('canvas'), im = tmp.querySelector('img');
-                const qr = c && c.toDataURL ? c.toDataURL('image/png') : (im ? im.src : '');
-                const d = _datiPassaporto(key), cod = htmlEsc(_codiceLeggibile(p.codice));
-                const adesivo = (cls) => `<div class="pp-ad ${cls}"><img class="pp-logo" src="${LOGO_MGM}" alt=""><div class="pp-tit">PASSAPORTO MOTO</div><img class="pp-qr" src="${qr}" alt="QR"><div class="pp-inq">Inquadra per lo storico<br>della manutenzione</div><div class="pp-cod">${cod}</div></div>`;
-                $('print-area').innerHTML = `<style>
-                    .pp-foglio { font-family: Arial, sans-serif; color: #111; padding: 10mm; }
-                    .pp-riga { display: flex; gap: 12mm; align-items: flex-start; }
-                    .pp-ad { border: 0.7mm solid #c62828; border-radius: 4mm; text-align: center; box-sizing: border-box; page-break-inside: avoid; }
-                    .pp-grande { width: 60mm; height: 88mm; padding: 4mm 4mm 3mm; }
-                    .pp-piccolo { width: 36mm; height: 53mm; padding: 2.5mm 2.5mm 2mm; }
-                    .pp-logo { display: block; margin: 0 auto 1mm; }
-                    .pp-grande .pp-logo { width: 16mm; } .pp-piccolo .pp-logo { width: 9mm; }
-                    .pp-tit { font-weight: 900; color: #c62828; letter-spacing: 0.6mm; }
-                    .pp-grande .pp-tit { font-size: 13pt; } .pp-piccolo .pp-tit { font-size: 7pt; }
-                    .pp-qr { display: block; margin: 2mm auto; image-rendering: pixelated; }
-                    .pp-grande .pp-qr { width: 40mm; height: 40mm; } .pp-piccolo .pp-qr { width: 24mm; height: 24mm; margin: 1mm auto; }
-                    .pp-inq { font-weight: 700; line-height: 1.25; } .pp-grande .pp-inq { font-size: 8.5pt; } .pp-piccolo .pp-inq { font-size: 5pt; }
-                    .pp-cod { font-family: 'Courier New', monospace; font-weight: 700; color: #555; margin-top: 1.5mm; } .pp-grande .pp-cod { font-size: 8pt; } .pp-piccolo .pp-cod { font-size: 5pt; }
-                    .pp-nota { margin-top: 10mm; font-size: 9pt; color: #444; line-height: 1.5; max-width: 150mm; }
-                </style>
-                <div class="pp-foglio">
-                    <div class="pp-riga">${adesivo('pp-grande')}${adesivo('pp-piccolo')}</div>
-                    <div class="pp-nota"><b>${htmlEsc(d.moto || 'Moto')} · ${htmlEsc(key)}</b> — passaporto ${cod}<br>
-                    Ritaglia lungo il bordo rosso: il grande va sotto la sella o in un punto riparato, il piccolo sul portachiavi.
-                    Stampa su carta adesiva (meglio se plastificata o con una pellicola trasparente sopra) per farlo durare.</div>
-                </div>`;
+                const ad = coda.map(k => {
+                    const p = passaportiIdx[k], d = _datiPassaporto(k), tmp = document.createElement('div');
+                    new Q(tmp, { text: PASSAPORTO_URL + p.codice, width: 360, height: 360, correctLevel: Q.CorrectLevel.M });
+                    const c = tmp.querySelector('canvas'), im = tmp.querySelector('img');
+                    const qr = c && c.toDataURL ? c.toDataURL('image/png') : (im ? im.src : '');
+                    return `<div class="pp-ad"><img class="pp-logo" src="${LOGO_MGM}" alt=""><div class="pp-tit">PASSAPORTO MOTO</div><img class="pp-qr" src="${qr}" alt="QR"><div class="pp-inq">Inquadra per lo storico della manutenzione</div><div class="pp-cod">${htmlEsc(_codiceLeggibile(p.codice))}</div><div class="pp-moto">${htmlEsc(d.moto || '')} · ${htmlEsc(k)}</div></div>`;
+                });
+                const pagine = _impaginaAdesivi(ad.length, _ppPartenza);
+                const pa = $('print-area');
+                pa.innerHTML = `<style>
+                    #print-area.pp-stampa { max-width: 190mm !important; width: 190mm !important; margin: 0 auto !important; padding: 0 !important; font-family: Arial, Helvetica, sans-serif !important; color: #111 !important; }
+                    .pp-pagina { width: 190mm; display: grid; grid-template-columns: repeat(3, 60mm); grid-template-rows: repeat(4, 65mm); column-gap: 5mm; row-gap: 4mm; page-break-after: always; break-after: page; }
+                    .pp-pagina:last-child { page-break-after: auto; break-after: auto; }
+                    .pp-cella { width: 60mm; height: 65mm; overflow: hidden; }
+                    .pp-ad { width: 60mm; height: 65mm; border: 0.6mm solid #c62828; border-radius: 3mm; padding: 2.4mm 2.5mm; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; page-break-inside: avoid; break-inside: avoid; }
+                    .pp-logo { width: 7mm; height: 7mm; object-fit: contain; }
+                    .pp-tit { font-weight: 900; color: #c62828; font-size: 8.5pt; letter-spacing: 0.4mm; line-height: 1; white-space: nowrap; }
+                    .pp-qr { width: 30mm; height: 30mm; image-rendering: pixelated; }
+                    .pp-inq { font-weight: 700; font-size: 6.2pt; line-height: 1.2; max-width: 48mm; }
+                    .pp-cod { font-family: 'Courier New', monospace; font-weight: 700; font-size: 6.4pt; color: #333; line-height: 1; white-space: nowrap; }
+                    .pp-moto { font-size: 5.4pt; color: #666; line-height: 1.1; max-width: 54mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                </style>` + pagine.map(celle => `<div class="pp-pagina">${celle.map(c => `<div class="pp-cella">${c === null ? '' : ad[c]}</div>`).join('')}</div>`).join('');
+                pa.classList.add('pp-stampa');
+                const dopo = () => {
+                    window.removeEventListener('afterprint', dopo);
+                    pa.classList.remove('pp-stampa');
+                    setTimeout(() => {
+                        if (!confirm(`Gli adesivi sono stati stampati bene?\n\nSe sì, tolgo questi ${coda.length} dall'elenco "da stampare".`)) return;
+                        if (!_puoSalvare('passaporti_idx')) return;
+                        const upd = {};
+                        coda.forEach(k => { upd['passaporti_idx/' + k + '/da_stampare'] = null; if (passaportiIdx[k]) passaportiIdx[k] = Object.assign({}, passaportiIdx[k], { da_stampare: false }); });
+                        database.ref('/').update(upd).then(showCloudCheck).catch(_onSaveError);
+                        _ppPartenza = 1;
+                        if (!$('modal-passaporto').classList.contains('hidden')) apriFoglioAdesivi();
+                    }, 300);
+                };
+                window.addEventListener('afterprint', dopo);
                 setTimeout(() => window.print(), 150);
-            }).catch(err => mostraErrore('Per stampare l\'adesivo serve la connessione: ' + err.message));
+            }).catch(err => mostraErrore('Per stampare gli adesivi serve la connessione: ' + err.message));
         }
 
         function viewHistoryCognome(encodedChiave) {
