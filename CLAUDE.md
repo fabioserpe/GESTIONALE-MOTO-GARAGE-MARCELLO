@@ -121,6 +121,7 @@ Fabio trova la versione mobile "troppo confusionaria": la stiamo sistemando un p
 
 ## In sospeso
 
+- Passaporto della moto (v186): regola Firebase attiva dal 26/10 (verificato da fuori: singolo passaporto leggibile, `/passaporti`, `/db`, radice e scritture rifiutati). Manca il primo uso reale: attivazione su una moto, stampa dell'adesivo su A4 e QR inquadrato col telefono. Chiedere a Fabio com'è andata e se le misure dell'adesivo vanno bene.
 - Vendite: l'archivio del vecchio programma "CONFERMA D'ORDINE 1.0 WEB.html" è stato importato (21/10, 2026/003…023). Il vecchio database Firestore (`conferma-d-ordine-9f346`, senza password: dati dei clienti probabilmente leggibili da chiunque) andrebbe chiuso o svuotato: da proporre a Fabio, non farlo senza il suo ok.
 - Vendite, decisione di Fabio (22/10): le conferme d'ordine già esistenti/importate **non** vanno consegnate a ritroso (niente Anagrafica né promemoria tagliando automatici per loro, "per evitare confusione e conflitti"). Da ora in poi Fabio scrive la targa quando l'ha e preme "🏁 Moto consegnata". Non proporre di sistemare quelle vecchie.
 - Vendite 2026/005 (NICOSIA): nell'Acconto c'è scritto "FINANZIAMENTO 48 MESI RATA…" (letto come 48.128 €) e "1600,00 €" sta nella firma del venditore; Fabio ha detto di lasciar stare (21/10): lo corregge lui se vuole.
