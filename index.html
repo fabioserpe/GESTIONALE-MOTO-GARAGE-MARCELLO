@@ -7285,10 +7285,11 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         function newVehicleFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if($('f_client_id')) $('f_client_id').value=clientId; if ($('acconti-container')) $('acconti-container').innerHTML=''; }
 
         // ═══════════════ PASSAPORTO DELLA MOTO ═══════════════
-        // Pagina pubblica passaporto.html#CODICE: legge /passaporti/{CODICE} senza login (regola Firebase dedicata, solo lettura di quel nodo).
+        // Pagina pubblica https://motogaragemarcello.github.io/passaporto/#CODICE (repo a parte motogaragemarcello/passaporto): legge /passaporti/{CODICE} senza login.
+        // passaporto.html di questo repo è solo un rimando per i primi adesivi stampati con il vecchio indirizzo.
         // Indice privato /passaporti_idx/{TARGA} = { codice, targa, attivo, creato, aggiornato, firma }.
         // Online vanno solo marca/modello, targa parziale, date, km e voci del conto (senza prezzi né sconti): niente cliente, telefono o note.
-        const PASSAPORTO_URL = 'https://fabioserpe.github.io/GESTIONALE-MOTO-GARAGE-MARCELLO/passaporto.html#';
+        const PASSAPORTO_URL = 'https://motogaragemarcello.github.io/passaporto/#';
         let passaportiIdx = {};
         let _qrPromise = null;
         function caricaQrcode() {
