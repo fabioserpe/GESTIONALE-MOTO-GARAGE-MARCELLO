@@ -148,7 +148,7 @@
         .sidebar-overlay.show { display: block; }
         .hamburger-btn { display: flex; align-items: center; background: none; border: none; color: var(--text); font-size: 1.4rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; line-height: 1; flex-shrink: 0; transition: background 0.15s; }
         .hamburger-btn:hover { background: rgba(255,255,255,0.07); }
-        #mob-tabbar, #board-tabs { display: none; }
+        #mob-tabbar, #board-tabs, #vd-btn-salva-mob { display: none; }
         .sidebar-close-btn { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.07); border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
         .sidebar-close-btn:hover { background: rgba(255,255,255,0.15); color: white; }
         .mobile-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 0; flex-shrink: 0; background: var(--bg); position: sticky; top: 0; z-index: 10; }
@@ -304,6 +304,8 @@
             #mob-tabbar button .ic { font-size: 1.35rem; line-height: 1; filter: grayscale(0.6); }
             #mob-tabbar button.on { color: white; border-top-color: var(--accent); }
             #mob-tabbar button.on .ic { filter: none; }
+            #mob-tabbar button { position: relative; }
+            #mob-tabbar .tb-badge { position: absolute; top: 3px; left: calc(50% + 6px); min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: var(--accent); color: white; font-size: 0.7rem; font-weight: 800; line-height: 19px; text-align: center; box-shadow: 0 0 0 2px #0b1220; }
             .view { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
             .notes-panel { bottom: calc(74px + env(safe-area-inset-bottom, 0px)) !important; right: 10px !important; width: calc(100vw - 20px) !important; max-height: 60dvh; }
 
@@ -317,6 +319,16 @@
             #board-search-toggle { font-size: 0 !important; padding: 8px 11px !important; }
             #board-search-toggle::before { content: '🔍'; font-size: 1.05rem; }
             .board .col-title { display: none; }
+
+            /* ---- TITOLO DELLA PAGINA: è già nella barra in alto ---- */
+            #view-agenda > .flex-between:first-child > h2, #view-rubrica > h2:first-child, #view-ordini > .flex-between:first-of-type > h2,
+            #view-ledger > .flex-between:first-child > h2, #view-specials > .flex-between:first-child > h2, #view-incidentate > div:first-child > div:first-child > h2,
+            #view-preventivi > div:first-child > div:first-child > h2, #view-stats > .flex-between:first-child > h2, #view-magazzino > div:first-child > .flex-between:first-child > h2,
+            #view-tagliandi > div:first-child > .flex-between:first-child > h2, #view-scadenze > .flex-between:first-child > h2, #view-lista-attesa > .flex-between:first-child > h2,
+            #view-garanzie > .flex-between:first-child > h2, #vend-elenco > .flex-between:first-child > h2, #view-usate > .flex-between:first-child > h2 { display: none !important; }
+
+            /* ---- VENDITE: Salva sempre a portata nel foglio ---- */
+            #vd-btn-salva-mob { display: flex; position: fixed; right: 14px; bottom: calc(74px + env(safe-area-inset-bottom, 0px)); z-index: 901; width: auto; margin: 0; padding: 12px 18px !important; border-radius: 30px; font-weight: 800; font-size: 0.95rem !important; box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
 
             /* ---- CONTO: una voce su due righe, riepilogo e totale a tutta larghezza ---- */
             #modal-conto .modal-content { padding: 14px !important; }
@@ -693,7 +705,7 @@
             <button type="button" data-view="nuova" onclick="switchView('nuova',null)"><span class="ic">➕</span>Nuova</button>
             <button type="button" data-view="agenda" onclick="switchView('agenda',null)"><span class="ic">📅</span>Agenda</button>
             <button type="button" data-view="ordini" onclick="switchView('ordini',null)"><span class="ic">📦</span>Ordini</button>
-            <button type="button" data-view="altro" onclick="toggleSidebar()"><span class="ic">☰</span>Altro</button>
+            <button type="button" data-view="altro" onclick="toggleSidebar()"><span class="ic">☰</span>Altro<span class="tb-badge" id="tb-badge-altro" hidden></span></button>
         </nav>
         <div id="print-area"></div> 
 
@@ -1694,11 +1706,12 @@
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
                     <button type="button" class="btn btn-accent w-auto" onclick="nuovaVendita('ordine')" style="margin:0;">✚ Nuova conferma d'ordine</button>
                     <button type="button" class="btn btn-info w-auto" onclick="nuovaVendita('preventivo')" style="margin:0;">✚ Nuovo preventivo</button>
-                    <button type="button" class="btn btn-dark w-auto" onclick="document.getElementById('vend-import-file').click()" title="Carica il file scaricato con «⬇️ Scarica Backup Cloud» dal vecchio programma" style="margin:0 0 0 auto;">⬆️ Importa dal vecchio programma</button>
+                    <button type="button" id="vend-btn-import" class="btn btn-dark w-auto" onclick="document.getElementById('vend-import-file').click()" title="Carica il file scaricato con «⬇️ Scarica Backup Cloud» dal vecchio programma" style="margin:0 0 0 auto;">⬆️ Importa dal vecchio programma</button>
                     <input type="file" id="vend-import-file" accept="application/json,.json" style="display:none;" onchange="importaVenditeVecchie(this)">
                 </div>
                 <div id="vend-tabs" role="tablist" aria-label="Tipo di documento" style="display:flex; gap:2px; flex-wrap:wrap; border-bottom:1px solid #334155; margin-bottom:10px;"></div>
                 <div id="vend-lista"></div>
+                <div id="vend-import-link" style="display:none; text-align:right; margin-top:18px;"><button type="button" onclick="document.getElementById('vend-import-file').click()" title="Carica il file scaricato con «⬇️ Scarica Backup Cloud» dal vecchio programma" style="background:none; border:none; color:var(--muted); font-size:0.8rem; text-decoration:underline; cursor:pointer; width:auto; margin:0; padding:4px;">⬆️ Importa dal vecchio programma</button></div>
             </div>
             <div id="vend-editor" style="display:none;">
                 <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; max-width:850px; margin:0 auto 12px;">
@@ -1775,6 +1788,7 @@
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:850px; margin:0 auto 30px;">
                     <button type="button" id="vd-btn-salva" class="btn btn-warning w-auto" onclick="salvaVendita()" style="margin:0;">💾 Salva</button>
+                    <button type="button" id="vd-btn-salva-mob" class="btn btn-warning no-print" onclick="salvaVendita()" aria-label="Salva il documento">💾 Salva</button>
                     <button type="button" class="btn btn-dark w-auto" onclick="stampaVendita()" style="margin:0;">🖨️ Stampa</button>
                     <button type="button" class="btn btn-info w-auto" onclick="pdfVendita()" style="margin:0;">📄 PDF</button>
                     <button type="button" class="btn btn-success w-auto" onclick="whatsappVendita()" style="margin:0;">💬 WhatsApp</button>
@@ -3090,7 +3104,7 @@
             });
         }
 
-        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Stats', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto', garanzie:'🛡️ Garanzie', vendite:'📄 Vendite' };
+        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Statistiche', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lavori Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto', garanzie:'🛡️ Garanzie', vendite:'📄 Vendite', 'nuova-app':'📅 Appuntamento', 'crea-prev':'📝 Preventivo', 'nuovo-cliente':'👤 Nuovo Cliente', usate:'🏷️ Moto Usate' };
         function switchView(viewId, el) {
             if (viewId !== 'nuova') _pendingSpecialCat = null;
             closeSidebar();
@@ -3920,6 +3934,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         function refreshVendite() {
             const el = $('vend-lista');
             if (!el) return;
+            const bi = $('vend-btn-import'), li = $('vend-import-link');
+            if (bi) bi.style.display = venditeDB.length ? 'none' : '';
+            if (li) li.style.display = venditeDB.length ? '' : 'none';
             const cnt = { ordine: 0, preventivo: 0 };
             venditeDB.forEach(v => { cnt[_tipoVendita(v)]++; });
             const tabs = $('vend-tabs');
@@ -5714,13 +5731,13 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const accTot = _listaJob(j.acconti).reduce((a, b) => a + (parseFloat(b.val) || 0), 0);
             const lordo = parseFloat(j.totale_lordo) || 0, resta = lordo - accTot;
             const soldi = lordo > 0
-                ? (resta > 0.01 ? `<b style="color:#f59e0b;">resta € ${resta.toFixed(2)}</b>` : '<b style="color:#22c55e;">✓ saldato</b>')
+                ? (resta > 0.01 ? `<b style="color:#f59e0b;">resta € ${resta.toFixed(2)}</b>` : resta < -0.01 ? `<b style="color:var(--info);">anticipo in più € ${(-resta).toFixed(2)}</b>` : '<b style="color:#22c55e;">acconti = totale attuale</b>')
                 : accTot > 0 ? `<span style="color:var(--info); font-weight:700;">acconto € ${accTot.toFixed(2)}</span>` : '';
             const note = String(j.lavori_richiesti || '').replace(/\r/g, '').split('\n').map(s => s.trim()).filter(Boolean).join(' · ');
             const tel = String(j.tel || '').replace(/\s/g, '');
             const preConto = (lordo > 0 || accTot > 0) ? `<div style="padding:8px 12px; background:rgba(15,23,42,0.6); border:1px solid #334155; border-radius:8px; line-height:1.7; max-width:440px;">
                     ${lordo > 0 ? `<div style="display:flex; justify-content:space-between; gap:12px;"><span style="color:var(--muted);">Pre-conto</span><b style="color:white;">€ ${lordo.toFixed(2)}</b></div>` : ''}
-                    <div style="display:flex; justify-content:space-between; gap:12px;"><span style="color:var(--info);">${accTot > 0 ? `Acconti € ${accTot.toFixed(2)}` : 'Nessun acconto'}</span>${lordo > 0 ? (resta <= 0.01 ? '<b style="color:#22c55e;">✓ Saldato</b>' : `<b style="color:#f59e0b;">Resta € ${resta.toFixed(2)}</b>`) : ''}</div>
+                    <div style="display:flex; justify-content:space-between; gap:12px;"><span style="color:var(--info);">${accTot > 0 ? `Acconti € ${accTot.toFixed(2)}` : 'Nessun acconto'}</span>${lordo > 0 ? (resta < -0.01 ? `<b style="color:var(--info);">Anticipo in più € ${(-resta).toFixed(2)}</b>` : resta <= 0.01 ? '<b style="color:#22c55e;">Acconti = totale attuale</b>' : `<b style="color:#f59e0b;">Resta € ${resta.toFixed(2)}</b>`) : ''}</div>
                 </div>` : '';
             const pb = 'background:transparent; border:1px solid #475569; color:#cbd5e1; border-radius:8px; padding:8px 14px; font-size:0.98rem; cursor:pointer; width:auto; min-height:42px; margin:0;';
             const sposta = Object.entries(_SP_TAB).filter(([c]) => c !== cat).map(([c, t]) => `<button type="button" onclick="spostaCategoriaSp('${id}','${c}')" style="${pb} border-color:${t.col}; color:${t.col};">→ ${t.lbl}</button>`).join('');
@@ -9862,6 +9879,19 @@ A presto!`;
             ['todo', 'doing', 'done'].forEach((s, k) => { const n = t.children[k] && t.children[k].querySelector('b'); if (n) n.textContent = c[s]; });
             _tabBachecaAttiva();
         }
+        // Avvisi delle sezioni del menu (garanzie da contattare, scadenze): sul telefono il menu è chiuso, si vedono su "Altro"
+        function _aggiornaBadgeAltro() {
+            const b = $('tb-badge-altro');
+            if (!b) return;
+            const n = ['gar-badge', 'scadenze-badge'].reduce((s, id) => { const e = $(id); return s + (e && e.style.display !== 'none' ? (parseInt(e.textContent) || 0) : 0); }, 0);
+            b.textContent = n;
+            b.hidden = !n;
+            b.title = n + (n === 1 ? ' avviso' : ' avvisi') + ' nel menu: garanzie da contattare e scadenze';
+        }
+        (function () {
+            const oss = new MutationObserver(_aggiornaBadgeAltro);
+            ['gar-badge', 'scadenze-badge'].forEach(id => { const e = document.getElementById(id); if (e) oss.observe(e, { attributes: true, childList: true, characterData: true, subtree: true }); });
+        })();
         function _aggiornaTabbar(viewId) {
             let trovato = false;
             document.querySelectorAll('#mob-tabbar button').forEach(b => { const on = b.dataset.view === viewId; if (on) trovato = true; b.classList.toggle('on', on); });
