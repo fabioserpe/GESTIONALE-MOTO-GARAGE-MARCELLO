@@ -3441,7 +3441,7 @@
             const txt = `Ciao ${nome} 👋, ti confermiamo che la tua *${j.marca||'moto'}* è pronta per il ritiro presso Moto Garage Marcello. 🏍️ Per qualsiasi informazione chiamaci al ${MGM_INFO.tel}. A presto!`;
             window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank');
         }
-        function sendWhatsAppPreventivo(id) { const p = db.find(x => String(x.id) === String(id)); if(!p) return; let t = formatPhoneForWa(p.tel); if(!t) return mostraErrore("Nessun numero salvato!"); let v = (p.conto || []).map(c => `▪️ ${c.desc}: €${parseFloat(c.price).toFixed(2)}`).join('\n'); let txt = `Ciao ${(p.nome||'').trim()},\necco il preventivo per la tua ${p.marca||''} ${p.modello||''} (${p.targa||''}):\n\n${v}\n\n*TOTALE: €${(parseFloat(p.totale_lordo)||0).toFixed(2)}*\n\nFammi sapere! 🏍️\n- ${MGM_INFO.nome}`; window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank'); }
+        function sendWhatsAppPreventivo(id) { const p = db.find(x => String(x.id) === String(id)); if(!p) return; let t = formatPhoneForWa(p.tel); if(!t) return mostraErrore("Nessun numero salvato!"); let v = (p.conto || []).map(c => { const q = parseFloat(c.qty) || 1; return `▪️ ${c.desc}${q > 1 ? ' ×' + String(q).replace('.', ',') : ''}: €${_totaleRiga(p, c).toFixed(2)}`; }).join('\n'); let txt = `Ciao ${(p.nome||'').trim()},\necco il preventivo per la tua ${p.marca||''} ${p.modello||''} (${p.targa||''}):\n\n${v}\n\n*TOTALE: €${(parseFloat(p.totale_lordo)||0).toFixed(2)}*\n\nFammi sapere! 🏍️\n- ${MGM_INFO.nome}`; window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank'); }
         function sendWhatsAppArchiveCognome(enc) { const clientId = safeDecode(enc); const js = getJobsByClientId(clientId); if(js.length === 0) return; const u = js[js.length-1]; let t = formatPhoneForWa(u.tel); if(!t) return mostraErrore("Nessun numero salvato!"); const nome = (u.nome||u.cognome||'').trim(); const moto = [u.marca, u.modello, u.targa].filter(Boolean).join(' '); const txt = `Ciao ${nome} 👋, la tua *${moto||'moto'}* è pronta per il ritiro presso Moto Garage Marcello. 🏍️\nPer info chiamaci al ${MGM_INFO.tel}. A presto!`; window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank'); }
 
         // =====================================================================
@@ -7944,29 +7944,31 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 `<div style="display:flex; justify-content:space-between; margin-bottom: 30px;">
                     <div style="flex:1; padding-right:20px;">
                         <h4 style="margin:0 0 8px 0; color:#64748b; text-transform:uppercase; border-bottom:2px solid #f1f5f9; padding-bottom:6px; font-size:0.9rem;">Dati Cliente</h4>
-                        <p style="margin:4px 0; font-size:1.1rem;"><b>${(j.cognome||'').toUpperCase()} ${j.nome||''}</b></p>
-                        <p style="margin:4px 0; color:#334155;">Tel: ${j.tel||'N/D'}</p>
+                        <p style="margin:4px 0; font-size:1.1rem;"><b>${htmlEsc((j.cognome||'').toUpperCase())} ${htmlEsc(j.nome||'')}</b></p>
+                        <p style="margin:4px 0; color:#334155;">Tel: ${htmlEsc(j.tel||'N/D')}</p>
                     </div>
                     <div style="flex:1; border-left:1px solid #e2e8f0; padding-left:20px;">
                         <h4 style="margin:0 0 8px 0; color:#64748b; text-transform:uppercase; border-bottom:2px solid #f1f5f9; padding-bottom:6px; font-size:0.9rem;">Dati Veicolo</h4>
-                        <p style="margin:4px 0;">Moto: <b>${j.marca||''} ${j.modello||''}</b></p>
-                        <p style="margin:4px 0;">Targa: <b>${j.targa||'N/D'}</b></p>
-                        <p style="margin:4px 0;">KM: <b>${j.km||'N/D'}</b></p>
+                        <p style="margin:4px 0;">Moto: <b>${htmlEsc(j.marca||'')} ${htmlEsc(j.modello||'')}</b></p>
+                        <p style="margin:4px 0;">Targa: <b>${htmlEsc(j.targa||'N/D')}</b></p>
+                        <p style="margin:4px 0;">KM: <b>${htmlEsc(j.km||'N/D')}</b></p>
                     </div>
                 </div>
                 <table style="width:100%; border-collapse: collapse; margin-bottom: 24px; font-size:10pt;">
                     <thead>
                         <tr style="background-color: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
                             <th style="text-align:left; padding:10px 12px; border-bottom: 2px solid #cbd5e1; color:#334155; font-weight:bold;">Descrizione Voci</th>
+                            <th style="text-align:center; padding:10px 12px; border-bottom: 2px solid #cbd5e1; color:#334155; font-weight:bold; width:60px;">Q.tà</th>
                             <th style="text-align:right; padding:10px 12px; border-bottom: 2px solid #cbd5e1; color:#334155; font-weight:bold; width:110px;">Imponibile</th>
                             <th style="text-align:center; padding:10px 12px; border-bottom: 2px solid #cbd5e1; color:#334155; font-weight:bold; width:60px;">IVA%</th>
-                            <th style="text-align:right; padding:10px 12px; border-bottom: 2px solid #cbd5e1; color:#334155; font-weight:bold; width:130px;">Prezzo c/IVA</th>
+                            <th style="text-align:right; padding:10px 12px; border-bottom: 2px solid #cbd5e1; color:#334155; font-weight:bold; width:130px;">Totale c/IVA</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${(j.conto||[]).map(c => { const ivaR = parseFloat(c.iva??22)||0; const lordo = _totaleRiga(j, c); const imp = ivaR>0 ? lordo/(1+ivaR/100) : lordo; return `
+                        ${(j.conto||[]).map(c => { const ivaR = parseFloat(c.iva??22)||0; const lordo = _totaleRiga(j, c); const imp = ivaR>0 ? lordo/(1+ivaR/100) : lordo; const qta = String(parseFloat(c.qty) || 1).replace('.', ','); return `
                         <tr>
-                            <td style="padding:10px 12px; border-bottom: 1px solid #f1f5f9; color:#0f172a;">${c.desc}</td>
+                            <td style="padding:10px 12px; border-bottom: 1px solid #f1f5f9; color:#0f172a;">${htmlEsc(c.desc||'')}</td>
+                            <td style="text-align:center; padding:10px 12px; border-bottom: 1px solid #f1f5f9; color:#0f172a; font-weight:bold;">${qta}</td>
                             <td style="text-align:right; padding:10px 12px; border-bottom: 1px solid #f1f5f9; color:#475569;">${imp.toFixed(2)} €</td>
                             <td style="text-align:center; padding:10px 12px; border-bottom: 1px solid #f1f5f9; color:#64748b; font-size:0.85em;">${ivaR > 0 ? ivaR+'%' : 'ES.'}</td>
                             <td style="text-align:right; padding:10px 12px; border-bottom: 1px solid #f1f5f9; color:#0f172a; font-weight:bold;">${lordo.toFixed(2)} €</td>

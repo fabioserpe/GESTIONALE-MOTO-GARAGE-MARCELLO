@@ -795,9 +795,24 @@
       // 📲 Invia WhatsApp
       aperti.length = 0; sendWhatsAppPreventivo(1903);
       ok(aperti.length === 1 && aperti[0].includes('wa.me/39') && decodeURIComponent(aperti[0]).includes('CARENA'), 'Invia WhatsApp: si apre WhatsApp con il preventivo');
+      ok(decodeURIComponent(aperti[0]).includes('FRECCIA ×2: €60.00') && !decodeURIComponent(aperti[0]).includes('CARENA ×'), 'Invia WhatsApp: quantità accanto alla voce (solo se più di 1), prezzo della riga');
       // 🖨️ Stampa Preventivo
       printPreventivo(1903); await attendi(150);
       ok(stampe.length === 1 && document.getElementById('print-area').textContent.includes('ACTERZO') && document.getElementById('print-area').textContent.includes('260.00'), 'Stampa Preventivo: pagina di stampa con cliente e totale');
+      {
+        const tab = document.querySelector('#print-area table');
+        const th = [...tab.querySelectorAll('thead th')].map(x => x.textContent.trim());
+        const righe = [...tab.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.textContent.trim()));
+        ok(th[1] === 'Q.tà', 'Stampa Preventivo: colonna Q.tà dopo la descrizione');
+        ok(righe[0][0] === 'CARENA' && righe[0][1] === '1' && righe[1][0] === 'FRECCIA' && righe[1][1] === '2' && righe[1][4] === '60.00 €', 'Stampa Preventivo: quantità di ogni voce (FRECCIA 2 pezzi, 60 € di riga)');
+        const j = db.find(x => String(x.id) === '1903');
+        j.conto.push({ desc: 'OLIO <b>5W40</b>', price: 18, qty: 1.5, iva: 22 }); j.cognome = 'ACTERZO <i>X</i>';
+        printPreventivo(1903); await attendi(150);
+        const pa = document.getElementById('print-area');
+        ok(pa.textContent.includes('OLIO <b>5W40</b>') && pa.textContent.includes('ACTERZO <I>X</I>') && !pa.querySelector('table b, i'), 'Stampa Preventivo: descrizioni e nomi con < stampati come scritti');
+        ok([...pa.querySelectorAll('tbody tr')].pop().children[1].textContent.trim() === '1,5', 'Stampa Preventivo: quantità con la virgola (1,5)');
+        j.conto.pop(); j.cognome = 'ACTERZO';
+      }
       // ✏️ Modifica
       openPreventivoForm(1903);
       ok(currentView === 'crea-prev' && document.getElementById('p_id').value === '1903', 'Modifica: si apre il preventivo');
