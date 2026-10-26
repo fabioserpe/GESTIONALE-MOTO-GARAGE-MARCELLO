@@ -10075,6 +10075,14 @@ if ('serviceWorker' in navigator) {
         let scadFiltro = 'tutte';
         const SCAD_CAT_EMOJI = { F24:'💰', IMU:'🏠', TARI:'🗑️', RIBA:'🏦', INPS:'👤', CAMERA:'🏛️', BOLLETTA:'⚡', ALTRO:'📄' };
         const SCAD_RICORRENZA_MESI = { mensile:1, trimestrale:3, semestrale:6, annuale:12 };
+        // Stesso giorno N mesi dopo; se quel giorno non esiste, l'ultimo del mese (31/01 + 1 mese = 28/02).
+        // `giorno` è il giorno voluto: dopo febbraio si torna al 31 invece di restare al 28.
+        function _aggiungiMesi(iso, mesi, giorno) {
+            const [y, m, d] = String(iso).split('-').map(Number);
+            const t = y * 12 + (m - 1) + mesi, ny = Math.floor(t / 12), nm = t - ny * 12;
+            const ultimo = new Date(ny, nm + 1, 0).getDate();
+            return `${ny}-${String(nm + 1).padStart(2, '0')}-${String(Math.min(giorno || d, ultimo)).padStart(2, '0')}`;
+        }
 
         // ═══════════════ MOTO USATE ═══════════════
         let _usateFilter = 'tutte';
@@ -10527,7 +10535,7 @@ if ('serviceWorker' in navigator) {
         function aggiornaScadenzeBadge() {
             const oggi = getOggiLocale();
             const tra7 = new Date(); tra7.setDate(tra7.getDate() + 7);
-            const fmt7 = tra7.toISOString().slice(0, 10);
+            const fmt7 = formatDateISO(tra7);
             const scadute = scadenzeDB.filter(s => s.stato === 'aperta' && s.scadenza <= oggi).length;
             const imminenti = scadenzeDB.filter(s => s.stato === 'aperta' && s.scadenza > oggi && s.scadenza <= fmt7).length;
             const badge = $('scadenze-badge');
@@ -10546,8 +10554,8 @@ if ('serviceWorker' in navigator) {
             const oggi = getOggiLocale();
             const tra7 = new Date(); tra7.setDate(tra7.getDate() + 7);
             const tra30 = new Date(); tra30.setDate(tra30.getDate() + 30);
-            const fmt7 = tra7.toISOString().slice(0,10);
-            const fmt30 = tra30.toISOString().slice(0,10);
+            const fmt7 = formatDateISO(tra7);
+            const fmt30 = formatDateISO(tra30);
 
             // KPI
             const aperte = scadenzeDB.filter(s => s.stato === 'aperta');
@@ -10676,7 +10684,7 @@ if ('serviceWorker' in navigator) {
                 ricorrenza: $('scad-ricorrenza').value,
                 stato: editId ? (scadenzeDB.find(x=>x.id===editId)?.stato || 'aperta') : 'aperta'
             };
-            if (editId) { const i = scadenzeDB.findIndex(x => x.id === editId); if (i > -1) scadenzeDB[i] = obj; }
+            if (editId) { const i = scadenzeDB.findIndex(x => x.id === editId); if (i > -1) { const prima = scadenzeDB[i]; scadenzeDB[i] = { ...prima, ...obj }; if (prima.scadenza !== obj.scadenza) delete scadenzeDB[i].giorno; } }
             else scadenzeDB.push(obj);
             saveScadenzeDB();
             chiudiFormScadenza();
@@ -10693,25 +10701,37 @@ if ('serviceWorker' in navigator) {
             if (s.stato === 'aperta') {
                 s.stato = 'pagata';
                 s.data_pagamento = getOggiLocale();
-                // Crea prossima scadenza se ricorrente
-                if (s.ricorrenza && s.ricorrenza !== 'una-tantum') {
-                    const mesi = SCAD_RICORRENZA_MESI[s.ricorrenza];
-                    const prossima = new Date(s.scadenza);
-                    prossima.setMonth(prossima.getMonth() + mesi);
-                    scadenzeDB.push({
+                // Crea la prossima scadenza se ricorrente (una sola volta: `prossima_id` la ricorda)
+                const mesi = SCAD_RICORRENZA_MESI[s.ricorrenza];
+                const giaCreata = s.prossima_id != null && scadenzeDB.some(x => String(x.id) === String(s.prossima_id));
+                if (mesi && !giaCreata) {
+                    const giorno = s.giorno || parseInt(String(s.scadenza).slice(8, 10)) || null;
+                    const nuova = {
                         id: genId(),
                         desc: s.desc,
                         categoria: s.categoria,
                         importo: s.importo,
-                        scadenza: prossima.toISOString().slice(0,10),
+                        scadenza: _aggiungiMesi(s.scadenza, mesi, giorno),
                         note: s.note,
                         ricorrenza: s.ricorrenza,
                         stato: 'aperta'
-                    });
+                    };
+                    if (giorno) nuova.giorno = giorno;
+                    scadenzeDB.push(nuova);
+                    s.prossima_id = nuova.id;
                 }
             } else {
                 s.stato = 'aperta';
                 delete s.data_pagamento;
+                // Pagata per sbaglio: si toglie anche la successiva creata dal pagamento, se è ancora da pagare
+                if (s.prossima_id != null) {
+                    const p = scadenzeDB.find(x => String(x.id) === String(s.prossima_id));
+                    if (!p || p.stato === 'aperta') {
+                        scadenzeDB = scadenzeDB.filter(x => String(x.id) !== String(s.prossima_id));
+                        delete s.prossima_id;
+                        if (p) mostraToast('Tolta anche la scadenza successiva del ' + formattaData(p.scadenza));
+                    }
+                }
             }
             saveScadenzeDB();
             aggiornaScadenzeBadge();

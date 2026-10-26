@@ -1890,6 +1890,40 @@
     }
   });
 
+  await passo('Scadenze ricorrenti', async () => {
+    const casi = [['2026-01-15', 3, null, '2026-04-15'], ['2026-03-10', 1, null, '2026-04-10'], ['2026-01-31', 1, null, '2026-02-28'], ['2028-01-31', 1, null, '2028-02-29'],
+      ['2026-02-28', 1, 31, '2026-03-31'], ['2026-03-31', 1, null, '2026-04-30'], ['2026-08-31', 1, null, '2026-09-30'], ['2026-12-31', 2, null, '2027-02-28'], ['2026-11-30', 12, null, '2027-11-30']];
+    const sbagliati = casi.filter(([d, m, g, att]) => _aggiungiMesi(d, m, g) !== att).map(([d, m, g, att]) => d + '+' + m + ' = ' + _aggiungiMesi(d, m, g) + ' (atteso ' + att + ')');
+    ok(!sbagliati.length, 'Scadenze: date dopo 1–12 mesi giuste anche a fine mese, con l\'ora legale e negli anni bisestili' + (sbagliati.length ? ' — ' + sbagliati.join('; ') : ''));
+    const aff = () => scadenzeDB.filter(x => x.desc === 'AFFITTO PROVA').sort((a, b) => a.scadenza.localeCompare(b.scadenza));
+    const paga = async id => { await attendi(650); togglePagataScadenza(id); };
+    scadenzeDB.push({ id: 9901, desc: 'AFFITTO PROVA', categoria: 'altro', importo: 500, scadenza: '2026-01-31', note: '', ricorrenza: 'mensile', stato: 'aperta' });
+    saveScadenzeDB();
+    await paga(9901);
+    let a = aff();
+    ok(a.length === 2 && a[1].scadenza === '2026-02-28' && a[0].stato === 'pagata', 'Scadenze: pagando quella del 31/01 la successiva è il 28/02 (prima veniva il 03/03, saltando febbraio)');
+    const feb = a[1].id;
+    await paga(feb);
+    a = aff();
+    ok(a.length === 3 && a[2].scadenza === '2026-03-31', 'Scadenze: dopo febbraio si torna al 31 (31/03, non 28/03)');
+    await paga(feb);
+    a = aff();
+    ok(a.length === 2 && a[1].stato === 'aperta' && a[1].scadenza === '2026-02-28', 'Scadenze: rimessa "da pagare" per sbaglio, la successiva creata dal pagamento viene tolta');
+    await paga(feb);
+    a = aff();
+    ok(a.length === 3 && a.filter(x => x.scadenza === '2026-03-31').length === 1, 'Scadenze: ripagandola non nascono doppioni');
+    ok(Object.values(fb.leggi('scadenze') || {}).filter(x => x && x.desc === 'AFFITTO PROVA').length === 3, 'Scadenze: salvate nel cloud');
+    // modifica di una scadenza pagata: la data del pagamento resta
+    const gen = a[0];
+    campo('scad-edit-id', gen.id); campo('scad-desc', 'AFFITTO PROVA'); campo('scad-data', gen.scadenza); campo('scad-importo', '550'); campo('scad-note', ''); campo('scad-ricorrenza', 'mensile');
+    salvaScadenza();
+    const g2 = scadenzeDB.find(x => x.id === gen.id);
+    ok(g2.importo === 550 && g2.stato === 'pagata' && !!g2.data_pagamento && String(g2.prossima_id) === String(feb), 'Scadenze: modificando una scadenza pagata restano la data del pagamento e il collegamento alla successiva');
+    scadenzeDB = scadenzeDB.filter(x => x.desc !== 'AFFITTO PROVA'); saveScadenzeDB();
+    await attendi(650);
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
