@@ -1973,6 +1973,7 @@
     const iv = Object.values(pag.interventi || {});
     ok(iv.length === 2 && iv[0].data === '2026-04-10' && iv[0].titolo === 'TAGLIANDO COMPLETO' && JSON.stringify(Object.values(iv[0].voci || {})) === '["OLIO MOTUL 7100 ×2"]' && iv[1].km === 9800, 'Passaporto: solo i lavori chiusi, dal più recente, con le voci del conto e le quantità');
     ok(!/PASSA|PORTO\b|3331234567|NOTA PRIVATA|SCONTO|price|IN CORSO/i.test(JSON.stringify(pag)), 'Passaporto: online niente nome, telefono, note, sconti, prezzi né lavori in corso');
+    ok(!!document.querySelector('#pp-corpo a[href="https://motogaragemarcello.github.io/passaporto/#' + idx.codice + '"]'), 'Passaporto: il link porta al nuovo indirizzo motogaragemarcello.github.io/passaporto');
     ok((document.getElementById('pp-codice') || {}).textContent === _codiceLeggibile(idx.codice) && /^MGM-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(_codiceLeggibile(idx.codice)), 'Passaporto: la finestra mostra il codice da scrivere a mano ' + _codiceLeggibile(idx.codice));
     fb.scritturaRemota({ 'db/kp4': { id: 8304, cognome: 'PASSA', targa: 'PP123AA', km: '25000', stato: 'archived', data: '2026-09-01', data_chiusura: '2026-09-02', conto: [{ desc: 'PASTIGLIE', price: 60, qty: 1 }], clientId: 'c-pp' } }, false);
     await attendi(1900);
