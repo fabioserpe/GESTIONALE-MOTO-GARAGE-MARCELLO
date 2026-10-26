@@ -317,6 +317,35 @@
             #board-search-toggle { font-size: 0 !important; padding: 8px 11px !important; }
             #board-search-toggle::before { content: '🔍'; font-size: 1.05rem; }
             .board .col-title { display: none; }
+
+            /* ---- CONTO: una voce su due righe, riepilogo e totale a tutta larghezza ---- */
+            #modal-conto .modal-content { padding: 14px !important; }
+            #modal-conto .modal-content > h2 { font-size: 1.15rem !important; margin-bottom: 6px !important; }
+            #modal-conto .section-dark { padding: 12px !important; }
+            #modal-conto table, #modal-conto tbody { display: block; width: 100%; }
+            #modal-conto thead { display: none; }
+            #conto-rows tr.voce-row { display: grid; position: relative; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-areas: "desc desc desc" "pr qty tot"; margin-bottom: 10px; border-radius: 10px; overflow: hidden; border: 1px solid #94a3b8 !important; }
+            #conto-rows tr.voce-row > td { width: auto !important; border-right: none !important; display: flex; align-items: center; min-width: 0; }
+            #conto-rows tr.voce-row > td:nth-child(1) { grid-area: desc; border-bottom: 1px solid #e2e8f0; padding: 10px 48px 10px 12px !important; }
+            #conto-rows tr.voce-row > td:nth-child(1) > div { width: 100%; flex-wrap: wrap; }
+            #conto-rows tr.voce-row > td:nth-child(1) .r-desc { font-size: 0.95rem !important; min-width: 0; }
+            #conto-rows tr.voce-row > td:nth-child(2) { grid-area: pr; flex-direction: column; align-items: stretch; justify-content: center; gap: 1px; padding: 6px 10px !important; }
+            #conto-rows tr.voce-row > td:nth-child(2) .r-price { font-size: 1rem !important; text-align: left !important; padding: 0 !important; }
+            #conto-rows tr.voce-row > td:nth-child(2)::before { content: '€ cad.'; white-space: nowrap; font-size: 0.62rem; color: #64748b; font-weight: 800; letter-spacing: 0.5px; }
+            #conto-rows tr.voce-row > td:nth-child(3) { grid-area: qty; justify-content: center; padding: 6px 8px !important; }
+            #conto-rows tr.voce-row > td:nth-child(3) button { width: 32px !important; height: 32px !important; font-size: 1.25rem !important; }
+            #conto-rows tr.voce-row > td:nth-child(4) { grid-area: tot; flex-direction: column; align-items: flex-end; justify-content: center; gap: 1px; font-size: 1.1rem !important; padding: 6px 12px !important; }
+            #conto-rows tr.voce-row > td:nth-child(4)::before { content: 'Totale'; white-space: nowrap; font-size: 0.62rem; color: #64748b; font-weight: 800; letter-spacing: 0.5px; }
+            #conto-rows tr.voce-row > td:nth-child(5) { display: none; }
+            #conto-rows tr.voce-row > td:nth-child(6) { position: absolute; top: 6px; right: 6px; padding: 0 !important; background: transparent !important; }
+            #conto-rows tr.voce-row > td:nth-child(6) button { padding: 6px 11px !important; font-size: 1rem !important; }
+            #modal-conto .modal-content > div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; gap: 12px !important; }
+            #conto-totale h2 { font-size: 1.4rem !important; }
+            #conto-totale > div { font-size: 1.2rem !important; }
+            #modal-conto .modal-content > .flex-row.mt-15 { flex-wrap: wrap !important; gap: 8px !important; }
+            #modal-conto .modal-content > .flex-row.mt-15 > button { flex: 1 1 calc(50% - 4px) !important; margin: 0 !important; }
+            #modal-conto .modal-content > .flex-row.mt-15 > button:nth-child(3),
+            #modal-conto .modal-content > .flex-row.mt-15 > button:nth-child(4) { order: -1; padding: 14px 10px !important; font-size: 0.92rem !important; }
         }
 
         @media print {

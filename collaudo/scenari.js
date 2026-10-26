@@ -1789,6 +1789,22 @@
     switchView('board');
   });
 
+  await passo('Telefono: struttura del conto', async () => {
+    // le regole del telefono per il conto contano sulla posizione delle celle e dei blocchi
+    const j = db.find(x => ['todo', 'doing', 'done'].includes(x.stato));
+    openClosingModal(j.id);
+    addVoceConto('PROVA STRUTTURA', 10, 22, false, '', 2);
+    const tr = [...document.querySelectorAll('#conto-rows tr.voce-row')].pop();
+    const td = [...tr.children];
+    ok(td.length === 6 && !!td[0].querySelector('.r-desc') && !!td[1].querySelector('.r-price') && !!td[2].querySelector('.r-qty') && td[3].classList.contains('r-tot-display') && td[4].classList.contains('r-imp-display') && !!td[5].querySelector('button'), 'Conto: celle della voce nell\'ordine descrizione, prezzo, quantità, totale, imponibile, ×');
+    const mc = document.querySelector('#modal-conto .modal-content');
+    ok(!!mc.querySelector(':scope > div[style*="grid-template-columns: 1fr 1fr"] #conto-totale'), 'Conto: acconti e riepilogo nel blocco a due colonne');
+    const btn = [...mc.querySelectorAll(':scope > .flex-row.mt-15 > button')];
+    ok(btn.length === 4 && /Pre-Conto/.test(btn[2].textContent) && /Chiudi/.test(btn[3].textContent), 'Conto: pulsanti Annulla, Stampa, Salva Pre-Conto, Chiudi e Archivia');
+    ok(td[3].textContent.trim() === '20.00 €', 'Conto: totale della voce 10 € × 2 = ' + td[3].textContent.trim());
+    closeModal('modal-conto');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
