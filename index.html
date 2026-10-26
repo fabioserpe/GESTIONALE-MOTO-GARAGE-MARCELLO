@@ -3013,7 +3013,7 @@
             closeModal('modal-billing');
         }
 
-        // saveAll rimane solo per importData() ed eseguiUndo() che toccano più collezioni
+        // saveAll rimane per eseguiUndo() che tocca più collezioni
         function saveAll() {
             if (!_puoSalvare('db', 'agenda', 'ledger', 'ordini', 'rubrica', 'note')) return;
             // Salva ogni collezione separatamente (evita permission su radice /)
@@ -3417,48 +3417,76 @@
         // =====================================================================
         // 5. EXPORT / IMPORT / WHATSAPP
         // =====================================================================
-        function exportData() {
+        // Backup manuale: le sezioni principali (come prima, così i vecchi file restano ripristinabili)
+        // più tutte le altre lette dal cloud così come sono. Restano fuori solo i file dei libretti (pesanti).
+        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse'];
+        const BACKUP_NOMI = { db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Prima Nota', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse' };
+        function _contaBackup(v) {
+            if (v == null || typeof v !== 'object') return '';
+            const n = (Array.isArray(v) ? v : Object.values(v)).filter(x => x != null).length;
+            return ' (' + n + ')';
+        }
+        async function exportData() {
             try {
                 const backupData = {db, agenda: agendaDB, ledger: ledgerDB, ordini: ordiniDB, rubrica: rubricaDB, note: noteDB, magazzino: inventarioMag, lista_ordini: listaOrdiniMag};
+                const leggi = k => Promise.race([
+                    database.ref('/' + k).once('value').then(s => s.val()),
+                    new Promise((_, no) => setTimeout(() => no(new Error('il cloud non risponde, controlla la connessione e riprova')), 20000))
+                ]);
+                const altre = await Promise.all(BACKUP_ALTRE.map(leggi));
+                BACKUP_ALTRE.forEach((k, n) => { backupData[k] = altre[n] === undefined ? null : altre[n]; });
+                backupData._backup = { creato: new Date().toISOString(), nota: 'Backup del gestionale Moto Garage Marcello. Mancano solo i file dei libretti, che restano nel cloud.' };
                 const b = new Blob([JSON.stringify(backupData, null, 2)], {type: 'application/json'});
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(b);
                 a.download = `MGM_Backup_CLOUD_${getOggiLocale()}.json`;
                 document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 try { localStorage.setItem('mgLastBackup', Date.now().toString()); } catch(e) {}
-            } catch (e) { mostraErrore("Errore Export: " + e.message); }
+                mostraToast('💾 Backup completo scaricato (' + Object.keys(BACKUP_NOMI).length + ' sezioni)');
+            } catch (e) { mostraErrore("Errore Backup: " + e.message); }
         }
-        function importData(e) { 
-            const f = e.target.files[0]; if (!f) return; 
-            const r = new FileReader(); 
-            r.onload = async (x) => { 
-                try { 
-                    const d = JSON.parse(x.target.result); 
-                    if (Array.isArray(d)) { 
-                        db = d; 
-                    } else { 
-                        db = d.db || []; 
-                        agendaDB = d.agenda || []; 
-                        ledgerDB = d.ledger || []; 
-                        ordiniDB = d.ordini || []; 
-                        rubricaDB = d.rubrica || []; 
-                        noteDB = d.note || ""; 
-                        // Ripristina magazzino se presente nel backup
-                        if (d.magazzino && Array.isArray(d.magazzino) && d.magazzino.length > 0) {
-                            if (confirm(`Trovati ${d.magazzino.length} articoli magazzino nel backup. Ripristinare anche il magazzino?`)) {
-                                let count = 0;
-                                for (const item of d.magazzino) {
-                                    try { await magSave(item.codice, item); count++; } catch(err) {}
-                                }
-                                mostraToast(`Magazzino ripristinato: ${count} articoli importati!`);
-                            }
-                        }
-                    } 
-                    saveAll(); 
-                } catch(err) { mostraErrore("File corrotto."); } 
-                finally { e.target.value = ''; } 
-            }; 
-            r.readAsText(f); 
+        function importData(e) {
+            const f = e.target.files[0]; if (!f) return;
+            const r = new FileReader();
+            r.onload = async (x) => {
+                try {
+                    let d;
+                    try { d = JSON.parse(x.target.result); } catch (err) { return mostraErrore("File corrotto."); }
+                    if (Array.isArray(d)) d = { db: d };
+                    const presenti = d && typeof d === 'object' ? Object.keys(BACKUP_NOMI).filter(k => k in d) : [];
+                    if (!presenti.length) return mostraErrore("Questo file non è un backup del gestionale: non è stato ripristinato niente.");
+                    const quando = d._backup && d._backup.creato ? ' del ' + new Date(d._backup.creato).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }) : '';
+                    const elenco = presenti.filter(k => k !== 'magazzino').map(k => '• ' + BACKUP_NOMI[k] + _contaBackup(d[k])).join('\n');
+                    if (!confirm(`Ripristinare il backup${quando}?\n\nQueste sezioni verranno SOSTITUITE con quelle del file:\n${elenco}\n\nLe sezioni che non sono nel file restano come sono.`)) return;
+                    const arr = v => Array.isArray(v) ? v.filter(z => z != null) : Object.values(v || {}).filter(z => z != null);
+                    const principali = ['db', 'agenda', 'ledger', 'ordini', 'rubrica', 'note'].filter(k => k in d);
+                    const altre = ['lista_ordini', ...BACKUP_ALTRE].filter(k => k in d);
+                    if (!_puoSalvare(...principali, ...altre.filter(k => k !== 'storico_casse'))) return;
+                    if (typeof saveSnapshot === 'function') saveSnapshot();
+                    if ('db' in d) db = arr(d.db);
+                    if ('agenda' in d) agendaDB = arr(d.agenda);
+                    if ('ledger' in d) ledgerDB = arr(d.ledger);
+                    if ('ordini' in d) ordiniDB = arr(d.ordini);
+                    if ('rubrica' in d) rubricaDB = arr(d.rubrica);
+                    if ('note' in d) noteDB = d.note || "";
+                    const extra = {};
+                    ['ledger', 'ordini', 'rubrica', 'note'].forEach(k => { if (k in d) extra[k] = { ledger: ledgerDB, ordini: ordiniDB, rubrica: rubricaDB, note: noteDB }[k]; });
+                    altre.forEach(k => { extra[k] = d[k] === undefined ? null : d[k]; });
+                    _salvaSezioni(['db', 'agenda'].filter(k => k in d).map(k => [k, k === 'db' ? db : agendaDB]), extra);
+                    updateDatalist();
+                    // Magazzino: solo se presente e confermato (gli articoli che non sono nel file restano)
+                    const mag = 'magazzino' in d ? arr(d.magazzino).filter(it => it && it.codice) : [];
+                    if (mag.length && confirm(`Trovati ${mag.length} articoli magazzino nel backup. Ripristinare anche il magazzino?`)) {
+                        let count = 0;
+                        for (const item of mag) { try { await magSave(item.codice, item); count++; } catch(err) {} }
+                        mostraToast(`Magazzino ripristinato: ${count} articoli importati!`);
+                    } else {
+                        mostraToast('📂 Backup ripristinato');
+                    }
+                } catch(err) { mostraErrore("Ripristino non riuscito: " + (err && err.message ? err.message : 'errore sconosciuto')); }
+                finally { e.target.value = ''; }
+            };
+            r.readAsText(f);
         }
         function exportExcel() { if (!db || db.length === 0) return mostraErrore("Nessun dato."); let c = "Targa;Cognome;Nome;Telefono;Marca;Modello\n"; const t = [...new Set(db.map(j => j.targa).filter(Boolean))]; t.forEach(tg => { const s = db.filter(j => j.targa === tg && j.stato !== 'preventivo'); if(s.length === 0) return; const u = s[s.length - 1]; c += `${String(u.targa||'').replace(/;/g, ',')};${String(u.cognome||'').replace(/;/g, ',')};${String(u.nome||'').replace(/;/g, ',')};${String(u.tel||'').replace(/;/g, ',')};${String(u.marca||'').replace(/;/g, ',')};${String(u.modello||'').replace(/;/g, ',')}\n`; }); const b = new Blob(["\uFEFF" + c], { type: 'text/csv;charset=utf-8;' }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `MGM_Clienti.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
         function sendWhatsApp(id) {
