@@ -2261,6 +2261,15 @@
         </div>
     </div>
 
+    <div id="modal-passaporto" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:580px;">
+            <h2 style="color:#34d399; margin:0 0 4px;">🛡️ Passaporto della moto</h2>
+            <div id="pp-moto" style="color:var(--muted); margin-bottom:14px;"></div>
+            <div id="pp-corpo"></div>
+            <div class="flex-row mt-20"><button class="btn btn-dark" onclick="closeModal('modal-passaporto')" style="flex:1;">Chiudi</button></div>
+        </div>
+    </div>
+
     <!-- ═══ MODAL CAMBIO STATO LAVORI (da Anagrafica) ═══ -->
     <div id="modal-stato-lavori" class="modal hidden no-print">
         <div class="modal-content" style="max-width:620px;">
@@ -2635,6 +2644,7 @@
                 }
                 updateDatalist();
                 _consegnaOrdiniMotoChiuse();
+                _dSincPassaporti();
                 const v = currentView;
                 if (v === 'nuova' || v === 'crea-prev') { /* form aperto, nessun refresh */ }
                 else if (v === 'board') _dRefreshBoard();
@@ -2710,6 +2720,7 @@
                 _segnaCaricato('tagliandi');
                 taggliandiDB = snap.val() || {};
                 if (currentView === 'tagliandi') refreshTagliandi();
+                _dSincPassaporti();
             });
 
             database.ref('/lista_attesa').on('value', (snap) => {
@@ -2741,6 +2752,12 @@
                 const v = snap.val() || {};
                 venditeDB = Object.keys(v).filter(k => v[k] && typeof v[k] === 'object').map(k => ({ ...v[k], chiave: v[k].chiave || k }));
                 if (currentView === 'vendite') refreshVendite();
+            });
+
+            database.ref('/passaporti_idx').on('value', (snap) => {
+                _segnaCaricato('passaporti_idx');
+                passaportiIdx = snap.val() || {};
+                _dSincPassaporti();
             });
 
             database.ref('/garanzie').on('value', (snap) => {
@@ -3433,8 +3450,8 @@
         // =====================================================================
         // Backup manuale: le sezioni principali (come prima, così i vecchi file restano ripristinabili)
         // più tutte le altre lette dal cloud così come sono. Restano fuori solo i file dei libretti (pesanti).
-        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse'];
-        const BACKUP_NOMI = { db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Prima Nota', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse' };
+        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse', 'passaporti_idx', 'passaporti'];
+        const BACKUP_NOMI = { db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Prima Nota', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse', passaporti_idx: 'Passaporti delle moto', passaporti: 'Pagine online dei passaporti' };
         function _contaBackup(v) {
             if (v == null || typeof v !== 'object') return '';
             const n = (Array.isArray(v) ? v : Object.values(v)).filter(x => x != null).length;
@@ -3475,7 +3492,7 @@
                     const arr = v => Array.isArray(v) ? v.filter(z => z != null) : Object.values(v || {}).filter(z => z != null);
                     const principali = ['db', 'agenda', 'ledger', 'ordini', 'rubrica', 'note'].filter(k => k in d);
                     const altre = ['lista_ordini', ...BACKUP_ALTRE].filter(k => k in d);
-                    if (!_puoSalvare(...principali, ...altre.filter(k => k !== 'storico_casse'))) return;
+                    if (!_puoSalvare(...principali, ...altre.filter(k => k !== 'storico_casse' && k !== 'passaporti'))) return;
                     if (typeof saveSnapshot === 'function') saveSnapshot();
                     if ('db' in d) db = arr(d.db);
                     if ('agenda' in d) agendaDB = arr(d.agenda);
@@ -5818,6 +5835,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     <button onclick="editJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">✏️ Modifica scheda</button>
                     <button onclick="ordinaRicambioPerJob(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#f59e0b; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">📦 Ordina ricambio</button>
                     <button onclick="${printFn}(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🖨️ Stampa</button>
+                    ${chiaveTarga(j.targa) ? `<button onclick="apriPassaporto('${safeEncode(chiaveTarga(j.targa))}'); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#34d399; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🛡️ Passaporto moto</button>` : ''}
                     ${j.stato !== 'done' && _listaJob(j.conto).length ? `<button onclick="printPreconto(${j.id}); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:var(--text); padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🖨️ Stampa pre-conto</button>` : ''}
                     <button onclick="moveStatus(${j.id}, 'special'); chiudiMenuBoard('${menuId}')" style="display:flex; align-items:center; gap:8px; background:transparent; border:none; color:#d8b4fe; padding:9px 14px; width:100%; text-align:left; font-size:0.85rem; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">🕰️ Lavori Lunghi</button>
                     <div style="border-top:1px solid #334155; margin:4px 0;"></div>
@@ -7266,6 +7284,180 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         function newJobFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if($('f_client_id')) $('f_client_id').value=clientId; if ($('acconti-container')) $('acconti-container').innerHTML=''; setTimeout(() => checkCustomerBikes('f'), 100); }
         function newVehicleFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if (jobs.length === 0) return; const u = jobs[jobs.length-1]; isEditing=false; switchView('nuova'); $('f_nome').value=u.nome||''; $('f_cognome').value=u.cognome||''; $('f_tel').value=u.tel||''; $('f_targa').value=''; $('f_marca').value=''; $('f_modello').value=''; $('f_km').value=''; $('f_lavori').value=''; if($('f_client_id')) $('f_client_id').value=clientId; if ($('acconti-container')) $('acconti-container').innerHTML=''; }
 
+        // ═══════════════ PASSAPORTO DELLA MOTO ═══════════════
+        // Pagina pubblica passaporto.html#CODICE: legge /passaporti/{CODICE} senza login (regola Firebase dedicata, solo lettura di quel nodo).
+        // Indice privato /passaporti_idx/{TARGA} = { codice, targa, attivo, creato, aggiornato, firma }.
+        // Online vanno solo marca/modello, targa parziale, date, km e voci del conto (senza prezzi né sconti): niente cliente, telefono o note.
+        const PASSAPORTO_URL = 'https://fabioserpe.github.io/GESTIONALE-MOTO-GARAGE-MARCELLO/passaporto.html#';
+        let passaportiIdx = {};
+        let _qrPromise = null;
+        function caricaQrcode() {
+            if (window.QRCode) return Promise.resolve(window.QRCode);
+            if (!_qrPromise) _qrPromise = new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+                s.onload = () => window.QRCode ? res(window.QRCode) : rej(new Error('generatore QR non disponibile'));
+                s.onerror = () => { _qrPromise = null; rej(new Error('impossibile scaricare il generatore QR, controlla la connessione')); };
+                document.head.appendChild(s);
+            });
+            return _qrPromise;
+        }
+        function _codicePassaporto() {
+            const alf = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = new Uint32Array(12);
+            crypto.getRandomValues(r);
+            return Array.from(r, n => alf[n % alf.length]).join('');
+        }
+        function _codiceLeggibile(c) { return 'MGM-' + (String(c || '').match(/.{1,4}/g) || []).join('-'); }
+        function _targaParziale(t) { const k = chiaveTarga(t); return k.length <= 5 ? k : k.slice(0, 3) + '•'.repeat(k.length - 5) + k.slice(-2); }
+        function _kmNum(v) { const n = parseInt(String(v == null ? '' : v).replace(/\D/g, ''), 10); return n > 0 ? n : null; }
+        function _datiPassaporto(key) {
+            const dataDi = j => String(j.data_chiusura || j.data || '');
+            const dellaMoto = db.filter(j => j && chiaveTarga(j.targa) === key && j.stato !== 'preventivo');
+            const fatti = dellaMoto.filter(j => j.stato === 'done' || j.stato === 'archived').sort((a, b) => dataDi(a).localeCompare(dataDi(b)));
+            const rif = dellaMoto.filter(j => j.marca || j.modello).sort((a, b) => dataDi(a).localeCompare(dataDi(b))).pop() || {};
+            const interventi = fatti.map(j => {
+                const voci = _listaJob(j.conto)
+                    .filter(c => String(c.desc || '').trim() && (parseFloat(c.price) || 0) >= 0 && !/sconto|abbuono|omaggio/i.test(c.desc))
+                    .map(c => { const q = parseFloat(c.qty) || 1; return String(c.desc).trim().toUpperCase() + (q > 1 ? ' ×' + String(q).replace('.', ',') : ''); });
+                return { data: dataDi(j), km: _kmNum(j.km), titolo: voci[0] || 'INTERVENTO IN OFFICINA', voci: voci.slice(1) };
+            }).reverse();
+            const km = Math.max(0, ...fatti.map(j => _kmNum(j.km) || 0)) || null;
+            const kTag = Object.keys(taggliandiDB || {}).find(k => chiaveTarga(k) === key);
+            const tag = kTag ? taggliandiDB[kTag] : null;
+            return {
+                v: 1,
+                moto: `${rif.marca || ''} ${rif.modello || ''}`.trim().toUpperCase(),
+                targa: _targaParziale(key),
+                km,
+                dal: fatti.length ? dataDi(fatti[0]).slice(0, 7) : null,
+                interventi,
+                prossimo: tag && tag.data ? String(tag.data) : null,
+                aggiornato: getOggiLocale()
+            };
+        }
+        function _firmaPassaporto(d) {
+            const s = JSON.stringify(Object.assign({}, d, { aggiornato: '' }));
+            let x = 5381;
+            for (let i = 0; i < s.length; i++) x = ((x << 5) + x + s.charCodeAt(i)) | 0;
+            return (x >>> 0).toString(36) + '-' + s.length.toString(36);
+        }
+        // Tiene aggiornate le pagine online dei passaporti attivi: scrive solo se il contenuto è cambiato
+        function _sincronizzaPassaporti() {
+            if (!_cloud.connesso || !['db', 'tagliandi', 'passaporti_idx'].every(n => _cloud.caricati.has(n))) return;
+            const upd = {};
+            Object.entries(passaportiIdx || {}).forEach(([key, p]) => {
+                if (!p || !p.attivo || !p.codice) return;
+                const d = _datiPassaporto(key), firma = _firmaPassaporto(d);
+                if (firma === p.firma) return;
+                upd['passaporti/' + p.codice] = d;
+                upd['passaporti_idx/' + key + '/firma'] = firma;
+                upd['passaporti_idx/' + key + '/aggiornato'] = d.aggiornato;
+            });
+            if (Object.keys(upd).length) database.ref('/').update(upd).catch(_onSaveError);
+        }
+        const _dSincPassaporti = debounce(_sincronizzaPassaporti, 1500);
+
+        function apriPassaporto(encTarga) {
+            const key = chiaveTarga(safeDecode(encTarga));
+            if (!key) return mostraErrore('Questa moto non ha la targa: il passaporto è legato alla targa.');
+            const e = safeEncode(key), d = _datiPassaporto(key), p = passaportiIdx[key], attivo = !!(p && p.attivo);
+            const n = d.interventi.length;
+            $('pp-moto').innerHTML = `<b style="color:white;">${htmlEsc(d.moto || 'Moto')}</b> · <span class="targa-badge">${htmlEsc(key)}</span>`;
+            const pb = 'margin:0;';
+            $('pp-corpo').innerHTML = attivo ? `
+                <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+                    <div id="pp-qr" style="width:132px; height:132px; background:#fff; border-radius:8px; padding:6px; display:flex; align-items:center; justify-content:center; color:#555; font-size:0.75rem; text-align:center;"></div>
+                    <div style="flex:1; min-width:200px;">
+                        <div style="color:#34d399; font-weight:800;">✓ Passaporto attivo</div>
+                        <div id="pp-codice" style="font-family:monospace; font-size:1.1rem; color:white; margin:4px 0; letter-spacing:1px;">${htmlEsc(_codiceLeggibile(p.codice))}</div>
+                        <div style="color:var(--muted); font-size:0.88rem;">${n} ${n === 1 ? 'intervento' : 'interventi'} online · aggiornato il ${formattaData(p.aggiornato || '') || '—'}. Si aggiorna da solo a ogni lavoro chiuso.</div>
+                    </div>
+                </div>
+                <div class="flex-row mt-15" style="gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-success w-auto" onclick="stampaAdesivoPassaporto('${e}')" style="${pb}">🖨️ Stampa adesivo</button>
+                    <a class="btn btn-info w-auto" href="${PASSAPORTO_URL + htmlEsc(p.codice)}" target="_blank" rel="noopener" style="${pb} text-decoration:none;">👁️ Apri la pagina</a>
+                    <button type="button" class="btn btn-wa w-auto" onclick="waPassaporto('${e}')" style="${pb}">📲 Manda il link</button>
+                    <button type="button" class="btn btn-dark w-auto" onclick="disattivaPassaporto('${e}')" style="${pb} color:#f87171;">⛔ Disattiva</button>
+                </div>`
+                : `<p style="margin:0 0 10px; line-height:1.5;">Crea la pagina online con la storia della manutenzione di questa moto e stampa l'adesivo con il QR da attaccare sotto la sella.</p>
+                <p style="margin:0 0 14px; color:var(--muted); font-size:0.9rem; line-height:1.5;">Online vanno solo moto, targa parziale, date, km e voci del conto (${n} ${n === 1 ? 'intervento chiuso' : 'interventi chiusi'}): niente prezzi, nomi, telefoni o note. ${p && p.codice ? 'Si riattiva con lo stesso codice: l\'adesivo già attaccato torna a funzionare.' : ''}</p>
+                <button type="button" class="btn btn-success" onclick="attivaPassaporto('${e}')" style="${pb}">✅ Attiva passaporto</button>`;
+            openModal('modal-passaporto');
+            if (attivo) caricaQrcode().then(Q => {
+                const el = $('pp-qr'); if (!el) return;
+                el.innerHTML = '';
+                new Q(el, { text: PASSAPORTO_URL + p.codice, width: 120, height: 120, correctLevel: Q.CorrectLevel.M });
+            }).catch(() => { const el = $('pp-qr'); if (el) el.textContent = 'QR non disponibile senza connessione'; });
+        }
+        function attivaPassaporto(encTarga) {
+            const key = chiaveTarga(safeDecode(encTarga));
+            if (!key) return mostraErrore('Questa moto non ha la targa: il passaporto è legato alla targa.');
+            if (!_puoSalvare('db', 'tagliandi', 'passaporti_idx')) return;
+            const vecchio = passaportiIdx[key];
+            const codice = (vecchio && vecchio.codice) || _codicePassaporto();
+            const d = _datiPassaporto(key);
+            const rec = { codice, targa: key, attivo: true, creato: (vecchio && vecchio.creato) || getOggiLocale(), aggiornato: d.aggiornato, firma: _firmaPassaporto(d) };
+            passaportiIdx[key] = rec;
+            database.ref('/').update({ ['passaporti/' + codice]: d, ['passaporti_idx/' + key]: rec })
+                .then(() => { showCloudCheck(); mostraToast('🛡️ Passaporto attivato: stampa l\'adesivo'); }).catch(_onSaveError);
+            apriPassaporto(safeEncode(key));
+        }
+        function disattivaPassaporto(encTarga) {
+            const key = chiaveTarga(safeDecode(encTarga)), p = passaportiIdx[key];
+            if (!p || !p.codice) return;
+            if (!confirm(`Disattivare il passaporto di ${key}?\n\nLa pagina online viene cancellata subito: chi inquadra l'adesivo vedrà "passaporto non attivo".\nPuoi riattivarlo quando vuoi e lo stesso adesivo tornerà a funzionare.`)) return;
+            if (!_puoSalvare('passaporti_idx')) return;
+            passaportiIdx[key] = Object.assign({}, p, { attivo: false, firma: null });
+            database.ref('/').update({ ['passaporti/' + p.codice]: null, ['passaporti_idx/' + key + '/attivo']: false, ['passaporti_idx/' + key + '/firma']: null })
+                .then(() => { showCloudCheck(); mostraToast('Passaporto disattivato: la pagina online non c\'è più'); }).catch(_onSaveError);
+            apriPassaporto(safeEncode(key));
+        }
+        function waPassaporto(encTarga) {
+            const key = chiaveTarga(safeDecode(encTarga)), p = passaportiIdx[key];
+            if (!p || !p.attivo) return;
+            const j = [...db].sort((a, b) => String(a.data_chiusura || a.data || '').localeCompare(String(b.data_chiusura || b.data || ''))).reverse().find(x => chiaveTarga(x.targa) === key && x.tel);
+            const t = j ? formatPhoneForWa(j.tel) : '';
+            if (!t) return mostraErrore('Nessun numero di telefono salvato per questa moto.');
+            const moto = `${j.marca || ''} ${j.modello || ''}`.trim() || 'moto';
+            const txt = `Ciao ${(j.nome || j.cognome || '').trim()} 👋, ecco il passaporto della tua ${moto}: tutta la storia della manutenzione fatta da Moto Garage Marcello, sempre aggiornata.\n${PASSAPORTO_URL + p.codice}\nLo apri anche inquadrando l'adesivo con il QR sulla moto. Conservalo: quando vendi la moto vale di più! 🏍️`;
+            window.open(`https://wa.me/${t}?text=${encodeURIComponent(txt)}`, '_blank');
+        }
+        function stampaAdesivoPassaporto(encTarga) {
+            const key = chiaveTarga(safeDecode(encTarga)), p = passaportiIdx[key];
+            if (!p || !p.attivo) return;
+            caricaQrcode().then(Q => {
+                const tmp = document.createElement('div');
+                new Q(tmp, { text: PASSAPORTO_URL + p.codice, width: 480, height: 480, correctLevel: Q.CorrectLevel.M });
+                const c = tmp.querySelector('canvas'), im = tmp.querySelector('img');
+                const qr = c && c.toDataURL ? c.toDataURL('image/png') : (im ? im.src : '');
+                const d = _datiPassaporto(key), cod = htmlEsc(_codiceLeggibile(p.codice));
+                const adesivo = (cls) => `<div class="pp-ad ${cls}"><img class="pp-logo" src="${LOGO_MGM}" alt=""><div class="pp-tit">PASSAPORTO MOTO</div><img class="pp-qr" src="${qr}" alt="QR"><div class="pp-inq">Inquadra per lo storico<br>della manutenzione</div><div class="pp-cod">${cod}</div></div>`;
+                $('print-area').innerHTML = `<style>
+                    .pp-foglio { font-family: Arial, sans-serif; color: #111; padding: 10mm; }
+                    .pp-riga { display: flex; gap: 12mm; align-items: flex-start; }
+                    .pp-ad { border: 0.7mm solid #c62828; border-radius: 4mm; text-align: center; box-sizing: border-box; page-break-inside: avoid; }
+                    .pp-grande { width: 60mm; height: 88mm; padding: 4mm 4mm 3mm; }
+                    .pp-piccolo { width: 36mm; height: 53mm; padding: 2.5mm 2.5mm 2mm; }
+                    .pp-logo { display: block; margin: 0 auto 1mm; }
+                    .pp-grande .pp-logo { width: 16mm; } .pp-piccolo .pp-logo { width: 9mm; }
+                    .pp-tit { font-weight: 900; color: #c62828; letter-spacing: 0.6mm; }
+                    .pp-grande .pp-tit { font-size: 13pt; } .pp-piccolo .pp-tit { font-size: 7pt; }
+                    .pp-qr { display: block; margin: 2mm auto; image-rendering: pixelated; }
+                    .pp-grande .pp-qr { width: 40mm; height: 40mm; } .pp-piccolo .pp-qr { width: 24mm; height: 24mm; margin: 1mm auto; }
+                    .pp-inq { font-weight: 700; line-height: 1.25; } .pp-grande .pp-inq { font-size: 8.5pt; } .pp-piccolo .pp-inq { font-size: 5pt; }
+                    .pp-cod { font-family: 'Courier New', monospace; font-weight: 700; color: #555; margin-top: 1.5mm; } .pp-grande .pp-cod { font-size: 8pt; } .pp-piccolo .pp-cod { font-size: 5pt; }
+                    .pp-nota { margin-top: 10mm; font-size: 9pt; color: #444; line-height: 1.5; max-width: 150mm; }
+                </style>
+                <div class="pp-foglio">
+                    <div class="pp-riga">${adesivo('pp-grande')}${adesivo('pp-piccolo')}</div>
+                    <div class="pp-nota"><b>${htmlEsc(d.moto || 'Moto')} · ${htmlEsc(key)}</b> — passaporto ${cod}<br>
+                    Ritaglia lungo il bordo rosso: il grande va sotto la sella o in un punto riparato, il piccolo sul portachiavi.
+                    Stampa su carta adesiva (meglio se plastificata o con una pellicola trasparente sopra) per farlo durare.</div>
+                </div>`;
+                setTimeout(() => window.print(), 150);
+            }).catch(err => mostraErrore('Per stampare l\'adesivo serve la connessione: ' + err.message));
+        }
+
         function viewHistoryCognome(encodedChiave) {
             const clientId = safeDecode(encodedChiave); const hList = getJobsByClientId(clientId).filter(j => j.stato !== 'preventivo' && j.stato !== 'cliente'); const _fj = getJobsByClientId(clientId).find(j => j.cognome) || {}; const _label = `${(_fj.cognome||'').toUpperCase()} ${_fj.nome||''}`.trim() || clientId; $('st-titolo').innerText = `Storia Interventi & Conti: ${_label}`;
             const stCorpo = $('st-corpo'); if(!stCorpo) return;
@@ -7321,6 +7513,11 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
 
                 return `<div style="padding:15px; background:${bgCol}; border-radius:10px; margin-bottom:15px; border-left:4px solid ${bCol}"><div class="flex-between" style="align-items:flex-start;"><div><b style="color:${bCol}; font-size:1.1rem;">Data: ${formattaData(h.data)}</b><br><span style="color:var(--info); font-size:0.9rem; font-weight:bold;">🏍️ ${htmlEsc(h.marca||'')} ${htmlEsc(h.modello||'')} <span class="targa-badge" style="font-size:0.75rem; padding:1px 4px; margin-left:4px;">${htmlEsc(h.targa)}</span> ${h.km ? `| 🏁 KM: ${h.km}` : ''}</span></div><div class="flex-row" style="flex-wrap:wrap; justify-content:flex-end;">${riapriBtn}<button class="btn btn-warning w-auto" style="padding:8px; cursor:pointer;" onclick="${actionEdit}">✏️ Modifica</button><button class="btn w-auto" style="padding:8px; background:white; color:black; cursor:pointer;" onclick="${actionPrint}">🖨️ Stampa</button><button class="btn w-auto" style="padding:8px; background:transparent; color:var(--accent); border:1px solid var(--accent); cursor:pointer;" onclick="deleteSingleHistoryCognome(${h.id}, '${safeKey}')">🗑️ Elimina</button></div></div>${previewHtml}</div>`;
             }).join('') || "Nessun intervento."; 
+            const _tg = {};
+            getJobsByClientId(clientId).forEach(j => { const k = chiaveTarga(j.targa); if (k) _tg[k] = `${j.marca || ''} ${j.modello || ''}`.trim(); });
+            const _pp = Object.entries(_tg).map(([k, m]) => { const p = passaportiIdx[k], on = !!(p && p.attivo);
+                return `<button type="button" class="pp-chip" onclick="apriPassaporto('${safeEncode(k)}')" style="width:auto; margin:0; background:${on ? 'rgba(52,211,153,0.12)' : 'transparent'}; border:1px solid ${on ? '#34d399' : '#475569'}; color:var(--text); border-radius:20px; padding:6px 12px; font-size:0.85rem; cursor:pointer;">🛡️ ${htmlEsc(k)}${m ? ' · ' + htmlEsc(m) : ''} — <b style="color:${on ? '#34d399' : 'var(--muted)'};">${on ? 'passaporto attivo' : 'attiva passaporto'}</b></button>`; }).join('');
+            if (_pp) stCorpo.insertAdjacentHTML('afterbegin', `<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">${_pp}</div>`);
             $('modal-storico').classList.remove('hidden');
         }
 
