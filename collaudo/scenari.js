@@ -1842,6 +1842,54 @@
     switchView('board');
   });
 
+  await passo('Nomi con simboli in tutte le pagine', async () => {
+    const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const lun = new Date(); lun.setDate(lun.getDate() - (lun.getDay() + 6) % 7);
+    const X = "D'ANGELO & <xss1>FIGLI</xss1>";
+    const orig = window.print; window.print = () => {};
+    fb.scritturaRemota({
+      'db/kx1': { id: 8101, cognome: X, nome: '<xss1>N</xss1>', tel: '333<xss1>', marca: 'A&B <xss1>', modello: 'M<xss1>', targa: 'ZZ999X', stato: 'archived', data: '2026-02-01', data_chiusura: '2026-02-02', lavori_richiesti: 'CAMBIO <xss1>OLIO</xss1>', conto: [{ desc: '<xss1>VOCE</xss1> & CO', price: 10, qty: 1, iva: 22 }], totale_lordo: 10, clientId: 'c-xss' },
+      'db/kx2': { id: 8102, cognome: X, nome: 'APP', marca: 'A&B', modello: '<xss1>', targa: 'ZZ998X', stato: 'todo', data: iso(lun), lavori_richiesti: '<xss1>', totale_lordo: 0, clientId: 'c-xss2' },
+      'agenda/kx2': { id: 8103, tipo: 'officina', jobId: 8102, data: iso(lun), ora: '10:00', cliente: X, moto: 'A&B <xss1> - ZZ998X', raw_targa: 'ZZ998X', tel: '333<xss1>' },
+      'rubrica/kx': { id: 8104, nome: X, tel: '333<xss1>' },
+      'lista_attesa/kx': { id: 8105, cognome: X, nome: '<xss1>', tel: '333', marca: 'A&B', modello: 'M', colore: '<xss1>ROSSO', stato: 'in_attesa', data: iso(lun) },
+      'scadenze/kx': { id: 8106, desc: X, categoria: 'altro', importo: 10, scadenza: iso(lun), stato: 'aperta', note: '<xss1>NOTA' }
+    }, false);
+    const nessuno = dove => {
+      const el = [...document.querySelectorAll('xss1')];
+      const dovesta = el.map(e => { let p = e.parentElement, str = ''; while (p && !p.id) { str = p.tagName + '>' + str; p = p.parentElement; } return (p ? '#' + p.id : '?') + ' ' + str + ' «' + (e.parentElement.outerHTML || '').slice(0, 90) + '»'; });
+      ok(el.length === 0, 'Nomi con simboli: ' + dove + ' mostra il testo senza eseguirlo' + (el.length ? ' — ' + dovesta.slice(0, 2).join(' | ') : ''));
+      el.forEach(e => e.remove());
+      ok(!/&amp;|&lt;|&#39;/.test(document.body.innerText), 'Nomi con simboli: ' + dove + ' senza simboli doppi (&amp; al posto di &)');
+    };
+    try {
+      switchView('archivio'); refreshArchive();
+      nessuno('Anagrafica'); ok(document.getElementById('archive-results').textContent.includes("D'ANGELO & <xss1>FIGLI</xss1>"), 'Nomi con simboli: in Anagrafica si legge il nome intero con apostrofo e &');
+      const ba = [...document.querySelectorAll('#archive-results [onclick*="openBillingModal"]')].find(x => x.getAttribute('onclick').includes('c-xss'));
+      if (ba) ba.click();
+      ok(!!ba && !document.getElementById('modal-billing').classList.contains('hidden') && document.getElementById('billing-cliente-info').textContent.toUpperCase().includes(X.toUpperCase()), 'Nomi con simboli: in Anagrafica il pulsante dati di fatturazione funziona con l\'apostrofo');
+      closeModal('modal-billing');
+      viewHistoryCognome(safeEncode('c-xss')); nessuno('storico del cliente'); closeModal('modal-storico');
+      previewJob(8101); nessuno('anteprima della scheda');
+      const bp = document.querySelector('#modal-storico [onclick*="openBillingModal"]');
+      if (bp) bp.click();
+      ok(!!bp && !document.getElementById('modal-billing').classList.contains('hidden') && document.getElementById('billing-cliente-info').textContent.toUpperCase().includes(X.toUpperCase()), 'Nomi con simboli: nell\'anteprima il pulsante dati di fatturazione funziona con l\'apostrofo');
+      closeModal('modal-billing'); closeModal('modal-storico');
+      printJobSheet(8101); nessuno('stampa della scheda'); ok(document.getElementById('print-area').textContent.includes('CAMBIO <xss1>OLIO</xss1>'), 'Nomi con simboli: la stampa della scheda riporta i lavori così come sono scritti');
+      printInvoice(8101); nessuno('stampa della ricevuta'); ok(document.getElementById('print-area').textContent.includes('<xss1>VOCE</xss1> & CO'), 'Nomi con simboli: la ricevuta riporta la voce così com\'è scritta');
+      document.getElementById('print-area').innerHTML = '';
+      switchView('agenda'); nessuno('Agenda');
+      switchView('tagliandi'); nessuno('Tagliandi');
+      switchView('rubrica'); nessuno('Rubrica');
+      switchView('lista-attesa'); nessuno('Lista attesa moto');
+      switchView('scadenze'); nessuno('Scadenzario');
+    } finally {
+      window.print = orig;
+      fb.scritturaRemota({ 'db/kx1': null, 'db/kx2': null, 'agenda/kx2': null, 'rubrica/kx': null, 'lista_attesa/kx': null, 'scadenze/kx': null }, false);
+      switchView('board'); await attendi(200);
+    }
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
