@@ -1924,6 +1924,34 @@
     switchView('board');
   });
 
+  await passo('Telefono: avvisi su Altro, Lavori Lunghi, Vendite', async () => {
+    const gb = document.getElementById('gar-badge'), sb = document.getElementById('scadenze-badge'), tb = document.getElementById('tb-badge-altro');
+    const g0 = [gb.style.display, gb.textContent], s0 = [sb.style.display, sb.textContent];
+    gb.style.display = 'inline'; gb.textContent = '2'; sb.style.display = 'inline'; sb.textContent = '1';
+    await attendi(30);
+    ok(!tb.hidden && tb.textContent === '3', 'Altro: pallino con garanzie da contattare + scadenze (' + tb.textContent + ')');
+    gb.style.display = 'none'; sb.style.display = 'none';
+    await attendi(30);
+    ok(tb.hidden, 'Altro: senza avvisi il pallino sparisce');
+    gb.style.display = g0[0]; gb.textContent = g0[1]; sb.style.display = s0[0]; sb.textContent = s0[1];
+    await attendi(30);
+
+    fb.scritturaRemota({
+      'db/kLA': { id: 8201, stato: 'special', special_cat: 'restauri', data: oggi, cognome: 'ANTICIPO', marca: 'GUZZI', modello: 'V7', conto: [{ desc: 'X', price: 350, qty: 1, iva: 22 }], totale_lordo: 350, acconti: [{ val: 500, date: oggi }] },
+      'db/kLB': { id: 8202, stato: 'special', special_cat: 'restauri', data: oggi, cognome: 'PARI', marca: 'GUZZI', modello: 'V7', conto: [{ desc: 'X', price: 200, qty: 1, iva: 22 }], totale_lordo: 200, acconti: [{ val: 200, date: oggi }] }
+    }, false);
+    switchView('specials'); setSpTab('restauri');
+    const testo = document.getElementById('view-specials').textContent;
+    ok(testo.includes('anticipo in più € 150.00') && testo.includes('acconti = totale attuale') && !/saldato/i.test(testo), 'Lavori Lunghi: niente "saldato" sui lavori aperti; anticipo in più o acconti = totale attuale come in Bacheca');
+    fb.scritturaRemota({ 'db/kLA': null, 'db/kLB': null }, false);
+
+    switchView('vendite');
+    const vis = e => !!e && e.style.display !== 'none' && e.offsetParent !== null;
+    ok(venditeDB.length > 0 ? (!vis(document.getElementById('vend-btn-import')) && vis(document.getElementById('vend-import-link'))) : vis(document.getElementById('vend-btn-import')), 'Vendite: "Importa dal vecchio programma" in evidenza solo finché l\'archivio è vuoto, poi un link discreto in fondo');
+    ok(!!document.getElementById('vd-btn-salva-mob') && getComputedStyle(document.getElementById('vd-btn-salva-mob')).display === 'none', 'Vendite: il Salva fisso del telefono non compare sul Mac');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
