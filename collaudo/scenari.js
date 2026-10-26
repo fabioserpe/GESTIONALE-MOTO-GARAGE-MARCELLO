@@ -1805,6 +1805,43 @@
     closeModal('modal-conto');
   });
 
+  await passo('Backup e ripristino', async () => {
+    let blob = null;
+    const cou = URL.createObjectURL, clk = HTMLAnchorElement.prototype.click;
+    URL.createObjectURL = b => { blob = b; return 'blob:prova'; };
+    HTMLAnchorElement.prototype.click = function () {};
+    try { await exportData(); } finally { URL.createObjectURL = cou; HTMLAnchorElement.prototype.click = clk; }
+    ok(!!blob, 'Backup: file creato');
+    const bk = JSON.parse(await blob.text());
+    const attese = ['db', 'agenda', 'ledger', 'ordini', 'rubrica', 'note', 'magazzino', 'lista_ordini', 'billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse'];
+    ok(attese.every(k => k in bk), 'Backup: tutte le 19 sezioni' + (attese.some(k => !(k in bk)) ? ' (mancano: ' + attese.filter(k => !(k in bk)).join(', ') + ')' : ''));
+    ok(!('libretti' in bk) && bk._backup && bk._backup.creato && bk.db.length === db.length, 'Backup: lavori presenti, data del backup, file dei libretti esclusi');
+
+    const imp = async (obj, risposta = true) => {
+      const conf = window.confirm; let msg = '';
+      window.confirm = m => { if (!msg) msg = m; return risposta; };
+      const ev = { target: { files: [new File([JSON.stringify(obj)], 'b.json')], value: 'x' } };
+      try { importData(ev); for (let i = 0; i < 150 && ev.target.value !== ''; i++) await attendi(20); await attendi(50); } finally { window.confirm = conf; }
+      return { msg, ev };
+    };
+    const ordiniPrima = JSON.stringify(fb.leggi('ordini'));
+    const job = { id: 7001, cognome: 'RIPRISTINO', nome: 'PROVA', stato: 'archived', data: '2026-01-01', totale_lordo: 0 };
+    const gar = { id: 7002, cognome: 'GARANZIA RIPRISTINATA', stato: 'richiesta' };
+    let n = nScr(), r = await imp({ db: [job], garanzie: [gar] }, false);
+    ok(nScr() === n && db.some(j => j.id === 1001), 'Ripristino annullato: non cambia niente');
+    ok(r.msg.includes('Lavori, preventivi e clienti (1)') && r.msg.includes('Garanzie (1)') && !r.msg.includes('Ordini ricambi') && r.msg.includes('restano come sono'), 'Ripristino: chiede conferma con l\'elenco delle sezioni del file');
+    n = nScr(); r = await imp({ pippo: 1 });
+    ok(nScr() === n && !r.msg && r.ev.target.value === '', 'Ripristino: un file che non è un backup non cambia niente');
+    r = await imp({ db: [job], garanzie: [gar] });
+    ok(db.length === 1 && db[0].id === 7001 && Object.values(fb.leggi('db') || {}).length === 1, 'Ripristino parziale: lavori sostituiti nel cloud');
+    const gg = Object.values(fb.leggi('garanzie') || {});
+    ok(gg.length === 1 && gg[0].id === 7002 && gg[0].cognome === 'GARANZIA RIPRISTINATA', 'Ripristino parziale: garanzie sostituite');
+    ok(JSON.stringify(fb.leggi('ordini')) === ordiniPrima, 'Ripristino parziale: gli Ordini, assenti nel file, restano come erano (prima venivano svuotati)');
+    r = await imp(bk);
+    ok(db.length === bk.db.length && JSON.stringify(fb.leggi('garanzie') ?? null) === JSON.stringify(bk.garanzie ?? null), 'Ripristino completo: tutto torna com\'era');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
