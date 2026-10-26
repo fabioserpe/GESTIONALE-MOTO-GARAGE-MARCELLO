@@ -1695,6 +1695,41 @@
     switchView('board');
   });
 
+  await passo('Stampa pre-conto', async () => {
+    const txt = id => (document.getElementById(id) || {}).textContent || '';
+    fb.scritturaRemota({
+      'db/kPC': { id: 7702, stato: 'doing', data: oggi, cognome: 'PRECONTO', nome: 'TEST', tel: '3330001111', marca: 'APRILIA', modello: 'RS 457', targa: 'PC111AA', km: '3000',
+        conto: [{ desc: 'PASTIGLIE', price: 60, qty: 1, iva: 22 }, { desc: 'OLIO', price: 15, qty: 3, iva: 22 }, { desc: '<img src=x onerror="window.__xssPC=1">', price: 0, qty: 1, iva: 22 }],
+        acconti: [{ val: 50, date: oggi }], totale_lordo: 105 },
+      'db/kLL': { id: 7701, stato: 'special', special_cat: 'restauri', data: oggi, cognome: 'LUNGO', marca: 'GUZZI', modello: 'V7', conto: [{ desc: 'RESTAURO', price: 500, qty: 1, iva: 22 }], totale_lordo: 500 }
+    }, false);
+    switchView('board'); await attendi(50);
+    const pr = window.print; let stampe = 0; window.print = () => { stampe++; };
+    try {
+      openClosingModal(7702);
+      ok(!!document.getElementById('btn-stampa-preconto'), 'Finestra del conto: pulsante "🖨️ Stampa"');
+      addVoceConto('LAVAGGIO', 10, 22, false, '', 1);
+      const n0 = nScr();
+      stampaPrecontoFinestra(); await attendi(200);
+      const pa = txt('print-area');
+      ok(stampe === 1 && pa.includes('PRE-CONTO') && pa.includes('NON FISCALE') && pa.includes('PRECONTO') && pa.includes('PC111AA') && pa.includes('LAVAGGIO') && pa.includes('×3') && pa.includes('45.00 €') && pa.includes('115.00 €') && pa.includes('65.00 €') && pa.includes('provvisorio'), 'Stampa dalla finestra: voci (anche quella appena aggiunta), totale 115, acconto 50, da pagare 65');
+      ok(nScr() === n0 && !db.find(j => j.id === 7702).conto.some(c => c.desc === 'LAVAGGIO'), 'Stampare non salva niente');
+      ok(!window.__xssPC && pa.includes('<img src=x'), 'Le voci sono stampate come testo');
+      closeModal('modal-conto');
+      printPreconto(7702); await attendi(200);
+      const pb = txt('print-area');
+      ok(stampe === 2 && pb.includes('PRE-CONTO') && !pb.includes('LAVAGGIO') && pb.includes('105.00 €') && pb.includes('55.00 €'), 'Stampa dal menu: il pre-conto salvato (totale 105, da pagare 55)');
+      refreshBoard(); await attendi(30);
+      const board = document.getElementById('view-board').innerHTML;
+      ok(board.includes('printPreconto(7702)') && board.includes('Stampa pre-conto'), 'Menu ⋯ della scheda sul ponte: "🖨️ Stampa pre-conto"');
+      ok(board.includes('printInvoice(1003)') && !board.includes('printPreconto(1003)'), 'Moto pronta: resta "Stampa Ricevuta / Conto", niente pre-conto');
+      switchView('specials'); await attendi(50);
+      ok(document.getElementById('view-specials').innerHTML.includes('printPreconto(7701)'), 'Lavori Lunghi: "🖨️ Stampa pre-conto" nel menu ⋯');
+    } finally { window.print = pr; }
+    fb.scritturaRemota({ 'db/kPC': null, 'db/kLL': null }, false);
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
