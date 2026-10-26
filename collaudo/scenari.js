@@ -50,6 +50,18 @@
     await attendi(400);
     const t = document.getElementById('view-board').textContent;
     ok(t.includes('ROSSI') && t.includes('BIANCHI'), 'Bacheca: le schede aperte compaiono');
+    {
+      // La zona che scorre taglia quello che esce dai suoi bordi: deve restare spazio per il tratteggio (2px) e il contorno del pulsante
+      const lista = document.getElementById('list-todo'), prima = lista.querySelector('.card-compact');
+      const a = lista.getBoundingClientRect(), b = prima.getBoundingClientRect();
+      ok(b.top - a.top >= 3 && b.left - a.left >= 3, 'Bacheca: la prima scheda ha spazio sopra e a sinistra (il bordo tratteggiato "targa mancante" non viene tagliato)');
+      const colEl = lista.parentElement, cs = getComputedStyle(colEl), col = colEl.getBoundingClientRect();
+      const bordo = col.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft);
+      ok(Math.abs(b.left - bordo) < 1 && Math.abs(lista.clientWidth - lista.scrollWidth) < 1, 'Bacheca: le schede restano allineate come prima (a ' + (b.left - bordo).toFixed(1) + ' px dal bordo della colonna), niente scorrimento di lato');
+      const barra = document.getElementById('topbar-quicklinks'), btn = barra.querySelector('.tq-active');
+      const c = barra.getBoundingClientRect(), d = btn.getBoundingClientRect();
+      ok(d.top - c.top >= 3 && c.bottom - d.bottom >= 3, 'Barra in alto: spazio sopra e sotto i pulsanti (il contorno del pulsante selezionato non viene tagliato)');
+    }
   });
 
   await passo('Nuova commessa', async () => {
