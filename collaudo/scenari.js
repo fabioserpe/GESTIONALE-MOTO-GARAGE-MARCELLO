@@ -17,12 +17,12 @@
   const campo = (id, v) => { const e = document.getElementById(id); if (!e) throw new Error('campo mancante ' + id); e.value = v; };
   async function passo(nome, fn) { try { await fn(); } catch (e) { ok(false, nome + ': eccezione ' + (e && e.message)); } }
 
-  for (let i = 0; i < 300 && fb.inAttesa.length < 18; i++) await attendi(20);
+  for (let i = 0; i < 300 && fb.inAttesa.length < 19; i++) await attendi(20);
   await attendi(50);
 
   await passo('Avvio', async () => {
     ok(document.getElementById('app-shell').style.display === 'flex', 'Avvio: accesso simulato, gestionale visibile');
-    ok(fb.inAttesa.length === 18, 'Avvio: tutte le 18 sezioni in ascolto (' + fb.inAttesa.length + ')');
+    ok(fb.inAttesa.length === 19, 'Avvio: tutte le 19 sezioni in ascolto (' + fb.inAttesa.length + ')');
     ok(ovVisibile() && ovTitolo() === 'Caricamento dati…', 'Avvio: pannello "Caricamento dati…" finché i dati non arrivano');
     const n = nScr(), a = fb.alerts.length;
     db.push({ id: 999, cognome: 'PRIMA DEL CARICAMENTO' });
@@ -1950,6 +1950,57 @@
     ok(venditeDB.length > 0 ? (!vis(document.getElementById('vend-btn-import')) && vis(document.getElementById('vend-import-link'))) : vis(document.getElementById('vend-btn-import')), 'Vendite: "Importa dal vecchio programma" in evidenza solo finché l\'archivio è vuoto, poi un link discreto in fondo');
     ok(!!document.getElementById('vd-btn-salva-mob') && getComputedStyle(document.getElementById('vd-btn-salva-mob')).display === 'none', 'Vendite: il Salva fisso del telefono non compare sul Mac');
     switchView('board');
+  });
+
+  await passo('Passaporto della moto', async () => {
+    fb.scritturaRemota({
+      'db/kp1': { id: 8301, cognome: 'PASSA', nome: 'PORTO', tel: '3331234567', marca: 'HONDA', modello: 'SH 300', targa: 'PP 123 AA', km: '9.800', stato: 'archived', data: '2025-03-01', data_chiusura: '2025-03-03', lavori_richiesti: 'NOTA PRIVATA CLIENTE', conto: [{ desc: 'TAGLIANDO', price: 140, qty: 1, iva: 22 }], totale_lordo: 140, clientId: 'c-pp' },
+      'db/kp2': { id: 8302, cognome: 'PASSA', nome: 'PORTO', tel: '3331234567', marca: 'HONDA', modello: 'SH 300', targa: 'PP123AA', km: '20300', stato: 'done', data: '2026-04-08', data_chiusura: '2026-04-10', conto: [{ desc: 'Tagliando completo', price: 180, qty: 1, iva: 22 }, { desc: 'OLIO MOTUL 7100', price: 15, qty: 2, iva: 22 }, { desc: 'SCONTO FEDELTA', price: -10, qty: 1, iva: 22 }], totale_lordo: 200, clientId: 'c-pp' },
+      'db/kp3': { id: 8303, cognome: 'PASSA', targa: 'PP123AA', stato: 'doing', data: oggi, conto: [{ desc: 'IN CORSO', price: 50, qty: 1 }], clientId: 'c-pp' },
+      'tagliandi/PP123AA': { data: '2027-04-10', km: '20300' }
+    }, false);
+    await attendi(50);
+    apriPassaporto(safeEncode('PP123AA'));
+    ok(!document.getElementById('modal-passaporto').classList.contains('hidden') && document.getElementById('pp-corpo').textContent.includes('Attiva passaporto'), 'Passaporto: si apre la finestra con "Attiva passaporto"');
+    window.QRCode = function (el) { const c = document.createElement('canvas'); c.width = c.height = 10; el.appendChild(c); };
+    window.QRCode.CorrectLevel = { M: 0 };
+    attivaPassaporto(safeEncode('PP123AA'));
+    await attendi(80);
+    const idx = fb.leggi('passaporti_idx/PP123AA') || {};
+    ok(/^[A-HJ-NP-Z2-9]{12}$/.test(idx.codice || '') && idx.attivo === true, 'Passaporto: attivato con un codice di 12 caratteri impossibile da indovinare');
+    const pag = fb.leggi('passaporti/' + idx.codice) || {};
+    ok(pag.moto === 'HONDA SH 300' && pag.targa === 'PP1••AA' && pag.km === 20300 && pag.dal === '2025-03' && pag.prossimo === '2027-04-10', 'Passaporto: moto, targa parziale, km, "seguita dal" e prossimo tagliando (' + [pag.moto, pag.targa, pag.km, pag.dal, pag.prossimo].join(' | ') + ')');
+    const iv = Object.values(pag.interventi || {});
+    ok(iv.length === 2 && iv[0].data === '2026-04-10' && iv[0].titolo === 'TAGLIANDO COMPLETO' && JSON.stringify(Object.values(iv[0].voci || {})) === '["OLIO MOTUL 7100 ×2"]' && iv[1].km === 9800, 'Passaporto: solo i lavori chiusi, dal più recente, con le voci del conto e le quantità');
+    ok(!/PASSA|PORTO\b|3331234567|NOTA PRIVATA|SCONTO|price|IN CORSO/i.test(JSON.stringify(pag)), 'Passaporto: online niente nome, telefono, note, sconti, prezzi né lavori in corso');
+    ok((document.getElementById('pp-codice') || {}).textContent === _codiceLeggibile(idx.codice) && /^MGM-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(_codiceLeggibile(idx.codice)), 'Passaporto: la finestra mostra il codice da scrivere a mano ' + _codiceLeggibile(idx.codice));
+    fb.scritturaRemota({ 'db/kp4': { id: 8304, cognome: 'PASSA', targa: 'PP123AA', km: '25000', stato: 'archived', data: '2026-09-01', data_chiusura: '2026-09-02', conto: [{ desc: 'PASTIGLIE', price: 60, qty: 1 }], clientId: 'c-pp' } }, false);
+    await attendi(1900);
+    const pag2 = fb.leggi('passaporti/' + idx.codice) || {};
+    ok(Object.values(pag2.interventi || {}).length === 3 && pag2.km === 25000, 'Passaporto: si aggiorna da solo quando si chiude un altro lavoro della moto');
+    let n = nScr();
+    fb.scritturaRemota({ 'db/kp5': { id: 8305, cognome: 'ALTRO', targa: 'ZZ000ZZ', stato: 'archived', data: '2026-01-01' } }, false);
+    await attendi(1900);
+    ok(!chiaviDa(n).some(k => String(k).startsWith('passaporti')), 'Passaporto: una modifica a un\'altra moto non lo riscrive');
+    viewHistoryCognome(safeEncode('c-pp'));
+    const st = document.getElementById('st-corpo').textContent;
+    ok(st.includes('PP123AA') && st.includes('passaporto attivo'), 'Passaporto: nello storico del cliente c\'è il pulsante della moto');
+    closeModal('modal-storico');
+    switchView('board'); refreshBoard();
+    ok(document.getElementById('view-board').innerHTML.includes("apriPassaporto('PP123AA')"), 'Passaporto: voce nel menu ⋯ della Bacheca');
+    const orig = window.print; window.print = () => {};
+    stampaAdesivoPassaporto(safeEncode('PP123AA')); await attendi(300);
+    const pa = document.getElementById('print-area');
+    ok(pa.querySelectorAll('.pp-ad').length === 2 && pa.textContent.includes('PASSAPORTO MOTO') && pa.textContent.includes(_codiceLeggibile(idx.codice)) && !pa.textContent.includes('PASSA PORTO'), 'Passaporto: adesivo grande e piccolo con il codice, senza il nome del cliente');
+    pa.innerHTML = ''; window.print = orig;
+    disattivaPassaporto(safeEncode('PP123AA')); await attendi(80);
+    ok(fb.leggi('passaporti/' + idx.codice) == null && (fb.leggi('passaporti_idx/PP123AA') || {}).attivo === false, 'Passaporto: disattivato, la pagina online sparisce');
+    attivaPassaporto(safeEncode('PP123AA')); await attendi(80);
+    ok((fb.leggi('passaporti_idx/PP123AA') || {}).codice === idx.codice && !!fb.leggi('passaporti/' + idx.codice), 'Passaporto: riattivato con lo stesso codice, l\'adesivo già attaccato torna a funzionare');
+    closeModal('modal-passaporto');
+    delete window.QRCode;
+    fb.scritturaRemota({ 'db/kp1': null, 'db/kp2': null, 'db/kp3': null, 'db/kp4': null, 'db/kp5': null, 'tagliandi/PP123AA': null, 'passaporti_idx/PP123AA': null, ['passaporti/' + idx.codice]: null }, false);
+    await attendi(1900);
   });
 
   await passo('Offline', async () => {
