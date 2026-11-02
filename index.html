@@ -72,6 +72,11 @@
         .agenda-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; flex-grow: 1; overflow: hidden; margin-top: 15px;}
         .agenda-day { background: rgba(30, 41, 59, 0.4); border-radius: 15px; padding: 12px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; overflow: hidden; }
         .agenda-header { font-weight: bold; text-align: center; margin-bottom: 12px; color: var(--info); border-bottom: 2px solid #334155; padding-bottom: 8px; text-transform: uppercase; font-size: 0.9rem;}
+        .agenda-meteo { text-align: center; font-size: 0.82rem; font-weight: 700; color: var(--muted); margin: -4px 0 10px; }
+        .agenda-meteo.pioggia { color: #93c5fd; background: rgba(59,130,246,0.14); border-radius: 8px; padding: 5px 6px; }
+        .agenda-meteo-btn { width: 100%; margin: -4px 0 10px; padding: 7px 6px; border-radius: 8px; border: 1px solid var(--whatsapp); background: rgba(37,211,102,0.12); color: #4ade80; font-weight: 700; font-size: 0.82rem; cursor: pointer; flex-shrink: 0; }
+        .agenda-meteo-btn.fatto { border-color: #334155; background: transparent; color: var(--muted); }
+        .meteo-avviso { margin: 2px 0 12px; padding: 9px 12px; border-radius: 8px; border: 1px solid rgba(59,130,246,0.5); background: rgba(59,130,246,0.12); color: #bfdbfe; font-size: 0.9rem; font-weight: 600; line-height: 1.35; }
         .agenda-card { background: var(--card); border-left: 4px solid var(--info); padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.85rem; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
         .agenda-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.3); border-color: white; }
         .agenda-card.personal { border-left-color: var(--warning); background: rgba(245, 158, 11, 0.05); }
@@ -774,6 +779,7 @@
             <input type="text" id="agenda-search-input" placeholder="🔍 Cerca in agenda per Cliente, Moto, Telefono o Note..." oninput="_dRefreshAgenda()" style="background:var(--card); border: 2px solid var(--info); margin-bottom: 10px;">
             <div class="agenda-grid" id="agenda-grid"></div>
             <div id="agenda-search-results" class="hidden" style="flex-grow:1; overflow-y:auto; padding-right:10px;"></div>
+            <div style="flex-shrink:0; margin-top:6px; text-align:right; font-size:0.72rem; color:var(--muted);">Meteo di Ragusa, dalle 7 alle 19: dati <a href="https://www.met.no/en" target="_blank" rel="noopener" style="color:inherit;">MET Norway</a>, licenza <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit;">CC BY 4.0</a>, elaborati dal gestionale</div>
         </div>
 
         <div id="view-rubrica" class="view hidden">
@@ -978,6 +984,7 @@
                         <input type="date" id="app_data" style="flex:1;" onchange="refreshMiniAppAgenda()">
                         <input type="time" id="app_ora" style="flex:1;" value="09:00">
                     </div>
+                    <div id="app-meteo-avviso" class="meteo-avviso hidden"></div>
 
                     <datalist id="app-clienti-list"></datalist>
 
@@ -1900,6 +1907,7 @@
                     <input type="date" id="m_app_data" style="flex:1;" onchange="refreshModalMiniAgenda()">
                     <input type="time" id="m_app_ora" style="flex:1;">
                 </div>
+                <div id="m_app-meteo-avviso" class="meteo-avviso hidden"></div>
                 
                 <label id="m_lbl_cliente">Dati Cliente / Oggetto</label>
                 <div id="m_row_cliente_full" class="flex-row">
@@ -2177,6 +2185,17 @@
                 <button type="button" class="btn btn-dark" onclick="closeModal('modal-ordine-abb')" style="flex:1;">Annulla</button>
                 <button type="button" class="btn btn-info" onclick="salvaOrdineAbb()" style="flex:2; font-weight:800;">💾 Salva ordine</button>
             </div>
+        </div>
+    </div>
+
+    <div id="modal-conferme-meteo" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:600px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h2 id="cm-titolo" style="margin:0; color:var(--info);"></h2>
+                <button type="button" onclick="closeModal('modal-conferme-meteo')" aria-label="Chiudi" style="background:none; border:none; color:var(--muted); font-size:1.8rem; cursor:pointer; line-height:1; width:auto;">×</button>
+            </div>
+            <p id="cm-nota" style="margin:0 0 12px; font-size:0.9rem; color:var(--muted);"></p>
+            <div id="cm-elenco"></div>
         </div>
     </div>
 
@@ -6026,6 +6045,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 </div>` : ''}
                 ${a.note ? `<div style="font-size:0.75rem; margin-top:6px; padding-top:6px; border-top:1px dashed #334155; color:var(--info); pointer-events:none;">${htmlEsc(a.note)}</div>` : ''}
                 ${(jobCollegato && !['done', 'archived'].includes(jobCollegato.stato)) ? `<div style="pointer-events:none;">${_badgeRicambi(a.jobId, a.data)}</div>` : ''}
+                ${a.meteo_chiesto && a.meteo_chiesto === a.data ? `<div style="font-size:0.75rem; margin-top:6px; color:#93c5fd; font-weight:700; pointer-events:none;">🌧️ Conferma chiesta</div>` : ''}
             </div>`;
         }
 
@@ -6087,6 +6107,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             }
 
             // --- MODALITÀ PLANNER SETTIMANALE (normale) ---
+            caricaMeteo();
             if (grid) grid.classList.remove('hidden');
             if (searchResults) searchResults.classList.add('hidden');
             if (!grid) return;
@@ -6115,9 +6136,151 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                             ondragover="event.stopPropagation();"
                             style="background:rgba(59,130,246,0.2); border:1px solid var(--info); color:var(--info); border-radius:6px; width:24px; height:24px; cursor:pointer; font-size:1rem; line-height:1; flex-shrink:0; display:flex; align-items:center; justify-content:center;">+</button>
                     </div>
+                    ${_htmlMeteoGiorno(dStr)}
                     <div style="flex-grow:1; overflow-y:auto; min-height:50px;">${html}</div>
                 </div>`; 
             } 
+        }
+
+        // ── Meteo dell'Agenda ──
+        // MET Norway: gratuito anche per un'attività (Open-Meteo gratis è solo per uso non commerciale).
+        // Licenza CC BY 4.0: la fonte è scritta in fondo alla pagina Agenda. Nessun dato dei clienti esce da qui.
+        const METEO_URL = 'https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=36.925&lon=14.725';
+        const METEO_SOGLIA_MM = 1, METEO_VALIDO_MS = 3600000, METEO_RIPROVA_MS = 300000, METEO_SCADE_MS = 86400000;
+        const _meteoFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' });
+        const METEO_ICONE = { sereno: ['☀️', 'Sereno'], variabile: ['⛅', 'Variabile'], nuvoloso: ['☁️', 'Nuvoloso'], nebbia: ['🌫️', 'Nebbia'] };
+        let _meteo = null, _meteoProva = 0, _meteoGiornoAperto = '';
+        try { _meteo = JSON.parse(localStorage.getItem('mgMeteo')) || null; } catch (e) {}
+
+        function _classeMeteo(simbolo) {
+            const s = String(simbolo || '');
+            if (s.includes('thunder')) return 'temporale';
+            if (/rain|sleet|snow/.test(s)) return 'pioggia';
+            if (s.includes('fog')) return 'nebbia';
+            if (s.includes('partlycloudy')) return 'variabile';
+            if (s.includes('cloudy')) return 'nuvoloso';
+            return 'sereno';
+        }
+        // Conta solo le ore in cui il cliente porterebbe la moto: la pioggia di notte non importa
+        function _meteoDaServizio(json) {
+            const somma = {};
+            json.properties.timeseries.forEach(t => {
+                const p = {}; _meteoFmt.formatToParts(new Date(t.time)).forEach(x => { p[x.type] = x.value; });
+                const ora = parseInt(p.hour, 10);
+                const b1 = t.data.next_1_hours, b = b1 || t.data.next_6_hours;
+                if (ora < 7 || ora > 18 || !b) return;
+                const d = `${p.year}-${p.month}-${p.day}`, g = somma[d] || (somma[d] = { mm: 0, ore: {}, tmax: null });
+                const classe = _classeMeteo(b.summary && b.summary.symbol_code);
+                g.ore[classe] = (g.ore[classe] || 0) + (b1 ? 1 : 6);
+                g.mm += parseFloat(b.details && b.details.precipitation_amount) || 0;
+                const temp = t.data.instant && t.data.instant.details && t.data.instant.details.air_temperature;
+                if (typeof temp === 'number' && (g.tmax === null || temp > g.tmax)) g.tmax = temp;
+            });
+            const giorni = {};
+            Object.keys(somma).forEach(d => {
+                const g = somma[d], pioggia = g.mm >= METEO_SOGLIA_MM, mm = Math.round(g.mm);
+                let icona, parole;
+                if (pioggia) { icona = g.ore.temporale ? '⛈️' : '🌧️'; parole = `${g.ore.temporale ? 'Temporali' : 'Pioggia'} ${mm} mm`; }
+                else if (g.mm >= 0.1) { icona = '🌦️'; parole = 'Poca pioggia'; }
+                else {
+                    const c = Object.keys(METEO_ICONE).sort((a, b) => (g.ore[b] || 0) - (g.ore[a] || 0))[0];
+                    const [i, nome] = METEO_ICONE[g.ore[c] ? c : 'nuvoloso'];
+                    icona = i; parole = nome;
+                }
+                giorni[d] = { pioggia, mm, icona, testo: `${icona} ${parole}${g.tmax !== null ? ' · ' + Math.round(g.tmax) + '°' : ''}` };
+            });
+            return giorni;
+        }
+        // Al massimo una richiesta all'ora (riprova dopo 5 minuti se il servizio non risponde): se non arriva, l'Agenda funziona lo stesso
+        function caricaMeteo() {
+            const adesso = Date.now();
+            if ((_meteo && adesso - _meteo.ora < METEO_VALIDO_MS) || adesso - _meteoProva < METEO_RIPROVA_MS) return;
+            _meteoProva = adesso;
+            fetch(METEO_URL).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(json => {
+                _meteo = { ora: Date.now(), giorni: _meteoDaServizio(json) };
+                try { localStorage.setItem('mgMeteo', JSON.stringify(_meteo)); } catch (e) {}
+                if (currentView === 'agenda') refreshAgenda();
+                _avvisoMeteoForm('app'); _avvisoMeteoForm('m_app');
+            }).catch(e => console.warn('Meteo non disponibile:', e && e.message));
+        }
+        function _meteoDelGiorno(d) {
+            if (!d || !_meteo || !_meteo.giorni || d < getOggiLocale() || Date.now() - _meteo.ora > METEO_SCADE_MS) return null;
+            return _meteo.giorni[d] || null;
+        }
+        // Clienti a cui ha senso scrivere: la moto non è già in officina
+        function _clientiConfermaMeteo(d) {
+            return agendaDB.filter(a => {
+                if (a.data !== d || a.tipo === 'personale') return false;
+                const j = a.jobId ? db.find(x => String(x.id) === String(a.jobId)) : null;
+                return !(j && ['doing', 'done', 'archived', 'special'].includes(j.stato));
+            }).sort((a, b) => (a.ora || '').localeCompare(b.ora || ''));
+        }
+        function _htmlMeteoGiorno(d) {
+            const g = _meteoDelGiorno(d);
+            if (!g) return '';
+            let btn = '';
+            const clienti = g.pioggia ? _clientiConfermaMeteo(d) : [];
+            if (clienti.length) {
+                const mancano = clienti.filter(a => a.meteo_chiesto !== d).length;
+                btn = `<button type="button" class="agenda-meteo-btn${mancano ? '' : ' fatto'}" onclick="apriConfermeMeteo('${d}')">${mancano ? `📲 Chiedi conferma (${mancano})` : '✓ Conferma chiesta a tutti'}</button>`;
+            }
+            return `<div class="agenda-meteo${g.pioggia ? ' pioggia' : ''}" title="Previsione per Ragusa, dalle 7 alle 19">${htmlEsc(g.testo)}</div>${btn}`;
+        }
+        function _giornoMeteo(d) {
+            const n = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'][new Date(d + 'T12:00:00').getDay()];
+            return `${n} ${formattaData(d).slice(0, 5)}`;
+        }
+        function _quandoMeteo(d) {
+            const domani = new Date(); domani.setDate(domani.getDate() + 1);
+            return d === getOggiLocale() ? 'oggi' : d === formatDateISO(domani) ? 'domani' : _giornoMeteo(d);
+        }
+        function _testoConfermaMeteo(a) {
+            const nome = String(a.raw_nome || '').trim();
+            return `Ciao${nome ? ' ' + nome : ''}, ${_quandoMeteo(a.data)} è prevista pioggia: mi confermi che porti la moto${a.ora ? ' alle ' + a.ora : ''}?\n\n${MGM_INFO.nome}`;
+        }
+        function apriConfermeMeteo(d) {
+            _meteoGiornoAperto = d;
+            _renderConfermeMeteo();
+            openModal('modal-conferme-meteo');
+        }
+        function _renderConfermeMeteo() {
+            const d = _meteoGiornoAperto, g = _meteoDelGiorno(d), clienti = _clientiConfermaMeteo(d);
+            $('cm-titolo').textContent = `${g ? g.icona : '🌧️'} Pioggia ${_giornoMeteo(d)}`;
+            $('cm-nota').textContent = 'Il messaggio chiede al cliente di confermare che porta la moto. WhatsApp si apre un cliente alla volta.';
+            $('cm-elenco').innerHTML = clienti.map(a => {
+                const scritto = a.meteo_chiesto === d;
+                const azione = !formatPhoneForWa(a.tel)
+                    ? `<span style="color:var(--warning); font-size:0.88rem; font-weight:700;">Manca il telefono</span>`
+                    : `<button type="button" class="btn ${scritto ? 'btn-dark' : 'btn-wa'} w-auto" onclick="scriviConfermaMeteo('${htmlEsc(a.id)}')">${scritto ? '✓ Scritto · Riscrivi' : '📲 WhatsApp'}</button>`;
+                return `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 0; border-top:1px solid #334155;">
+                    <div style="min-width:0; flex:1 1 220px;"><div style="color:white; font-weight:700;">${htmlEsc(a.ora || '--:--')} · ${htmlEsc(a.cliente)}</div>${a.moto ? `<div style="color:var(--muted); font-size:0.85rem;">🏍️ ${htmlEsc(a.moto)}</div>` : ''}</div>
+                    ${azione}
+                </div>`;
+            }).join('') || `<div style="color:var(--muted); padding:14px 0;">Nessun cliente da avvisare per questo giorno.</div>`;
+        }
+        function scriviConfermaMeteo(id) {
+            const a = agendaDB.find(x => String(x.id) === String(id));
+            if (!a || !_puoSalvare('agenda')) return;
+            const t = formatPhoneForWa(a.tel);
+            if (!t) return mostraErrore('Nessun numero salvato!');
+            window.open(`https://wa.me/${t}?text=${encodeURIComponent(_testoConfermaMeteo(a))}`, '_blank');
+            a.meteo_chiesto = a.data;
+            saveAgenda();
+            _renderConfermeMeteo();
+            refreshAgenda();
+        }
+        // Avviso nei moduli "Nuovo appuntamento": non blocca niente, Fabio decide
+        function _avvisoMeteoForm(p) {
+            const box = $(p + '-meteo-avviso'), campo = $(p + '_data');
+            if (!box || !campo) return;
+            caricaMeteo();
+            const d = campo.value, g = _meteoDelGiorno(d);
+            const mostra = !!(g && g.pioggia && !($(p + '_tipo') && $(p + '_tipo').value === 'personale'));
+            box.classList.toggle('hidden', !mostra);
+            if (!mostra) { box.textContent = ''; return; }
+            const asciutto = Object.keys(_meteo.giorni).sort().find(x => x > d && !_meteo.giorni[x].pioggia && new Date(x + 'T12:00:00').getDay() !== 0);
+            const giorno = _giornoMeteo(d);
+            box.textContent = `${g.icona} ${giorno.charAt(0).toUpperCase() + giorno.slice(1)} è prevista pioggia (${g.mm} mm): il cliente potrebbe non venire.${asciutto ? ' Primo giorno con poca o nessuna pioggia: ' + _giornoMeteo(asciutto) + '.' : ''}`;
         }
 
         // --- MOTORE DRAG & DROP AGENDA ---
@@ -6193,6 +6356,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 if ($(p+'_cognome')) $(p+'_cognome').placeholder = "Cognome (Obbligatorio)";
                 const accSec = $('app-acconti-section'); if (accSec) accSec.style.display = 'block';
             }
+            _avvisoMeteoForm(p);
         }
         function apriModalApp(dataPreimpostata) {
             $('app_id').value = ''; $('app_job_id').value = ''; $('app_tipo').value = 'officina'; if($('app_garanzia_id')) $('app_garanzia_id').value = '';
@@ -6252,6 +6416,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             
             const iA = agendaDB.findIndex(x => String(x.id) === String(app.id)); 
             if (iA > -1 && agendaDB[iA].garanzia_id && !app.garanzia_id) app.garanzia_id = agendaDB[iA].garanzia_id;
+            if (iA > -1 && agendaDB[iA].meteo_chiesto) app.meteo_chiesto = agendaDB[iA].meteo_chiesto;
             iA > -1 ? agendaDB[iA] = app : agendaDB.push(app); 
             sincronizzaAnagrafica(targa, nome, cognome, tel, marca, modello);
             saveDBAgenda();
@@ -6330,6 +6495,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         function refreshMiniAppAgenda() {
+            _avvisoMeteoForm('app');
             const grid = $('mini-app-agenda-grid'); if (!grid) return;
             const d = $('app_data') ? $('app_data').value : getOggiLocale();
             const apps = agendaDB.filter(a => a.data === d).sort((a,b) => (a.ora||'').localeCompare(b.ora||''));
@@ -6349,6 +6515,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         function refreshModalMiniAgenda() {
+            _avvisoMeteoForm('m_app');
             const container = $('m_modal-mini-agenda-grid'); if(!container) return;
             const dataScelta = $('m_app_data').value; if(!dataScelta) return;
 

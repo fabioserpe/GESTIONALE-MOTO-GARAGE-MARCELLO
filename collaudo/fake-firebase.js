@@ -1,3 +1,14 @@
+// Meteo finto: il collaudo non chiama mai il servizio vero (__meteoRisposta null = servizio non raggiungibile)
+window.__meteoRisposta = null; window.__meteoChiamate = 0;
+(function () {
+  const vero = window.fetch;
+  window.fetch = function (u, o) {
+    if (!String(u).includes('api.met.no')) return vero.call(window, u, o);
+    window.__meteoChiamate++;
+    return window.__meteoRisposta ? Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(window.__meteoRisposta) }) : Promise.reject(new Error('finto: servizio non raggiungibile'));
+  };
+})();
+
 // Finto Firebase v8 per il collaudo: stessa semantica del Realtime Database
 // (array salvati come chiavi numeriche, null = cancella, eventi sincroni sulle scritture locali).
 (function () {

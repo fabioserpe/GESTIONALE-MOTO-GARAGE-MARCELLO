@@ -2028,6 +2028,127 @@
     await attendi(1900);
   });
 
+  await passo('Meteo in Agenda', async () => {
+    const riga = (time, sym, mm, sei) => ({ time, data: { instant: { details: { air_temperature: 15 } }, [sei ? 'next_6_hours' : 'next_1_hours']: { summary: { symbol_code: sym }, details: { precipitation_amount: mm } } } });
+    const serie = r => ({ properties: { timeseries: r } });
+    // Lettura dei dati del servizio
+    const g = _meteoDaServizio(serie([
+      riga('2026-11-03T09:00:00Z', 'rain', 3), riga('2026-11-03T10:00:00Z', 'lightrain', 2),
+      riga('2026-11-04T02:00:00Z', 'heavyrain', 20), riga('2026-11-04T09:00:00Z', 'clearsky_day', 0),
+      riga('2026-11-05T09:00:00Z', 'lightrain', 0.5),
+      riga('2026-11-06T06:00:00Z', 'rainandthunder', 4, true), riga('2026-11-06T12:00:00Z', 'cloudy', 0, true), riga('2026-11-06T18:00:00Z', 'heavyrain', 30, true),
+      riga('2026-11-07T09:00:00Z', 'partlycloudy_day', 0), riga('2026-11-07T10:00:00Z', 'partlycloudy_day', 0), riga('2026-11-07T11:00:00Z', 'cloudy', 0),
+      riga('2026-07-03T04:00:00Z', 'rain', 9), riga('2026-07-03T05:00:00Z', 'fog', 0),
+      riga('2026-11-08T23:00:00Z', 'fair_night', 0)
+    ]));
+    ok(g['2026-11-03'].pioggia && g['2026-11-03'].mm === 5 && g['2026-11-03'].testo === '🌧️ Pioggia 5 mm · 15°', 'Meteo: pioggia nelle ore di lavoro sommata (5 mm)');
+    ok(!g['2026-11-04'].pioggia && g['2026-11-04'].testo.includes('Sereno'), 'Meteo: la pioggia di notte non conta');
+    ok(!g['2026-11-05'].pioggia && g['2026-11-05'].testo.includes('Poca pioggia'), 'Meteo: sotto 1 mm non è un giorno di pioggia');
+    ok(g['2026-11-06'].pioggia && g['2026-11-06'].mm === 4 && g['2026-11-06'].testo.includes('⛈️ Temporali'), 'Meteo: blocchi di 6 ore, quello della sera escluso');
+    ok(g['2026-11-07'].testo.includes('Variabile'), 'Meteo: senza pioggia vale il tempo prevalente');
+    ok(!g['2026-07-03'].pioggia && g['2026-07-03'].testo.includes('Nebbia'), 'Meteo: ora italiana anche d\'estate (le 04 UTC sono le 6, le 05 UTC sono le 7)');
+    ok(!g['2026-11-08'] && !g['2026-11-09'], 'Meteo: le 23 UTC sono le 0 del giorno dopo, fuori dalle ore di lavoro');
+    ok(_classeMeteo('lightssleetshowersandthunder_day') === 'temporale' && _classeMeteo('partlycloudy_night') === 'variabile' && _classeMeteo('fair_day') === 'sereno', 'Meteo: simboli del servizio riconosciuti');
+
+    // Giorno di pioggia e giorno asciutto nella stessa settimana o dopo
+    const piu = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + n); return formatDateISO(x); };
+    const nonDom = d => new Date(d + 'T12:00:00').getDay() === 0 ? piu(d, 1) : d;
+    const dP = nonDom(piu(oggi, 1)), dA = nonDom(piu(dP, 1));
+    const lun = new Date(dP + 'T12:00:00'); lun.setDate(lun.getDate() - ((lun.getDay() + 6) % 7)); lun.setHours(0, 0, 0, 0);
+    const settPrima = dataInizioSettimana; dataInizioSettimana = lun;
+    const apDati = (id, cliente, extra) => Object.assign({ id, tipo: 'officina', data: dP, ora: '09:00', cliente, moto: 'HONDA CB - MT0001', tel: '3331230000', note: '', raw_nome: 'MARIO', raw_cognome: 'ROSSI', raw_marca: 'HONDA', raw_modello: 'CB', raw_targa: 'MT0001', jobId: null }, extra || {});
+    fb.scritturaRemota({
+      'db/-Nmt9': { id: 7799, stato: 'doing', data: dP, cognome: 'GIAPONTE', nome: 'A', targa: 'MT0009', conto: [], totale_lordo: 0, clientId: 'c-mt9' },
+      'agenda/-Nmt1': apDati(7701, 'ROSSI MARIO'),
+      'agenda/-Nmt2': apDati(7702, 'SENZA <b>TEL</b>', { tel: '', ora: '08:00' }),
+      'agenda/-Nmt3': apDati(7703, 'BOLLO', { tipo: 'personale', tel: '3331230003' }),
+      'agenda/-Nmt4': apDati(7704, 'GIAPONTE A', { jobId: 7799, tel: '3331230004' })
+    }, false);
+
+    // Servizio non raggiungibile: l'Agenda funziona lo stesso
+    window.__meteoRisposta = null; _meteo = null; _meteoProva = 0;
+    switchView('agenda'); await attendi(60);
+    const griglia = () => document.getElementById('agenda-grid');
+    ok(griglia().textContent.includes('ROSSI MARIO') && !griglia().querySelector('.agenda-meteo') && !griglia().querySelector('.agenda-meteo-btn'), 'Meteo non raggiungibile: Agenda normale, senza riga del meteo né errori');
+    const provePrima = window.__meteoChiamate;
+    refreshAgenda(); await attendi(30);
+    ok(window.__meteoChiamate === provePrima, 'Meteo non raggiungibile: non richiama il servizio a ogni aggiornamento (riprova dopo 5 minuti)');
+
+    // Risposta senza senso: nessun blocco
+    window.__meteoRisposta = { errore: true }; _meteoProva = 0; refreshAgenda(); await attendi(30);
+    ok(griglia().textContent.includes('ROSSI MARIO') && !griglia().querySelector('.agenda-meteo'), 'Meteo con risposta sbagliata: Agenda normale');
+
+    // Servizio che risponde
+    window.__meteoRisposta = serie([riga(dP + 'T09:00:00Z', 'rain', 3), riga(dP + 'T10:00:00Z', 'rain', 2), riga(dA + 'T09:00:00Z', 'clearsky_day', 0)]);
+    _meteoProva = 0; refreshAgenda(); await attendi(60);
+    const colonna = d => [...griglia().querySelectorAll('.agenda-day')].find(c => (c.getAttribute('ondrop') || '').includes(d));
+    const cP = colonna(dP);
+    ok(cP.querySelector('.agenda-meteo.pioggia') && cP.querySelector('.agenda-meteo').textContent.includes('🌧️ Pioggia 5 mm'), 'Agenda: il giorno di pioggia mostra pioggia e millimetri');
+    ok(cP.querySelector('.agenda-meteo-btn').textContent.includes('Chiedi conferma (2)'), 'Agenda: "Chiedi conferma" conta solo i clienti con la moto non ancora in officina (no scadenze personali, no moto sul ponte)');
+    const cA = colonna(dA);
+    if (cA) ok(!cA.querySelector('.agenda-meteo.pioggia') && !cA.querySelector('.agenda-meteo-btn'), 'Agenda: giorno asciutto senza pulsante');
+    const chiamate = window.__meteoChiamate;
+    refreshAgenda(); refreshAgenda(); await attendi(30);
+    ok(window.__meteoChiamate === chiamate, 'Meteo: al massimo una richiesta all\'ora');
+    ok(document.getElementById('view-agenda').textContent.includes('MET Norway') && document.getElementById('view-agenda').textContent.includes('CC BY 4.0'), 'Agenda: fonte dei dati indicata (richiesta dalla licenza)');
+    ok(_meteoDelGiorno('2020-01-01') === null, 'Meteo: niente previsioni per i giorni passati');
+
+    // Finestra e messaggio
+    apriConfermeMeteo(dP);
+    const elenco = document.getElementById('cm-elenco');
+    ok(!document.getElementById('modal-conferme-meteo').classList.contains('hidden') && elenco.textContent.includes('ROSSI MARIO') && !elenco.textContent.includes('BOLLO') && !elenco.textContent.includes('GIAPONTE'), 'Chiedi conferma: elenco giusto');
+    ok(elenco.textContent.includes('SENZA <b>TEL</b>') && !elenco.querySelector('b') && elenco.textContent.includes('Manca il telefono'), 'Chiedi conferma: nomi con simboli come scritti, avviso se manca il telefono');
+    const op = window.open; let wa = '';
+    window.open = u => { wa = String(u); return null; };
+    const nW = nScr();
+    try { scriviConfermaMeteo(7701); } finally { window.open = op; }
+    await attendi(30);
+    const msg = decodeURIComponent(wa);
+    ok(wa.startsWith('https://wa.me/393331230000') && msg.includes('Ciao MARIO, ' + _quandoMeteo(dP) + ' è prevista pioggia: mi confermi che porti la moto alle 09:00?'), 'Chiedi conferma: messaggio che chiede solo di confermare');
+    ok(!msg.toLowerCase().includes('spostare'), 'Chiedi conferma: il messaggio non propone di spostare');
+    ok(recordDi('agenda', 7701).meteo_chiesto === dP, 'Chiedi conferma: resta segnato nel cloud');
+    ok(chiaviDa(nW).length > 0 && chiaviDa(nW).every(k => k.startsWith('agenda/-Nmt1')), 'Chiedi conferma: salva solo quell\'appuntamento');
+    ok(elenco.textContent.includes('Scritto'), 'Chiedi conferma: la riga diventa "Scritto"');
+    const cP2 = colonna(dP);
+    ok(cP2.querySelector('.agenda-meteo-btn').textContent.includes('Chiedi conferma (1)') && cP2.textContent.includes('Conferma chiesta'), 'Agenda: il numero scende e la scheda mostra "Conferma chiesta"');
+    closeModal('modal-conferme-meteo');
+
+    // Avviso nei moduli
+    const avv = id => document.getElementById(id);
+    apriModalApp(dP); await attendi(20);
+    ok(!avv('app-meteo-avviso').classList.contains('hidden') && avv('app-meteo-avviso').textContent.includes('prevista pioggia (5 mm)') && avv('app-meteo-avviso').textContent.includes('Primo giorno con poca o nessuna pioggia: ' + _giornoMeteo(dA)) && /^\S+ [A-ZÀ-Ú]/.test(avv('app-meteo-avviso').textContent), 'Nuovo appuntamento: avviso di pioggia con il primo giorno con poca o nessuna pioggia, giorno con la maiuscola');
+    campo('app_tipo', 'personale'); toggleAppFields();
+    ok(avv('app-meteo-avviso').classList.contains('hidden'), 'Nuovo appuntamento: nessun avviso sulle scadenze personali');
+    campo('app_tipo', 'officina'); toggleAppFields();
+    campo('app_data', dA); refreshMiniAppAgenda();
+    ok(avv('app-meteo-avviso').classList.contains('hidden'), 'Nuovo appuntamento: nessun avviso nei giorni asciutti');
+    switchView('agenda'); await attendi(30);
+
+    // Modificare l'appuntamento conserva la conferma; cambiando giorno non vale più
+    modificaApp(7701); await attendi(20);
+    ok(!avv('m_app-meteo-avviso').classList.contains('hidden'), 'Finestra appuntamento: avviso di pioggia anche qui');
+    campo('m_app_note', 'NOTA METEO'); salvaAppuntamento(); await attendi(30);
+    ok(recordDi('agenda', 7701).meteo_chiesto === dP && recordDi('agenda', 7701).note === 'NOTA METEO', 'Modificando l\'appuntamento la conferma chiesta non si perde');
+    modificaApp(7701); await attendi(20);
+    campo('m_app_data', dA); salvaAppuntamento(); await attendi(30);
+    const spostato = agendaDB.find(a => a.id === 7701);
+    ok(spostato.data === dA && !_clientiConfermaMeteo(dP).some(a => a.id === 7701) && !_renderAgendaCard(spostato).includes('Conferma chiesta'), 'Spostando l\'appuntamento a un altro giorno "Conferma chiesta" sparisce');
+
+    // Previsioni troppo vecchie
+    const ora = _meteo.ora; _meteo.ora = Date.now() - 25 * 3600000;
+    ok(_meteoDelGiorno(dP) === null, 'Meteo: previsioni di oltre 24 ore fa non si mostrano');
+    _meteo.ora = ora;
+
+    // Pulizia
+    const jobNuovi = db.filter(j => String(j.cognome || '') === 'ROSSI' && j.targa === 'MT0001');
+    const pul = { 'db/-Nmt9': null, 'agenda/-Nmt1': null, 'agenda/-Nmt2': null, 'agenda/-Nmt3': null, 'agenda/-Nmt4': null };
+    jobNuovi.forEach(j => { const k = chiaveDi('db', j.id); if (k) pul['db/' + k] = null; });
+    fb.scritturaRemota(pul, false);
+    dataInizioSettimana = settPrima; window.__meteoRisposta = null; _meteo = null;
+    try { localStorage.removeItem('mgMeteo'); } catch (e) {}
+    switchView('board'); await attendi(50);
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
