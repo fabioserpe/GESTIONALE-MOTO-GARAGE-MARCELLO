@@ -6215,18 +6215,22 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 return !(j && ['doing', 'done', 'archived', 'special'].includes(j.stato));
             }).sort((a, b) => (a.ora || '').localeCompare(b.ora || ''));
         }
-        // La conferma si chiede il giorno prima (Fabio, 2/11): la domenica l'officina è chiusa, quindi di sabato vale per lunedì
+        // La conferma si chiede per i 2 giorni di lavoro successivi (Fabio, 2/11): la domenica l'officina è chiusa e non conta
         function _prossimoGiornoLavoro(da) {
             const x = new Date((da || getOggiLocale()) + 'T12:00:00');
             x.setDate(x.getDate() + 1);
             if (x.getDay() === 0) x.setDate(x.getDate() + 1);
             return formatDateISO(x);
         }
+        function _giorniConfermaMeteo(da) {
+            const primo = _prossimoGiornoLavoro(da);
+            return [primo, _prossimoGiornoLavoro(primo)];
+        }
         function _htmlMeteoGiorno(d) {
             const g = _meteoDelGiorno(d);
             if (!g) return '';
             let btn = '';
-            const clienti = g.pioggia && d === _prossimoGiornoLavoro() ? _clientiConfermaMeteo(d) : [];
+            const clienti = g.pioggia && _giorniConfermaMeteo().includes(d) ? _clientiConfermaMeteo(d) : [];
             if (clienti.length) {
                 const mancano = clienti.filter(a => a.meteo_chiesto !== d).length;
                 btn = `<button type="button" class="agenda-meteo-btn${mancano ? '' : ' fatto'}" onclick="apriConfermeMeteo('${d}')">${mancano ? `📲 Chiedi conferma (${mancano})` : '✓ Conferma chiesta a tutti'}</button>`;

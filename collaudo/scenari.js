@@ -2064,7 +2064,8 @@
       'agenda/-Nmt3': apDati(7703, 'BOLLO', { tipo: 'personale', tel: '3331230003' }),
       'agenda/-Nmt4': apDati(7704, 'GIAPONTE A', { jobId: 7799, tel: '3331230004' }),
       'agenda/-Nmt5': apDati(7705, 'OGGI PIOGGIA', { data: oggi, tel: '3331230005' }),
-      'agenda/-Nmt6': apDati(7706, 'LONTANO PIOGGIA', { data: dL, tel: '3331230006' })
+      'agenda/-Nmt6': apDati(7706, 'LONTANO PIOGGIA', { data: dL, tel: '3331230006' }),
+      'agenda/-Nmt7': apDati(7707, 'SECONDO GIORNO', { data: dA, tel: '3331230007' })
     }, false);
 
     // Servizio non raggiungibile: l'Agenda funziona lo stesso
@@ -2088,8 +2089,16 @@
     ok(cP.querySelector('.agenda-meteo.pioggia') && cP.querySelector('.agenda-meteo').textContent.includes('🌧️ Pioggia 5 mm'), 'Agenda: il giorno di pioggia mostra pioggia e millimetri');
     ok(cP.querySelector('.agenda-meteo-btn').textContent.includes('Chiedi conferma (2)'), 'Agenda: "Chiedi conferma" conta solo i clienti con la moto non ancora in officina (no scadenze personali, no moto sul ponte)');
     ok(_meteoDelGiorno(oggi).pioggia && _htmlMeteoGiorno(oggi).includes('Pioggia') && !_htmlMeteoGiorno(oggi).includes('agenda-meteo-btn'), 'Chiedi conferma: mai sul giorno di oggi, anche se piove e ci sono clienti');
-    ok(_meteoDelGiorno(dL).pioggia && _htmlMeteoGiorno(dL).includes('Pioggia') && !_htmlMeteoGiorno(dL).includes('agenda-meteo-btn'), 'Chiedi conferma: non sui giorni più lontani, solo sul giorno dopo');
-    ok(_prossimoGiornoLavoro('2026-11-02') === '2026-11-03' && _prossimoGiornoLavoro('2026-11-07') === '2026-11-09' && _prossimoGiornoLavoro('2026-11-08') === '2026-11-09' && _prossimoGiornoLavoro('2026-10-31') === '2026-11-02', 'Chiedi conferma: di sabato e di domenica vale per lunedì, anche a cavallo del mese');
+    ok(_meteoDelGiorno(dL).pioggia && _htmlMeteoGiorno(dL).includes('Pioggia') && !_htmlMeteoGiorno(dL).includes('agenda-meteo-btn'), 'Chiedi conferma: non dal terzo giorno di lavoro in poi');
+    {
+      const asciutto = _meteo.giorni[dA]; _meteo.giorni[dA] = _meteo.giorni[dP];
+      ok(_htmlMeteoGiorno(dA).includes('agenda-meteo-btn'), 'Chiedi conferma: compare anche sul secondo giorno di lavoro, se piove');
+      _meteo.giorni[dA] = asciutto;
+      const due = (da, a, b) => uguali(_giorniConfermaMeteo(da), [a, b]);
+      ok(due('2026-11-02', '2026-11-03', '2026-11-04') && due('2026-11-05', '2026-11-06', '2026-11-07'), 'Chiedi conferma: in settimana i 2 giorni successivi');
+      ok(due('2026-11-06', '2026-11-07', '2026-11-09') && due('2026-11-07', '2026-11-09', '2026-11-10') && due('2026-11-08', '2026-11-09', '2026-11-10'), 'Chiedi conferma: la domenica non conta (venerdì → sabato e lunedì, sabato → lunedì e martedì)');
+      ok(due('2026-10-30', '2026-10-31', '2026-11-02'), 'Chiedi conferma: anche a cavallo del mese');
+    }
     const cA = colonna(dA);
     if (cA) ok(!cA.querySelector('.agenda-meteo.pioggia') && !cA.querySelector('.agenda-meteo-btn'), 'Agenda: giorno asciutto senza pulsante');
     const chiamate = window.__meteoChiamate;
@@ -2146,7 +2155,7 @@
 
     // Pulizia
     const jobNuovi = db.filter(j => String(j.cognome || '') === 'ROSSI' && j.targa === 'MT0001');
-    const pul = { 'db/-Nmt9': null, 'agenda/-Nmt1': null, 'agenda/-Nmt2': null, 'agenda/-Nmt3': null, 'agenda/-Nmt4': null, 'agenda/-Nmt5': null, 'agenda/-Nmt6': null };
+    const pul = { 'db/-Nmt9': null, 'agenda/-Nmt1': null, 'agenda/-Nmt2': null, 'agenda/-Nmt3': null, 'agenda/-Nmt4': null, 'agenda/-Nmt5': null, 'agenda/-Nmt6': null, 'agenda/-Nmt7': null };
     jobNuovi.forEach(j => { const k = chiaveDi('db', j.id); if (k) pul['db/' + k] = null; });
     fb.scritturaRemota(pul, false);
     dataInizioSettimana = settPrima; window.__meteoRisposta = null; _meteo = null;
