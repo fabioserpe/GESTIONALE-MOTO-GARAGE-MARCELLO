@@ -6150,7 +6150,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         const _meteoFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' });
         const METEO_ICONE = { sereno: ['☀️', 'Sereno'], variabile: ['⛅', 'Variabile'], nuvoloso: ['☁️', 'Nuvoloso'], nebbia: ['🌫️', 'Nebbia'] };
         let _meteo = null, _meteoProva = 0, _meteoGiornoAperto = '';
-        try { _meteo = JSON.parse(localStorage.getItem('mgMeteo')) || null; } catch (e) {}
+        try { localStorage.removeItem('mgMeteo'); _meteo = JSON.parse(localStorage.getItem('mgMeteo2')) || null; } catch (e) {}
 
         function _classeMeteo(simbolo) {
             const s = String(simbolo || '');
@@ -6178,16 +6178,16 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             });
             const giorni = {};
             Object.keys(somma).forEach(d => {
-                const g = somma[d], pioggia = g.mm >= METEO_SOGLIA_MM, mm = Math.round(g.mm);
+                const g = somma[d], pioggia = g.mm >= METEO_SOGLIA_MM, poca = !pioggia && g.mm >= 0.1, mm = Math.round(g.mm);
                 let icona, parole;
                 if (pioggia) { icona = g.ore.temporale ? '⛈️' : '🌧️'; parole = `${g.ore.temporale ? 'Temporali' : 'Pioggia'} ${mm} mm`; }
-                else if (g.mm >= 0.1) { icona = '🌦️'; parole = 'Poca pioggia'; }
+                else if (poca) { icona = '🌦️'; parole = 'Poca pioggia'; }
                 else {
                     const c = Object.keys(METEO_ICONE).sort((a, b) => (g.ore[b] || 0) - (g.ore[a] || 0))[0];
                     const [i, nome] = METEO_ICONE[g.ore[c] ? c : 'nuvoloso'];
                     icona = i; parole = nome;
                 }
-                giorni[d] = { pioggia, mm, icona, testo: `${icona} ${parole}${g.tmax !== null ? ' · ' + Math.round(g.tmax) + '°' : ''}` };
+                giorni[d] = { pioggia, poca, mm, icona, testo: `${icona} ${parole}${g.tmax !== null ? ' · ' + Math.round(g.tmax) + '°' : ''}` };
             });
             return giorni;
         }
@@ -6198,7 +6198,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             _meteoProva = adesso;
             fetch(METEO_URL).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(json => {
                 _meteo = { ora: Date.now(), giorni: _meteoDaServizio(json) };
-                try { localStorage.setItem('mgMeteo', JSON.stringify(_meteo)); } catch (e) {}
+                try { localStorage.setItem('mgMeteo2', JSON.stringify(_meteo)); } catch (e) {}
                 if (currentView === 'agenda') refreshAgenda();
                 _avvisoMeteoForm('app'); _avvisoMeteoForm('m_app');
             }).catch(e => console.warn('Meteo non disponibile:', e && e.message));
@@ -6230,7 +6230,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const g = _meteoDelGiorno(d);
             if (!g) return '';
             let btn = '';
-            const clienti = g.pioggia && _giorniConfermaMeteo().includes(d) ? _clientiConfermaMeteo(d) : [];
+            const clienti = (g.pioggia || g.poca) && _giorniConfermaMeteo().includes(d) ? _clientiConfermaMeteo(d) : [];
             if (clienti.length) {
                 const mancano = clienti.filter(a => a.meteo_chiesto !== d).length;
                 btn = `<button type="button" class="agenda-meteo-btn${mancano ? '' : ' fatto'}" onclick="apriConfermeMeteo('${d}')">${mancano ? `📲 Chiedi conferma (${mancano})` : '✓ Conferma chiesta a tutti'}</button>`;
@@ -6246,8 +6246,8 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             return d === getOggiLocale() ? 'oggi' : d === formatDateISO(domani) ? 'domani' : _giornoMeteo(d);
         }
         function _testoConfermaMeteo(a) {
-            const nome = String(a.raw_nome || '').trim();
-            return `Ciao${nome ? ' ' + nome : ''}, ${_quandoMeteo(a.data)} è prevista pioggia: mi confermi che porti la moto${a.ora ? ' alle ' + a.ora : ''}?\n\n${MGM_INFO.nome}`;
+            const nome = String(a.raw_nome || '').trim(), g = _meteoDelGiorno(a.data);
+            return `Ciao${nome ? ' ' + nome : ''}, ${_quandoMeteo(a.data)} è prevista ${g && g.poca ? "un po' di pioggia" : 'pioggia'}: mi confermi che porti la moto${a.ora ? ' alle ' + a.ora : ''}?\n\n${MGM_INFO.nome}`;
         }
         function apriConfermeMeteo(d) {
             _meteoGiornoAperto = d;
@@ -6256,7 +6256,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         }
         function _renderConfermeMeteo() {
             const d = _meteoGiornoAperto, g = _meteoDelGiorno(d), clienti = _clientiConfermaMeteo(d);
-            $('cm-titolo').textContent = `${g ? g.icona : '🌧️'} Pioggia ${_giornoMeteo(d)}`;
+            $('cm-titolo').textContent = `${g ? g.icona : '🌧️'} ${g && g.poca ? 'Poca pioggia' : 'Pioggia'} ${_giornoMeteo(d)}`;
             $('cm-nota').textContent = 'Il messaggio chiede al cliente di confermare che porta la moto. WhatsApp si apre un cliente alla volta.';
             $('cm-elenco').innerHTML = clienti.map(a => {
                 const scritto = a.meteo_chiesto === d;
