@@ -2043,7 +2043,8 @@
     ]));
     ok(g['2026-11-03'].pioggia && g['2026-11-03'].mm === 5 && g['2026-11-03'].testo === '🌧️ Pioggia 5 mm · 15°', 'Meteo: pioggia nelle ore di lavoro sommata (5 mm)');
     ok(!g['2026-11-04'].pioggia && g['2026-11-04'].testo.includes('Sereno'), 'Meteo: la pioggia di notte non conta');
-    ok(!g['2026-11-05'].pioggia && g['2026-11-05'].testo.includes('Poca pioggia'), 'Meteo: sotto 1 mm non è un giorno di pioggia');
+    ok(!g['2026-11-05'].pioggia && g['2026-11-05'].poca && g['2026-11-05'].testo.includes('Poca pioggia'), 'Meteo: sotto 1 mm è "poca pioggia"');
+    ok(!g['2026-11-03'].poca && !g['2026-11-04'].poca, 'Meteo: "poca pioggia" né sui giorni di pioggia né su quelli asciutti');
     ok(g['2026-11-06'].pioggia && g['2026-11-06'].mm === 4 && g['2026-11-06'].testo.includes('⛈️ Temporali'), 'Meteo: blocchi di 6 ore, quello della sera escluso');
     ok(g['2026-11-07'].testo.includes('Variabile'), 'Meteo: senza pioggia vale il tempo prevalente');
     ok(!g['2026-07-03'].pioggia && g['2026-07-03'].testo.includes('Nebbia'), 'Meteo: ora italiana anche d\'estate (le 04 UTC sono le 6, le 05 UTC sono le 7)');
@@ -2098,6 +2099,21 @@
       ok(due('2026-11-02', '2026-11-03', '2026-11-04') && due('2026-11-05', '2026-11-06', '2026-11-07'), 'Chiedi conferma: in settimana i 2 giorni successivi');
       ok(due('2026-11-06', '2026-11-07', '2026-11-09') && due('2026-11-07', '2026-11-09', '2026-11-10') && due('2026-11-08', '2026-11-09', '2026-11-10'), 'Chiedi conferma: la domenica non conta (venerdì → sabato e lunedì, sabato → lunedì e martedì)');
       ok(due('2026-10-30', '2026-10-31', '2026-11-02'), 'Chiedi conferma: anche a cavallo del mese');
+      // Poca pioggia: pulsante sì, messaggio più leggero, nessun avviso nei moduli
+      _meteo.giorni[dA] = _meteoDaServizio(serie([riga(dA + 'T09:00:00Z', 'lightrain', 0.3)]))[dA];
+      ok(_htmlMeteoGiorno(dA).includes('agenda-meteo-btn') && !_htmlMeteoGiorno(dA).includes('agenda-meteo pioggia'), 'Poca pioggia: pulsante "Chiedi conferma" presente, riga del meteo normale');
+      const mPoca = _testoConfermaMeteo(agendaDB.find(a => a.id === 7707));
+      ok(mPoca.includes("è prevista un po' di pioggia: mi confermi che porti la moto alle 09:00?"), 'Poca pioggia: il messaggio dice "un po\' di pioggia"');
+      ok(_testoConfermaMeteo(agendaDB.find(a => a.id === 7701)).includes('è prevista pioggia:'), 'Pioggia: il messaggio resta "è prevista pioggia"');
+      apriConfermeMeteo(dA);
+      ok(document.getElementById('cm-titolo').textContent.includes('Poca pioggia') && document.getElementById('cm-elenco').textContent.includes('SECONDO GIORNO'), 'Poca pioggia: la finestra si apre con il titolo giusto');
+      closeModal('modal-conferme-meteo');
+      apriModalApp(dA); await attendi(20);
+      ok(document.getElementById('app-meteo-avviso').classList.contains('hidden'), 'Poca pioggia: nessun avviso quando fissi un appuntamento');
+      switchView('agenda'); await attendi(20);
+      ok(!!localStorage.getItem('mgMeteo2'), 'Meteo: previsioni ricordate sul dispositivo');
+      _meteo.giorni[dA] = asciutto;
+      refreshAgenda();
     }
     const cA = colonna(dA);
     if (cA) ok(!cA.querySelector('.agenda-meteo.pioggia') && !cA.querySelector('.agenda-meteo-btn'), 'Agenda: giorno asciutto senza pulsante');
@@ -2159,7 +2175,7 @@
     jobNuovi.forEach(j => { const k = chiaveDi('db', j.id); if (k) pul['db/' + k] = null; });
     fb.scritturaRemota(pul, false);
     dataInizioSettimana = settPrima; window.__meteoRisposta = null; _meteo = null;
-    try { localStorage.removeItem('mgMeteo'); } catch (e) {}
+    try { localStorage.removeItem('mgMeteo2'); } catch (e) {}
     switchView('board'); await attendi(50);
   });
 
