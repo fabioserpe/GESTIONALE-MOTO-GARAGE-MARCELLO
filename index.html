@@ -641,7 +641,7 @@
         <button class="nav-link" data-nav-id="preventivi" style="color:var(--purple);" onclick="switchView('preventivi', this)">📝 Preventivi</button>
         <button class="nav-link" data-nav-id="ordini" style="color:#fca5a5;" onclick="switchView('ordini', this)">📦 Ordini Ricambi</button>
         <button class="nav-link" data-nav-id="garanzie" style="color:#34d399;" onclick="switchView('garanzie', this)">🛡️ Garanzie <span id="gar-badge" title="Clienti da contattare" style="display:none; background:#34d399; color:#0f172a; border-radius:10px; padding:0 7px; font-size:0.7rem; font-weight:900; margin-left:4px;"></span></button>
-        <button class="nav-link" data-nav-id="tagliandi" style="color:#fb923c;" onclick="switchView('tagliandi', this)">🔧 Scad. Tagliando</button>
+        <button class="nav-link" data-nav-id="tagliandi" style="color:#fb923c;" onclick="switchView('tagliandi', this)">🔧 Scad. Tagliando <span id="consigli-badge" title="Lavori consigliati da ricordare ai clienti" style="display:none;background:#facc15;color:#422006;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="ledger" style="color:#34d399;" onclick="switchView('ledger', this)">💸 Prima Nota</button>
         <button class="nav-link" data-nav-id="scadenze" style="color:#f43f5e;" onclick="switchView('scadenze', this)">📅 Scadenzario <span id="scadenze-badge" style="display:none;background:#f43f5e;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="magazzino" style="color:#14b8a6;" onclick="switchView('magazzino', this)">📦 Magazzino</button>
@@ -1564,6 +1564,7 @@
             </div>
 
             <!-- Lista veicoli -->
+            <div id="consigli-promemoria" style="flex-shrink:0;"></div>
             <div id="tagliandi-results" style="display:flex; flex-direction:column; gap:6px; overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
         </div>
 
@@ -2032,6 +2033,9 @@
             <h2 style="color:var(--accent);" class="mb-15">Gestione Conto / Chiusura Lavoro</h2>
             <div id="conto-header-info" style="margin-bottom:15px; color:var(--muted); border-bottom:1px solid #334155; padding-bottom:5px;"></div>
 
+            <!-- Lavori consigliati le volte precedenti su questa moto -->
+            <div id="conto-consigli-prima" class="mb-20" style="display:none;"></div>
+
             <!-- Voci Riparazione - full width per avere spazio ai campi IVA -->
             <div class="section-dark border-accent mb-20">
                 <h3 style="color:var(--accent);" class="mb-15">Voci Riparazione / Ricambi</h3>
@@ -2049,6 +2053,14 @@
                     <tbody id="conto-rows"></tbody>
                 </table>
                 <button class="btn btn-dark w-auto mt-15" onclick="addVoceConto('','',22,true)">+ Voce</button>
+            </div>
+
+            <!-- Lavori consigliati per la prossima volta -->
+            <div class="section-dark mb-20" style="border-top:3px solid #facc15;">
+                <h3 style="color:#facc15; margin-bottom:4px;">💡 Consigliati per la prossima volta</h3>
+                <div style="color:var(--muted); font-size:0.82rem; margin-bottom:10px;">Quello che hai notato ma non hai fatto: lo ritrovi quando la moto rientra e, se scegli quando, te lo ricordo per avvisare il cliente.</div>
+                <div id="conto-consigli"></div>
+                <button class="btn btn-dark w-auto mt-15" onclick="addConsiglioConto('', 3, true)">+ Consiglio</button>
             </div>
 
             <!-- Acconti + Riepilogo IVA -->
@@ -2670,6 +2682,7 @@
                 _consegnaOrdiniMotoChiuse();
                 _agganciaOrdiniInAttesa();
                 _dSincPassaporti();
+                _aggiornaBadgeConsigli();
                 const v = currentView;
                 if (v === 'nuova' || v === 'crea-prev') { /* form aperto, nessun refresh */ }
                 else if (v === 'board') _dRefreshBoard();
@@ -6046,6 +6059,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
 </div>
                     ${accTot>0?`<div style="font-size:0.75rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €${accTot.toFixed(2)}${lordo > 0 && daPagare <= 0.01 ? ` <span style="color:#22c55e; font-weight:600; margin-left:6px;">· acconti = totale attuale</span>` : ''}</div>`:''}
                     ${_badgeRicambi(j.id, j.stato === 'todo' ? ((_appuntamentoDelJob(j.id) || {}).data || j.data) : null)}
+                    ${j.stato !== 'done' ? _badgeConsigli(j) : ''}
                     <div class="work-box-compact" style="margin-top:8px; pointer-events:none; max-height:55px; overflow:hidden;">${htmlEsc(j.lavori_richiesti||'...')}</div>
                 </div>
                 ${contattatoRow}
@@ -6825,7 +6839,175 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 addVoceConto('', '', 22, false);
             }
             calcContoTotal();
+            _consigliChiusi = [];
+            $('conto-consigli').innerHTML = '';
+            _consigliDi(j).forEach(c => addConsiglioConto(c.testo, Number(c.mesi) || 0, false, c.id));
+            _renderConsigliPrima();
             $('modal-conto').classList.remove('hidden');
+        }
+
+        // ── Lavori consigliati per la prossima volta (v197) ──
+        // Sulla scheda in cui sono scritti: j.consigli = [{ id, testo, mesi (0 = nessun promemoria), dal, fatto?, esito?, avvisato? }]
+        // Aperti finché non sono "fatto": li mostrano il conto e la Bacheca quando la stessa moto rientra; con mesi > 0 tornano nei promemoria (pagina Tagliandi)
+        const CONSIGLI_MESI = [[0, 'Nessun promemoria'], [1, '📲 Avvisa tra 1 mese'], [3, '📲 Avvisa tra 3 mesi'], [6, '📲 Avvisa tra 6 mesi']];
+        let _consigliChiusi = [];   // consigli delle volte prima chiusi nel conto aperto: si salvano solo con il conto
+        function _consigliDi(j) { return j && j.consigli ? Object.values(j.consigli).filter(c => c && String(c.testo || '').trim()) : []; }
+        function _consigliAperti(targa, escludiId) {
+            const k = chiaveTarga(targa);
+            if (!k) return [];
+            const out = [];
+            db.forEach(j => {
+                if (String(j.id) === String(escludiId) || chiaveTarga(j.targa) !== k) return;
+                _consigliDi(j).forEach(c => { if (!c.fatto) out.push({ c, j }); });
+            });
+            return out.sort((a, b) => String(b.c.dal || '').localeCompare(String(a.c.dal || '')));
+        }
+        function _trovaConsiglio(jobId, cid) {
+            const j = db.find(x => String(x.id) === String(jobId));
+            if (!j) return {};
+            j.consigli = _consigliDi(j);
+            return { j, c: j.consigli.find(c => String(c.id) === String(cid)) };
+        }
+        function addConsiglioConto(testo = '', mesi = 3, focus = false, id = '') {
+            const box = $('conto-consigli');
+            if (!box) return;
+            const r = document.createElement('div');
+            r.className = 'consiglio-row';
+            r.dataset.id = id || genId();
+            r.style.cssText = 'display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;';
+            r.innerHTML = `<input type="text" class="cons-testo" value="${htmlEsc(testo)}" placeholder="Es. gomma posteriore al 20%, pastiglie da cambiare entro 3.000 km" style="flex:1 1 260px; margin:0;">
+                <select class="cons-mesi" title="Quando ricordarlo al cliente su WhatsApp" style="flex:0 0 190px; margin:0;">${CONSIGLI_MESI.map(([m, t]) => `<option value="${m}" ${m === mesi ? 'selected' : ''}>${t}</option>`).join('')}</select>
+                <button type="button" title="Togli" onclick="this.parentElement.remove()" style="color:#ef4444; background:transparent; border:1px solid #ef4444; border-radius:6px; cursor:pointer; font-weight:bold; padding:6px 10px;">✕</button>`;
+            box.appendChild(r);
+            if (focus) r.querySelector('.cons-testo').focus();
+        }
+        function _salvaConsigliConto(j) {
+            const prima = {};
+            _consigliDi(j).forEach(c => { prima[String(c.id)] = c; });
+            const oggi = getOggiLocale();
+            const nuovi = Array.from(document.querySelectorAll('#conto-consigli .consiglio-row')).map(r => {
+                const testo = r.querySelector('.cons-testo').value.trim();
+                if (!testo) return null;
+                const vecchio = prima[r.dataset.id] || {};
+                const mesi = parseInt(r.querySelector('.cons-mesi').value, 10) || 0;
+                const c = { ...vecchio, id: vecchio.id || r.dataset.id, testo, mesi, dal: vecchio.dal || oggi };
+                if (vecchio.testo !== undefined && (vecchio.testo !== testo || Number(vecchio.mesi) !== mesi)) delete c.avvisato;
+                return c;
+            }).filter(Boolean);
+            if (nuovi.length) j.consigli = nuovi; else delete j.consigli;
+            _consigliChiusi.forEach(x => {
+                const { c } = _trovaConsiglio(x.jobId, x.id);
+                if (c) { c.fatto = oggi; c.esito = x.esito; }
+            });
+            _consigliChiusi = [];
+        }
+        function _renderConsigliPrima() {
+            const box = $('conto-consigli-prima');
+            if (!box) return;
+            const j = db.find(x => String(x.id) === String(currentJobId));
+            const chiusi = new Set(_consigliChiusi.map(x => x.jobId + '|' + x.id));
+            const lista = j ? _consigliAperti(j.targa, j.id).filter(({ c, j: o }) => !chiusi.has(o.id + '|' + c.id)) : [];
+            box.style.display = lista.length ? '' : 'none';
+            box.innerHTML = !lista.length ? '' : `<div class="section-dark" style="border:1px solid #facc15; background:rgba(250,204,21,0.08);">
+                <h3 style="color:#facc15; margin-bottom:10px;">⚠️ Le altre volte avevi consigliato</h3>
+                ${lista.map(({ c, j: o }) => `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:7px 0; border-top:1px solid rgba(250,204,21,0.2);">
+                    <span style="flex:1 1 240px; color:var(--text);"><b>${htmlEsc(c.testo)}</b> <small style="color:var(--muted);">· ${formattaData(c.dal)}</small></span>
+                    <button type="button" class="btn btn-warning w-auto" style="margin:0; padding:6px 12px;" onclick="consiglioNelConto('${o.id}','${c.id}')" title="Aggiunge una voce al conto con questo lavoro">+ Nel conto</button>
+                    <button type="button" class="btn btn-dark w-auto" style="margin:0; padding:6px 12px;" onclick="chiudiConsiglioConto('${o.id}','${c.id}','fatto')" title="Già fatto">✓ Fatto</button>
+                    <button type="button" class="btn btn-dark w-auto" style="margin:0; padding:6px 12px;" onclick="chiudiConsiglioConto('${o.id}','${c.id}','no')" title="Il cliente non lo vuole o non serve più">✕ Non serve</button>
+                </div>`).join('')}
+                <div style="color:var(--muted); font-size:0.78rem; margin-top:6px;">Quello che scegli qui si salva insieme al conto.</div>
+            </div>`;
+        }
+        function chiudiConsiglioConto(jobId, cid, esito) {
+            _consigliChiusi.push({ jobId: String(jobId), id: String(cid), esito });
+            _renderConsigliPrima();
+        }
+        function consiglioNelConto(jobId, cid) {
+            const { c } = _trovaConsiglio(jobId, cid);
+            if (!c) return;
+            addVoceConto(String(c.testo).toUpperCase(), '', 22, false);
+            const righe = document.querySelectorAll('#conto-rows tr.voce-row');
+            const ultima = righe[righe.length - 1];
+            if (ultima) setTimeout(() => ultima.querySelector('.r-price').focus(), 10);
+            chiudiConsiglioConto(jobId, cid, 'fatto');
+        }
+        function _badgeConsigli(j) {
+            const lista = _consigliAperti(j.targa, j.id);
+            if (!lista.length) return '';
+            const altri = lista.length > 1 ? ` <span style="opacity:0.8;">(+${lista.length - 1})</span>` : '';
+            return `<div title="${htmlEsc(lista.map(x => x.c.testo).join(' · '))}" style="font-size:0.75rem; color:#facc15; background:rgba(250,204,21,0.1); border:1px solid rgba(250,204,21,0.4); border-radius:6px; padding:3px 7px; margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">💡 Consigliato: <b>${htmlEsc(lista[0].c.testo)}</b>${altri}</div>`;
+        }
+        // Promemoria: consigli con "Avvisa tra N mesi" arrivati alla data, non fatti, non ancora avvisati, moto non in officina
+        function _consigliDaRicordare() {
+            const oggi = getOggiLocale(), out = [];
+            const inOfficina = new Set(db.filter(j => ['todo', 'doing', 'special'].includes(j.stato)).map(j => chiaveTarga(j.targa)).filter(Boolean));
+            db.forEach(j => {
+                if (j.stato === 'preventivo' || inOfficina.has(chiaveTarga(j.targa))) return;
+                _consigliDi(j).forEach(c => {
+                    const m = Number(c.mesi) || 0;
+                    if (!m || c.fatto || c.avvisato || !c.dal) return;
+                    const quando = _aggiungiMesi(c.dal, m);
+                    if (quando <= oggi) out.push({ c, j, quando });
+                });
+            });
+            return out.sort((a, b) => a.quando.localeCompare(b.quando));
+        }
+        function _aggiornaBadgeConsigli() {
+            const b = $('consigli-badge');
+            if (!b) return;
+            const n = _consigliDaRicordare().length;
+            b.textContent = n;
+            b.style.display = n ? 'inline-block' : 'none';
+        }
+        function _renderConsigliPromemoria() {
+            _aggiornaBadgeConsigli();
+            const box = $('consigli-promemoria');
+            if (!box) return;
+            const lista = _consigliDaRicordare();
+            box.innerHTML = !lista.length ? '' : `<div style="border:1px solid #facc15; background:rgba(250,204,21,0.08); border-radius:10px; padding:12px 14px; margin-bottom:12px;">
+                <div style="color:#facc15; font-weight:800; margin-bottom:8px;">💡 Lavori consigliati da ricordare (${lista.length})</div>
+                ${lista.map(({ c, j }) => `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:7px 0; border-top:1px solid rgba(250,204,21,0.2);">
+                    <span style="flex:1 1 260px;">
+                        <span class="targa-badge" style="margin-right:6px;">${htmlEsc(j.targa || '')}</span>
+                        <b style="color:white;">${htmlEsc((j.cognome || '').toUpperCase())} ${htmlEsc(j.nome || '')}</b>
+                        <small style="color:var(--muted);">${htmlEsc([j.marca, j.modello].filter(Boolean).join(' '))}</small><br>
+                        <span style="color:var(--text);">${htmlEsc(c.testo)}</span> <small style="color:var(--muted);">· consigliato il ${formattaData(c.dal)}</small>
+                    </span>
+                    <button type="button" class="btn btn-success w-auto" style="margin:0; padding:6px 12px;" onclick="waConsiglio('${j.id}','${c.id}')">📲 WhatsApp</button>
+                    <button type="button" class="btn btn-dark w-auto" style="margin:0; padding:6px 12px;" onclick="segnaConsiglio('${j.id}','${c.id}','avvisato')" title="L'hai già avvisato in un altro modo">✓ Avvisato</button>
+                    <button type="button" class="btn btn-dark w-auto" style="margin:0; padding:6px 12px;" onclick="segnaConsiglio('${j.id}','${c.id}','no')" title="Non serve più">✕ Non serve</button>
+                </div>`).join('')}
+            </div>`;
+        }
+        function segnaConsiglio(jobId, cid, cosa) {
+            if (!_puoSalvare('db')) return;
+            const { c } = _trovaConsiglio(jobId, cid);
+            if (!c) return;
+            if (cosa === 'avvisato') c.avvisato = getOggiLocale();
+            else { c.fatto = getOggiLocale(); c.esito = 'no'; }
+            _salvaSezioni([['db', db]]);
+            _renderConsigliPromemoria();
+        }
+        function waConsiglio(jobId, cid) {
+            const { j, c } = _trovaConsiglio(jobId, cid);
+            if (!c) return;
+            const k = chiaveTarga(j.targa);
+            const recente = [...db].sort((a, b) => String(b.data_chiusura || b.data || '').localeCompare(String(a.data_chiusura || a.data || ''))).find(x => chiaveTarga(x.targa) === k && x.tel) || j;
+            const tel = formatPhoneForWa(recente.tel);
+            if (!tel) return mostraErrore('Nessun numero di telefono salvato per questo cliente.');
+            const moto = [j.marca, j.modello].filter(Boolean).join(' ') || 'moto';
+            const txt = `Ciao ${recente.nome || recente.cognome || ''} 👋,
+
+durante l'ultimo intervento sulla tua *${moto}* (targa *${j.targa}*) del ${formattaData(c.dal)} avevamo notato:
+👉 *${c.testo}*
+
+Ti consigliamo di passare a farlo sistemare. Prenota quando ti è comodo presso *${MGM_INFO.nome}*! 🏍️
+📞 ${MGM_INFO.tel}
+
+A presto!`;
+            window.open(`https://wa.me/${tel}?text=${encodeURIComponent(txt)}`, '_blank');
+            segnaConsiglio(jobId, cid, 'avvisato');
         }
 
         function calcContoTotal() {
@@ -6893,6 +7075,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 ...(tr.dataset.ordineId ? { ordine_id: tr.dataset.ordineId } : {})
             })).filter(i => i.price > 0 || i.desc.trim() !== '');
             j.totale_lordo = j.conto.reduce((a,b) => a + b.price * (b.qty || 1), 0);
+            _salvaConsigliConto(j);
             // Pre-conto di Lavori Lunghi e Incidentate: la scheda resta nella sua sezione (per la bacheca c'è "Ponte")
             if (!(nuovoStato === 'doing' && j.stato === 'special')) j.stato = nuovoStato;
             if (nuovoStato === 'done' || nuovoStato === 'archived') {
@@ -9978,6 +10161,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         function refreshTagliandi() {
             const container = $('tagliandi-results');
             if (!container) return;
+            _renderConsigliPromemoria();
 
             const oggi = getOggiLocale();
             const query = ($('tag-search-input')?.value || '').toLowerCase().trim();
@@ -10468,14 +10652,14 @@ A presto!`;
         function _aggiornaBadgeAltro() {
             const b = $('tb-badge-altro');
             if (!b) return;
-            const n = ['gar-badge', 'scadenze-badge'].reduce((s, id) => { const e = $(id); return s + (e && e.style.display !== 'none' ? (parseInt(e.textContent) || 0) : 0); }, 0);
+            const n = ['gar-badge', 'scadenze-badge', 'consigli-badge'].reduce((s, id) => { const e = $(id); return s + (e && e.style.display !== 'none' ? (parseInt(e.textContent) || 0) : 0); }, 0);
             b.textContent = n;
             b.hidden = !n;
-            b.title = n + (n === 1 ? ' avviso' : ' avvisi') + ' nel menu: garanzie da contattare e scadenze';
+            b.title = n + (n === 1 ? ' avviso' : ' avvisi') + ' nel menu: garanzie da contattare, scadenze e consigli da ricordare';
         }
         (function () {
             const oss = new MutationObserver(_aggiornaBadgeAltro);
-            ['gar-badge', 'scadenze-badge'].forEach(id => { const e = document.getElementById(id); if (e) oss.observe(e, { attributes: true, childList: true, characterData: true, subtree: true }); });
+            ['gar-badge', 'scadenze-badge', 'consigli-badge'].forEach(id => { const e = document.getElementById(id); if (e) oss.observe(e, { attributes: true, childList: true, characterData: true, subtree: true }); });
         })();
         function _aggiornaTabbar(viewId) {
             let trovato = false;

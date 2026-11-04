@@ -2248,6 +2248,67 @@
     closeModal('modal-conto');
   });
 
+  await passo('Lavori consigliati', async () => {
+    switchView('board');
+    db.push({ id: 1991, stato: 'doing', data: getOggiLocale(), cognome: 'CONSIGLIO', nome: 'MARIO', tel: '3331112222', targa: 'CS111AA', marca: 'YAMAHA', modello: 'TMAX', lavori_richiesti: 'FRENI', conto: [], acconti: [] });
+    saveDB();
+    await attendi(50);
+    openClosingModal(1991);
+    ok(document.getElementById('conto-consigli-prima').style.display === 'none', 'Consigli: prima volta, nessun consiglio delle volte precedenti');
+    addConsiglioConto('GOMMA POSTERIORE AL 20%', 3);
+    addConsiglioConto('PASTIGLIE <ANT>', 0);
+    addConsiglioConto('', 1);
+    saveJobConConto('done');
+    let r = recordDi('db', 1991);
+    const cs = Object.values(r.consigli || {});
+    ok(cs.length === 2 && cs[0].testo === 'GOMMA POSTERIORE AL 20%' && cs[0].mesi === 3 && cs[1].mesi === 0 && cs[0].dal === getOggiLocale(), 'Consigli: salvati con il conto (vuoti scartati, mesi e data)');
+    openClosingModal(1991);
+    ok(document.querySelectorAll('#conto-consigli .consiglio-row').length === 2, 'Consigli: riaprendo il conto ci sono ancora');
+    closeModal('modal-conto');
+
+    db.push({ id: 1992, stato: 'todo', data: getOggiLocale(), cognome: 'CONSIGLIO', nome: 'MARIO', tel: '3331112222', targa: 'CS 111 AA', marca: 'YAMAHA', modello: 'TMAX', lavori_richiesti: 'TAGLIANDO', conto: [], acconti: [] });
+    saveDB();
+    await attendi(50);
+    refreshBoard();
+    const card = [...document.querySelectorAll('.card-compact')].find(c => c.textContent.includes('CS 111 AA'));
+    ok(card && card.textContent.includes('Consigliato: GOMMA POSTERIORE AL 20%') && card.textContent.includes('(+1)'), 'Consigli: la moto rientra e la Bacheca mostra il consiglio');
+    ok(card && !card.innerHTML.includes('<ANT>'), 'Consigli: testo con simboli mostrato in sicurezza');
+
+    openClosingModal(1992);
+    const prima = document.getElementById('conto-consigli-prima');
+    ok(prima.style.display === '' && prima.textContent.includes('GOMMA POSTERIORE') && prima.textContent.includes('PASTIGLIE'), 'Consigli: nel conto della nuova volta compaiono quelli di prima');
+    const c0 = cs[0], c1 = cs[1];
+    consiglioNelConto(1991, c0.id);
+    chiudiConsiglioConto(1991, c1.id, 'no');
+    ok([...document.querySelectorAll('#conto-rows .r-desc')].some(i => i.value === 'GOMMA POSTERIORE AL 20%') && prima.style.display === 'none', 'Consigli: "+ Nel conto" aggiunge la voce, i consigli chiusi spariscono');
+    closeModal('modal-conto');
+    r = recordDi('db', 1991);
+    ok(Object.values(r.consigli).every(c => !c.fatto), 'Consigli: chiudendo il conto con Annulla non cambia niente');
+    openClosingModal(1992);
+    ok(document.querySelectorAll('#conto-consigli-prima button').length === 6, 'Consigli: riaprendo, i due consigli sono ancora lì');
+    consiglioNelConto(1991, c0.id);
+    saveJobConConto('doing');
+    r = recordDi('db', 1991);
+    const dopo = Object.values(r.consigli);
+    ok(dopo[0].fatto === getOggiLocale() && dopo[0].esito === 'fatto' && !dopo[1].fatto, 'Consigli: salvando il conto il consiglio messo nel conto risulta fatto, l\'altro resta aperto');
+    ok((recordDi('db', 1992).conto || []).some(v => v.desc === 'GOMMA POSTERIORE AL 20%'), 'Consigli: la voce è nel conto della nuova scheda');
+
+    db.push({ id: 1993, stato: 'archived', data: _aggiungiMesi(getOggiLocale(), -4), data_chiusura: _aggiungiMesi(getOggiLocale(), -4), cognome: 'RICORDA', nome: 'ANNA', tel: '333 444 5555', targa: 'CS222BB', marca: 'HONDA', modello: 'SH', conto: [], acconti: [],
+      consigli: [{ id: 'k1', testo: 'CATENA LENTA', mesi: 3, dal: _aggiungiMesi(getOggiLocale(), -4) }, { id: 'k2', testo: 'GOMME TRA UN ANNO', mesi: 6, dal: _aggiungiMesi(getOggiLocale(), -4) }] });
+    saveDB();
+    await attendi(50);
+    ok(document.getElementById('consigli-badge').textContent === '1' && document.getElementById('consigli-badge').style.display !== 'none', 'Consigli: nel menu il contatore dei consigli da ricordare (1)');
+    switchView('tagliandi');
+    const box = document.getElementById('consigli-promemoria');
+    ok(box.textContent.includes('CATENA LENTA') && !box.textContent.includes('GOMME TRA UN ANNO') && !box.textContent.includes('GOMMA POSTERIORE'), 'Consigli: in Tagliandi solo quelli arrivati alla data (non quelli di una moto in officina)');
+    const aperte = [], wo = window.open;
+    window.open = u => { aperte.push(u); return null; };
+    try { waConsiglio(1993, 'k1'); } finally { window.open = wo; }
+    ok(aperte.length === 1 && aperte[0].includes('wa.me/393334445555') && decodeURIComponent(aperte[0]).includes('CATENA LENTA'), 'Consigli: WhatsApp al cliente con il consiglio');
+    ok(!!Object.values(recordDi('db', 1993).consigli)[0].avvisato && !box.textContent.includes('CATENA LENTA') && document.getElementById('consigli-badge').style.display === 'none', 'Consigli: dopo il WhatsApp segnato come avvisato e tolto dalla lista');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
