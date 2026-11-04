@@ -153,6 +153,7 @@
         .sidebar-overlay.show { display: block; }
         .hamburger-btn { display: flex; align-items: center; background: none; border: none; color: var(--text); font-size: 1.4rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; line-height: 1; flex-shrink: 0; transition: background 0.15s; }
         .hamburger-btn:hover { background: rgba(255,255,255,0.07); }
+        .sidebar .nav-link.nav-doppione { display: none !important; }
         #mob-tabbar, #board-tabs, #vd-btn-salva-mob { display: none; }
         .sidebar-close-btn { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.07); border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
         .sidebar-close-btn:hover { background: rgba(255,255,255,0.15); color: white; }
@@ -629,17 +630,6 @@
         <button class="sidebar-close-btn" onclick="closeSidebar()" title="Chiudi menu">✕</button>
         <div class="sidebar-inner">
         <div class="brand">MOTO GARAGE<br>MARCELLO</div>
-        <button id="btn-logout" onclick="doLogout()" style="
-            display:none; align-items:center; gap:8px;
-            background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3);
-            color:var(--accent); border-radius:8px; padding:8px 12px;
-            font-size:0.78rem; font-weight:bold; cursor:pointer;
-            width:100%; margin-bottom:15px; transition:0.2s;
-            justify-content:center;
-        " onmouseover="this.style.background='var(--accent)'; this.style.color='white';"
-           onmouseout="this.style.background='rgba(239,68,68,0.1)'; this.style.color='var(--accent)';">
-            🚪 Esci
-        </button>
         <div id="nav-sortable">
         <button class="nav-link active" data-nav-id="board" onclick="switchView('board', this)">📊 Board Lavori</button>
         <button class="nav-link" data-nav-id="nuova" onclick="switchView('nuova', this)">➕ Nuova Commessa</button>
@@ -684,6 +674,17 @@
                 <button class="tema-sfondo" data-sfondo="carbone" onclick="applicaSfondo('carbone')" style="background:#111111;" title="Sfondo Carbone">CRBN</button>
             </div>
         </div>
+        <button id="btn-logout" onclick="doLogout()" style="
+            display:none; align-items:center; gap:8px;
+            background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3);
+            color:var(--accent); border-radius:8px; padding:8px 12px;
+            font-size:0.78rem; font-weight:bold; cursor:pointer;
+            width:100%; margin-top:12px; transition:0.2s;
+            justify-content:center;
+        " onmouseover="this.style.background='var(--accent)'; this.style.color='white';"
+           onmouseout="this.style.background='rgba(239,68,68,0.1)'; this.style.color='var(--accent)';">
+            🚪 Esci
+        </button>
         </div><!-- fine sidebar-inner -->
     </nav>
 
@@ -3096,7 +3097,17 @@
         function openModal(id) { const m = $(id); if (m) m.classList.remove('hidden'); }
         function closeModal(id) { const m = $(id); if (m) m.classList.add('hidden'); }
 
+        // Menu laterale senza doppioni: nasconde le sezioni già nella barra visibile (in alto sul Mac, in basso sul telefono)
+        function _aggiornaMenuDoppioni() {
+            const vis = el => !!el && el.getClientRects().length > 0;
+            document.querySelectorAll('.sidebar .nav-link[data-nav-id]').forEach(b => {
+                const id = b.dataset.navId;
+                b.classList.toggle('nav-doppione', vis(document.querySelector(`#topbar-quicklinks .topbar-qbtn[data-view="${id}"]`)) || vis(document.querySelector(`#mob-tabbar button[data-view="${id}"]`)));
+            });
+        }
+        window.addEventListener('resize', debounce(_aggiornaMenuDoppioni, 200));
         function toggleSidebar() {
+            _aggiornaMenuDoppioni();
             const s = document.querySelector('.sidebar');
             const o = $('sidebar-overlay');
             s.classList.toggle('mobile-open');

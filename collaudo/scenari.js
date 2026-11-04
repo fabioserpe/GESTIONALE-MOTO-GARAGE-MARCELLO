@@ -2212,6 +2212,17 @@
     cancelEditOrdine(); switchView('board');
   });
 
+  await passo('Menu laterale senza doppioni', async () => {
+    toggleSidebar();
+    const voce = id => document.querySelector('.sidebar .nav-link[data-nav-id="' + id + '"]');
+    const nascosta = id => getComputedStyle(voce(id)).display === 'none';
+    ok(['board', 'nuova', 'agenda', 'archivio', 'magazzino', 'ordini', 'garanzie', 'preventivi', 'nuovo-cliente', 'specials', 'incidentate'].every(nascosta), 'Menu: sul Mac le sezioni già nella barra in alto non si ripetono');
+    ok(['tagliandi', 'ledger', 'scadenze', 'lista-attesa', 'usate', 'vendite', 'stats', 'appunti', 'rubrica', 'export', 'backup', 'ripristina'].every(id => !nascosta(id)), 'Menu: restano le sezioni che non sono in alto e gli strumenti');
+    const esci = document.getElementById('btn-logout'), tema = document.querySelector('.sidebar .tema-sfondo');
+    ok(!!(tema.compareDocumentPosition(esci) & Node.DOCUMENT_POSITION_FOLLOWING), 'Menu: "Esci" in fondo, sotto i colori del tema');
+    toggleSidebar();
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
