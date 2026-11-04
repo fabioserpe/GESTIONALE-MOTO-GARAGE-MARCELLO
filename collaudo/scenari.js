@@ -2223,6 +2223,31 @@
     toggleSidebar();
   });
 
+  await passo('Trascinare in Fatto apre il conto', async () => {
+    switchView('board');
+    db.push({ id: 1990, stato: 'doing', data: getOggiLocale(), cognome: 'TRASCINA', nome: 'PROVA', targa: 'TR123AA', marca: 'HONDA', modello: 'SH', lavori_richiesti: 'TAGLIANDO',
+      conto: [{ desc: 'OLIO 10W40', price: 15, qty: 2, iva: 22, mag_codice: 'OLIO-01' }], acconti: [] });
+    saveDB();
+    await attendi(50);
+    const prima = fb.leggi('magazzino/OLIO-01').giacenza;
+    const ev = { preventDefault() {}, target: document.body, dataTransfer: { getData: () => '1990' } };
+    dropBoard(ev, 'done');
+    ok(!document.getElementById('modal-conto').classList.contains('hidden'), 'Trascina in Fatto: si apre la finestra del conto');
+    ok(db.find(x => x.id === 1990).stato === 'doing', 'Trascina in Fatto: finché non chiudi il conto la scheda resta sul ponte');
+    saveJobConConto('done');
+    const r = recordDi('db', 1990);
+    ok(r.stato === 'done' && !!r.data_chiusura, 'Trascina in Fatto: dopo il conto la scheda è chiusa con la data di chiusura');
+    ok(fb.leggi('magazzino/OLIO-01').giacenza === prima - 2, 'Trascina in Fatto: olio scalato dal magazzino (' + prima + ' → ' + fb.leggi('magazzino/OLIO-01').giacenza + ')');
+    ok(!!taggliandiDB['TR123AA'], 'Trascina in Fatto: prossimo tagliando registrato');
+    moveStatus(1990, 'doing');
+    dropBoard(ev, 'todo');
+    ok(db.find(x => x.id === 1990).stato === 'todo' && document.getElementById('modal-conto').classList.contains('hidden'), 'Trascina in Da Fare: spostamento normale, senza conto');
+    moveStatus(1990, 'doing');
+    cambiaStatoDaArchivio(1990, 'done', safeEncode(r.clientId || ''));
+    ok(!document.getElementById('modal-conto').classList.contains('hidden') && db.find(x => x.id === 1990).stato === 'doing', 'Storico → Lavoro Fatto: apre il conto invece di spostare e basta');
+    closeModal('modal-conto');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
