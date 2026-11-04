@@ -854,9 +854,12 @@
                 </div>
                 <!-- Riga cliente -->
                 <div class="mob-form-grid" style="display:grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid #334155;">
-                    <div>
-                        <label>Moto in officina</label>
-                        <select id="ord_job" onchange="onCambioJobOrdine()" style="margin:0;"></select>
+                    <div style="position:relative;">
+                        <label>🔍 Cliente o moto (Anagrafica)</label>
+                        <input id="ord_cerca" placeholder="Cognome, nome, targa o telefono..." autocomplete="off" oninput="cercaClienteOrdine()" onblur="setTimeout(() => { const r = document.getElementById('ord-cerca-results'); if (r) r.style.display = 'none'; }, 200)" style="margin:0;">
+                        <div id="ord-cerca-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--card); border:1px solid #fca5a5; border-radius:0 0 10px 10px; max-height:280px; overflow-y:auto; z-index:9999; box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
+                        <input type="hidden" id="ord_job"><input type="hidden" id="ord_client_id"><input type="hidden" id="ord_targa"><input type="hidden" id="ord_moto">
+                        <div id="ord-collegato" style="font-size:0.8rem; margin-top:6px; line-height:1.4;"></div>
                         <div id="ord-job-info" style="font-size:0.78rem; margin-top:5px; line-height:1.4;"></div>
                     </div>
                     <div>
@@ -2664,6 +2667,7 @@
                 }
                 updateDatalist();
                 _consegnaOrdiniMotoChiuse();
+                _agganciaOrdiniInAttesa();
                 _dSincPassaporti();
                 const v = currentView;
                 if (v === 'nuova' || v === 'crea-prev') { /* form aperto, nessun refresh */ }
@@ -3598,8 +3602,9 @@
             };
             const _job = $('ord_job') ? db.find(x => String(x.id) === String($('ord_job').value)) : null;
             obj.jobId = _job ? _job.id : null;
-            obj.targa = _job ? (_job.targa || '') : '';
-            obj.moto  = _job ? `${_job.marca || ''} ${_job.modello || ''}`.trim() : '';
+            obj.targa = _job ? (_job.targa || '') : ($('ord_targa').value || '');
+            obj.moto  = _job ? `${_job.marca || ''} ${_job.modello || ''}`.trim() : ($('ord_moto').value || '');
+            obj.clientId = _job ? (_job.clientId || '') : ($('ord_client_id').value || '');
             let salvato = null, vecchio = null;
             if (editId) {
                 // In modifica restano stato e data dell'ordine (prima tornava sempre in "Da ordinare")
@@ -3667,6 +3672,7 @@
             $('ord_note').value     = o.note || '';
             $('ord_qta').value      = o.qta || 1;
             popolaSelectJobOrdine(o.jobId);
+            if (!$('ord_job').value) { $('ord_client_id').value = o.clientId || ''; $('ord_targa').value = o.targa || ''; $('ord_moto').value = o.moto || ''; _renderCollegatoOrdine(); }
             $('btn-save-ordine').className = "btn btn-warning";
             $('btn-save-ordine').innerHTML = "💾 Salva";
             $('btn-cancel-ordine').classList.remove('hidden');
@@ -3680,7 +3686,8 @@
 
         function cancelEditOrdine() {
             ['ord_edit_id','ord_desc','ord_sku','ord_fornitore','ord_num_ordine',
-             'ord_prezzo','ord_prezzo_cliente','ord_data_consegna','ord_cliente','ord_tel_cliente','ord_note','ord_job'].forEach(id => { if($(id)) $(id).value = ''; });
+             'ord_prezzo','ord_prezzo_cliente','ord_data_consegna','ord_cliente','ord_tel_cliente','ord_note','ord_job','ord_client_id','ord_targa','ord_moto','ord_cerca'].forEach(id => { if($(id)) $(id).value = ''; });
+            _renderCollegatoOrdine();
             $('ord_qta').value = '1';
             $('btn-save-ordine').className = "btn btn-success";
             $('btn-save-ordine').innerHTML = "➕ Aggiungi";
@@ -3785,6 +3792,33 @@
             box.innerHTML = html;
         }
         // Riga del conto nata da un ordine: ha ordine_id; i prezzi delle commesse sono unitari (price × qty)
+        // Ricambi ordinati per un cliente/moto senza lavoro aperto: quando nasce la scheda si collegano da soli (Fabio, 04/11).
+        // Lo fa solo il dispositivo in uso (pagina visibile), così due dispositivi aperti non lo fanno insieme.
+        function _agganciaOrdiniInAttesa() {
+            if (document.visibilityState !== 'visible' || !_cloud.connesso || !['db', 'ordini'].every(n => _cloud.caricati.has(n))) return;
+            const aperti = db.filter(j => j && ['todo', 'doing', 'special'].includes(j.stato));
+            if (!aperti.length) return;
+            const collegati = [];
+            ordiniDB.forEach(o => {
+                if (!o || !['todo', 'doing', 'done'].includes(o.stato) || (o.jobId != null && o.jobId !== '')) return;
+                const kt = chiaveTarga(o.targa);
+                const c = kt ? aperti.filter(j => chiaveTarga(j.targa) === kt) : (o.clientId ? aperti.filter(j => j.clientId === o.clientId && !chiaveTarga(j.targa)) : []);
+                if (!c.length || (!kt && c.length !== 1)) return;
+                const j = c.sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')))[0];
+                o.jobId = j.id;
+                o.targa = j.targa || o.targa || '';
+                o.moto = `${j.marca || ''} ${j.modello || ''}`.trim() || o.moto || '';
+                if (!o.clientId && j.clientId) o.clientId = j.clientId;
+                _sincronizzaContoOrdine(o, null);
+                collegati.push(j);
+            });
+            if (!collegati.length) return;
+            saveOrdini();
+            saveDB();
+            const n = collegati.length, j = collegati[0];
+            const moto = [...new Set(collegati.map(x => `${x.marca || ''} ${x.modello || ''} ${x.targa || ''}`.replace(/\s+/g, ' ').trim()))].join(', ');
+            mostraToast(`📦 Collegat${n === 1 ? 'o 1 ricambio già ordinato' : 'i ' + n + ' ricambi già ordinati'} per ${moto || 'la moto'}`);
+        }
         function _statoApertoJob(j) { return !!j && ['todo', 'doing', 'done', 'special'].includes(j.stato); }
         function _rigaContoOrdine(j, ordineId) {
             return (Array.isArray(j.conto) ? j.conto : []).findIndex(c => c && c.ordine_id != null && String(c.ordine_id) === String(ordineId));
@@ -3869,17 +3903,70 @@
             if (!$('ord_prezzo_cliente').value && it.prezzo_pubblico) $('ord_prezzo_cliente').value = it.prezzo_pubblico;
         }
 
+        // Moto collegata all'ordine: campo nascosto ord_job (id della scheda). Il nome resta per le chiamate esistenti.
         function popolaSelectJobOrdine(valore) {
-            const sel = $('ord_job');
-            if (!sel) return;
-            const statoLbl = j => j.stato === 'todo' ? (() => { const a = _appuntamentoDelJob(j.id); return a ? 'appuntamento ' + formattaData(a.data) : 'appuntamento'; })() : j.stato === 'doing' ? 'sul ponte' : j.stato === 'done' ? 'pronta'
-                : j.stato === 'special' ? (j.special_cat === 'incidentate' ? 'incidentata' : 'lavoro lungo') : 'chiusa';
-            const haValore = valore != null && valore !== '';
-            const jobs = db.filter(j => ['todo', 'doing', 'done', 'special'].includes(j.stato) || (haValore && String(j.id) === String(valore)))
-                .sort((a, b) => `${a.cognome || ''} ${a.nome || ''}`.trim().localeCompare(`${b.cognome || ''} ${b.nome || ''}`.trim(), 'it', { sensitivity: 'base' }));
-            sel.innerHTML = `<option value="">— Nessuna (ricambio per il banco o un cliente) —</option>`
-                + jobs.map(j => `<option value="${htmlEsc(j.id)}">${htmlEsc(`${(j.cognome || '').toUpperCase()} ${j.nome || ''} · ${j.targa || 'senza targa'} · ${j.marca || ''} ${j.modello || ''} (${statoLbl(j)})`.replace(/\s+/g, ' '))}</option>`).join('');
-            sel.value = (haValore && jobs.some(j => String(j.id) === String(valore))) ? String(valore) : '';
+            const j = valore != null && valore !== '' ? db.find(x => String(x.id) === String(valore)) : null;
+            $('ord_job').value = j ? String(j.id) : '';
+            if (j) { $('ord_client_id').value = j.clientId || ''; $('ord_targa').value = j.targa || ''; $('ord_moto').value = `${j.marca || ''} ${j.modello || ''}`.trim(); }
+            _renderCollegatoOrdine();
+            aggiornaInfoJobOrdine();
+        }
+        function _statoJobOrdine(j) {
+            if (!j) return '';
+            if (j.stato === 'todo') { const a = _appuntamentoDelJob(j.id); return a ? 'appuntamento ' + formattaData(a.data) : 'appuntamento'; }
+            return j.stato === 'doing' ? 'sul ponte' : j.stato === 'done' ? 'pronta' : j.stato === 'special' ? (j.special_cat === 'incidentate' ? 'incidentata' : 'lavoro lungo') : 'chiusa';
+        }
+        // Lavoro aperto della moto (per targa) o, senza targa, del cliente se ne ha uno solo
+        function _jobApertoPer(targa, clientId) {
+            const aperti = db.filter(j => j && ['todo', 'doing', 'done', 'special'].includes(j.stato));
+            const kt = chiaveTarga(targa);
+            let c = kt ? aperti.filter(j => chiaveTarga(j.targa) === kt) : (clientId ? aperti.filter(j => j.clientId === clientId && !chiaveTarga(j.targa)) : []);
+            if (!kt && c.length !== 1) return null;
+            return c.sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')))[0] || null;
+        }
+        function _renderCollegatoOrdine() {
+            const box = $('ord-collegato');
+            if (!box) return;
+            const j = $('ord_job').value ? db.find(x => String(x.id) === String($('ord_job').value)) : null;
+            const cid = $('ord_client_id').value, tg = $('ord_targa').value, moto = $('ord_moto').value;
+            const x = `<button type="button" onclick="scollegaClienteOrdine()" title="Scollega" aria-label="Scollega cliente e moto" style="width:auto; margin:0 0 0 6px; background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.95rem; padding:0;">✕</button>`;
+            if (j) box.innerHTML = `<span style="color:#34d399; font-weight:bold;">🔗 ${htmlEsc(`${j.marca || ''} ${j.modello || ''}`.trim() || 'Moto')}${j.targa ? ' · ' + htmlEsc(j.targa) : ''} — ${htmlEsc(_statoJobOrdine(j))}</span>${x}`;
+            else if (cid || tg) box.innerHTML = `<span style="color:#fbbf24; font-weight:bold;">👤 ${htmlEsc(moto || 'Cliente dell\'Anagrafica')}${tg ? ' · ' + htmlEsc(tg) : ''}</span>${x}<br><span style="color:var(--muted);">Nessun lavoro aperto: il ricambio si collegherà da solo quando crei la scheda della moto.</span>`;
+            else box.innerHTML = '';
+        }
+        function scollegaClienteOrdine() {
+            ['ord_job', 'ord_client_id', 'ord_targa', 'ord_moto'].forEach(id => { if ($(id)) $(id).value = ''; });
+            _renderCollegatoOrdine();
+            aggiornaInfoJobOrdine();
+        }
+        function cercaClienteOrdine() {
+            const res = $('ord-cerca-results'), q = ($('ord_cerca').value || '').trim();
+            if (!res) return;
+            if (q.length < 2) { res.style.display = 'none'; return; }
+            const tutti = _cercaMotoClienti(q, false), lista = tutti.slice(0, 20);
+            res.style.display = 'block';
+            res.innerHTML = lista.length ? lista.map(r => {
+                const jo = _jobApertoPer(r.targa, r.clientId);
+                const d = htmlEsc(JSON.stringify({ targa: r.targa || '', cognome: r.cognome || '', nome: r.nome || '', tel: r.tel || '', marca: r.marca || '', modello: r.modello || '', clientId: r.clientId || '' }));
+                return `<div class="ord-cerca-riga" onmousedown="selezionaClienteOrdine(${d})" style="padding:9px 12px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.06);" onmouseover="this.style.background='rgba(252,165,165,0.1)'" onmouseout="this.style.background=''">
+                    <div><b style="color:white;">${htmlEsc(`${r.cognome || ''} ${r.nome || ''}`.trim())}</b>${r.targa ? ` <span style="color:var(--info); font-family:monospace;">${htmlEsc(r.targa)}</span>` : ''}</div>
+                    <div style="font-size:0.78rem; color:var(--muted);">${htmlEsc(`${r.marca || ''} ${r.modello || ''}`.trim())}${r.tel ? ' · 📞' + htmlEsc(r.tel) : ''} · <span style="color:${jo ? '#34d399' : 'var(--muted)'};">${jo ? htmlEsc(_statoJobOrdine(jo)) : 'nessun lavoro aperto'}</span></div>
+                </div>`;
+            }).join('') + _altriRisultatiCliente(tutti.length - lista.length)
+                : '<div style="padding:10px 12px; color:var(--muted); font-size:0.85rem;">Nessun cliente trovato: scrivi nome e telefono a mano qui accanto.</div>';
+        }
+        function selezionaClienteOrdine(d) {
+            if (typeof d === 'string') d = JSON.parse(d);
+            $('ord_cliente').value = `${(d.cognome || '').toUpperCase()} ${d.nome || ''}`.trim();
+            if (d.tel) $('ord_tel_cliente').value = d.tel;
+            $('ord_client_id').value = d.clientId || '';
+            $('ord_targa').value = d.targa || '';
+            $('ord_moto').value = `${d.marca || ''} ${d.modello || ''}`.trim();
+            const jo = _jobApertoPer(d.targa, d.clientId);
+            $('ord_job').value = jo ? String(jo.id) : '';
+            $('ord_cerca').value = '';
+            $('ord-cerca-results').style.display = 'none';
+            _renderCollegatoOrdine();
             aggiornaInfoJobOrdine();
         }
         function onCambioJobOrdine() {
@@ -7243,6 +7330,9 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     } else if (!inLavorazione && !hasSpecial) { 
                         badgesHtml += `<div style="color:var(--success); font-size:0.75rem; font-weight:bold; padding: 2px 0;">✅ Conto in regola</div>`; 
                     } 
+                    const _ordC = _ordiniDelCliente(c.clientId, c.cognome, c.nome, c.targhe, c.storia.map(x => x.id));
+                    const _ricTxt = _testoRicambiCliente(_ordC);
+                    if (_ricTxt) badgesHtml += `<div style="display:flex; align-items:center;"><span class="ric-cliente" style="color:#f59e0b; font-weight:bold; font-size:0.8rem; background:rgba(245,158,11,0.1); padding:4px 8px; border-radius:6px; border:1px solid rgba(245,158,11,0.3);">📦 ${htmlEsc(_ricTxt)}</span></div>`;
                     badgesHtml += `</div>`; 
                     
                     let veicoliHtml = c.veicoliDettagli.map(v => `<div style="margin-bottom:4px;"><span class="targa-badge" style="font-size:0.75rem; padding:2px 6px;">${htmlEsc(v.targa)}</span> <span style="color:var(--text); font-size:0.85rem;">${htmlEsc(v.marca)} ${htmlEsc(v.modello)}</span></div>`).join(''); if(!veicoliHtml) veicoliHtml = '<small style="color:var(--muted)">Nessun veicolo registrato</small>'; 
@@ -7713,6 +7803,23 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             }).catch(err => mostraErrore('Per stampare gli adesivi serve la connessione: ' + err.message));
         }
 
+        // Ricambi ordinati di un cliente: per clientId, per moto collegata, per targa o (ordini vecchi) per nome
+        function _ordiniDelCliente(clientId, cognome, nome, targhe, jobIds) {
+            const tg = new Set((targhe || []).map(chiaveTarga).filter(Boolean)), ids = new Set((jobIds || []).map(String));
+            const norm = s => String(s || '').toUpperCase().replace(/\s+/g, ' ').trim();
+            const nomi = new Set([norm(`${cognome || ''} ${nome || ''}`), norm(`${nome || ''} ${cognome || ''}`)].filter(Boolean));
+            return ordiniDB.filter(o => o && (
+                (clientId && o.clientId === clientId) ||
+                (o.jobId != null && o.jobId !== '' && ids.has(String(o.jobId))) ||
+                (!o.clientId && tg.size && tg.has(chiaveTarga(o.targa))) ||
+                (!o.clientId && !chiaveTarga(o.targa) && nomi.has(norm(o.cliente)))));
+        }
+        function _testoRicambiCliente(ord) {
+            const att = ord.filter(_ordineInAttesa).length, arr = ord.filter(o => o.stato === 'done').length;
+            if (!att && !arr) return '';
+            return [att ? att + (att === 1 ? ' ricambio in attesa' : ' ricambi in attesa') : '', arr ? arr + (arr === 1 ? ' arrivato' : ' arrivati') : ''].filter(Boolean).join(' · ');
+        }
+
         function viewHistoryCognome(encodedChiave) {
             const clientId = safeDecode(encodedChiave); const hList = getJobsByClientId(clientId).filter(j => j.stato !== 'preventivo' && j.stato !== 'cliente'); const _fj = getJobsByClientId(clientId).find(j => j.cognome) || {}; const _label = `${(_fj.cognome||'').toUpperCase()} ${_fj.nome||''}`.trim() || clientId; $('st-titolo').innerText = `Storia Interventi & Conti: ${_label}`;
             const stCorpo = $('st-corpo'); if(!stCorpo) return;
@@ -7768,8 +7875,19 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
 
                 return `<div style="padding:15px; background:${bgCol}; border-radius:10px; margin-bottom:15px; border-left:4px solid ${bCol}"><div class="flex-between" style="align-items:flex-start;"><div><b style="color:${bCol}; font-size:1.1rem;">Data: ${formattaData(h.data)}</b><br><span style="color:var(--info); font-size:0.9rem; font-weight:bold;">🏍️ ${htmlEsc(h.marca||'')} ${htmlEsc(h.modello||'')} <span class="targa-badge" style="font-size:0.75rem; padding:1px 4px; margin-left:4px;">${htmlEsc(h.targa)}</span> ${h.km ? `| 🏁 KM: ${h.km}` : ''}</span></div><div class="flex-row" style="flex-wrap:wrap; justify-content:flex-end;">${riapriBtn}<button class="btn btn-warning w-auto" style="padding:8px; cursor:pointer;" onclick="${actionEdit}">✏️ Modifica</button><button class="btn w-auto" style="padding:8px; background:white; color:black; cursor:pointer;" onclick="${actionPrint}">🖨️ Stampa</button><button class="btn w-auto" style="padding:8px; background:transparent; color:var(--accent); border:1px solid var(--accent); cursor:pointer;" onclick="deleteSingleHistoryCognome(${h.id}, '${safeKey}')">🗑️ Elimina</button></div></div>${previewHtml}</div>`;
             }).join('') || "Nessun intervento."; 
+            const _tutti = getJobsByClientId(clientId);
+            const _ord = _ordiniDelCliente(clientId, _fj.cognome, _fj.nome, _tutti.map(j => j.targa), _tutti.map(j => j.id)).filter(o => o.stato !== 'consegnato');
+            if (_ord.length) {
+                const _st = o => o.stato === 'todo' ? ['da ordinare', 'var(--accent)'] : o.stato === 'doing' ? ['ordinato' + (o.data_consegna ? ', previsto ' + formattaData(o.data_consegna) : ''), 'var(--info)'] : ['arrivato', 'var(--success)'];
+                stCorpo.insertAdjacentHTML('afterbegin', `<div id="st-ricambi" style="margin-bottom:14px; padding:10px 12px; border:1px solid rgba(245,158,11,0.35); background:rgba(245,158,11,0.07); border-radius:10px;">
+                    <div style="font-weight:800; color:#f59e0b; margin-bottom:6px;">📦 Ricambi ordinati · ${htmlEsc(_testoRicambiCliente(_ord))}</div>
+                    ${_ord.map(o => { const [l, c] = _st(o); return `<div role="button" tabindex="0" onclick="closeModal('modal-storico'); apriOrdineDaRicerca('${htmlEsc(String(o.id))}')" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; padding:5px 0; border-top:1px dashed #334155; cursor:pointer;" title="Apri negli Ordini ricambi">
+                        <span><b style="color:white;">${(parseInt(o.qta) || 1) > 1 ? parseInt(o.qta) + '× ' : ''}${htmlEsc(o.desc || '')}</b>${o.moto || o.targa ? ` <span style="color:#fbbf24;">${htmlEsc([o.moto, o.targa].filter(Boolean).join(' · '))}</span>` : ''}</span>
+                        <b style="color:${c}; font-size:0.85rem;">${htmlEsc(l)}</b></div>`; }).join('')}
+                </div>`);
+            }
             const _tg = {};
-            getJobsByClientId(clientId).forEach(j => { const k = chiaveTarga(j.targa); if (k) _tg[k] = `${j.marca || ''} ${j.modello || ''}`.trim(); });
+            _tutti.forEach(j => { const k = chiaveTarga(j.targa); if (k) _tg[k] = `${j.marca || ''} ${j.modello || ''}`.trim(); });
             const _pp = Object.entries(_tg).map(([k, m]) => { const p = passaportiIdx[k], on = !!(p && p.attivo);
                 return `<button type="button" class="pp-chip" onclick="apriPassaporto('${safeEncode(k)}')" style="width:auto; margin:0; background:${on ? 'rgba(52,211,153,0.12)' : 'transparent'}; border:1px solid ${on ? '#34d399' : '#475569'}; color:var(--text); border-radius:20px; padding:6px 12px; font-size:0.85rem; cursor:pointer;">🛡️ ${htmlEsc(k)}${m ? ' · ' + htmlEsc(m) : ''} — <b style="color:${on ? '#34d399' : 'var(--muted)'};">${on ? 'passaporto attivo' : 'attiva passaporto'}</b></button>`; }).join('');
             if (_pp) stCorpo.insertAdjacentHTML('afterbegin', `<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">${_pp}</div>`);
