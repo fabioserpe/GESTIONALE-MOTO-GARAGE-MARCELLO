@@ -6112,7 +6112,10 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const id = ev.dataTransfer.getData("text/plain");
             if(!id) return;
             const j = db.find(x => String(x.id) === String(id));
-            if(j && j.stato !== targetStatus) moveStatus(j.id, targetStatus);
+            if(!j || j.stato === targetStatus) return;
+            // In "Fatto" si entra solo dal conto (come "✅ Fine"): scarico magazzino, tagliando e data di chiusura
+            if (targetStatus === 'done') { openClosingModal(j.id); return; }
+            moveStatus(j.id, targetStatus);
         }
         // -------------------------------------------------
 
@@ -7551,6 +7554,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         function cambiaStatoDaArchivio(jobId, nuovoStato, encodedChiave) {
+            if (nuovoStato === 'done') { closeModal('modal-stato-lavori'); openClosingModal(jobId); return; }
             moveStatus(jobId, nuovoStato);
             mostraToast(`✅ Spostato in: ${({'todo':'Da Fare','doing':'In Lavorazione','special':'Lavoro Lungo','done':'Lavoro Fatto'})[nuovoStato]||nuovoStato}`, '#10b981');
             setTimeout(() => {
