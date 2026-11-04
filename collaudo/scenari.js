@@ -552,8 +552,9 @@
     ordinaRicambioPerJob(1002);
     ok(currentView === 'ordini' && document.getElementById('ord-form-container').style.display === '', 'Dalla scheda (menu ⋯ → Ordina ricambio) si apre il modulo ordine');
     ok(document.getElementById('ord_job').value === '1002' && document.getElementById('ord_cliente').value === 'BIANCHI LUCA' && document.getElementById('ord_tel_cliente').value === '3334445555', 'Moto già scelta, cliente e telefono compilati');
-    const opzioni = [...document.getElementById('ord_job').options].map(o => o.value);
-    ok(!opzioni.includes('1004') && opzioni.includes('1401') && opzioni.includes('1002'), 'Elenco moto: solo quelle aperte (anche incidentate), non le archiviate');
+    const apertoDi = id => { const j = db.find(x => String(x.id) === String(id)) || {}; return _jobApertoPer(j.targa, j.clientId); };
+    ok(apertoDi(1004) === null && String((apertoDi(1401) || {}).id) === '1401' && String((apertoDi(1002) || {}).id) === '1002', 'Ricerca cliente o moto: collega solo le moto con un lavoro aperto (anche incidentate), non le archiviate');
+    ok(document.getElementById('ord-collegato').textContent.includes('sul ponte'), 'Modulo ordine: indica la moto collegata e dove si trova');
     campo('ord_desc', 'kit catena'); campo('ord_fornitore', 'gipa');
     let n = nScr();
     addOrdine();
@@ -601,7 +602,7 @@
     ordinaRicambioPerJob('1501');
     const info = () => document.getElementById('ord-job-info').textContent;
     ok(document.getElementById('ord_job').value === '1501' && /Appuntamento .* alle 09:30 \(tra 5 giorni\)/.test(info()), 'Modulo ordine: mostra l\'appuntamento e i giorni mancanti (' + info() + ')');
-    ok([...document.getElementById('ord_job').options].some(o => o.value === '1501' && o.textContent.includes('appuntamento ' + formattaData(dApp))), 'Elenco moto: indica la data dell\'appuntamento');
+    ok(document.getElementById('ord-collegato').textContent.includes('appuntamento ' + formattaData(dApp)), 'Moto collegata: indica la data dell\'appuntamento');
     campo('ord_data_consegna', tra(7)); aggiornaInfoJobOrdine();
     ok(/dopo l'appuntamento/.test(info()), 'Consegna prevista dopo l\'appuntamento: avviso nel modulo');
     campo('ord_desc', 'kit catena 525'); campo('ord_fornitore', 'gipa');
@@ -2177,6 +2178,38 @@
     dataInizioSettimana = settPrima; window.__meteoRisposta = null; _meteo = null;
     try { localStorage.removeItem('mgMeteo2'); } catch (e) {}
     switchView('board'); await attendi(50);
+  });
+
+  await passo('Ordini e Anagrafica', async () => {
+    fb.scritturaRemota({ 'db/kra1': { id: 8401, cognome: 'RICAMBIO', nome: 'ATTESO', tel: '3331112222', marca: 'YAMAHA', modello: 'TMAX', targa: 'RC 123 AA', stato: 'archived', data: '2026-05-01', data_chiusura: '2026-05-03', clientId: 'c-rc', conto: [], totale_lordo: 0 } }, false);
+    await attendi(50);
+    switchView('ordini'); svuotaModuloOrdine();
+    campo('ord_cerca', 'ricambio atteso'); cercaClienteOrdine();
+    const righe = [...document.querySelectorAll('#ord-cerca-results .ord-cerca-riga')];
+    ok(righe.length === 1 && righe[0].textContent.includes('RICAMBIO ATTESO') && righe[0].textContent.includes('nessun lavoro aperto'), 'Ordine: la ricerca trova il cliente dell\'Anagrafica anche senza lavori aperti');
+    righe[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    const val = id => document.getElementById(id).value;
+    ok(val('ord_cliente') === 'RICAMBIO ATTESO' && val('ord_tel_cliente') === '3331112222' && val('ord_client_id') === 'c-rc' && chiaveTarga(val('ord_targa')) === 'RC123AA' && val('ord_job') === '' && document.getElementById('ord-collegato').textContent.includes('si collegherà da solo'), 'Ordine: scelto il cliente si compilano nome, telefono e moto, con l\'avviso che si collegherà alla scheda');
+    campo('ord_desc', 'pastiglie attese'); campo('ord_prezzo_cliente', '40'); addOrdine();
+    let o = ordiniDB.find(x => x.desc === 'PASTIGLIE ATTESE');
+    ok(o && o.clientId === 'c-rc' && chiaveTarga(o.targa) === 'RC123AA' && o.moto === 'YAMAHA TMAX' && (o.jobId == null || o.jobId === ''), 'Ordine: salvato con cliente e moto anche senza lavoro aperto');
+    switchView('archivio'); campo('search-input', 'ricambio atteso'); refreshArchive();
+    ok(document.getElementById('archive-results').textContent.includes('1 ricambio in attesa'), 'Anagrafica: nella scheda del cliente "📦 1 ricambio in attesa"');
+    viewHistoryCognome(safeEncode('c-rc'));
+    ok(((document.getElementById('st-ricambi') || {}).textContent || '').includes('PASTIGLIE ATTESE'), 'Anagrafica: lo storico del cliente elenca i ricambi ordinati');
+    closeModal('modal-storico'); campo('search-input', ''); refreshArchive();
+    fb.scritturaRemota({ 'db/kra2': { id: 8402, cognome: 'RICAMBIO', nome: 'ATTESO', tel: '3331112222', marca: 'YAMAHA', modello: 'TMAX', targa: 'RC123AA', stato: 'todo', data: oggi, clientId: 'c-rc', conto: [], totale_lordo: 0 } }, false);
+    await attendi(200);
+    o = ordiniDB.find(x => x.desc === 'PASTIGLIE ATTESE');
+    ok(o && String(o.jobId) === '8402' && _ordiniDelJob(8402).length === 1, 'Arriva la moto: il ricambio si collega da solo alla scheda nuova ("Attesa ricambi")');
+    ok((recordDi('db', 8402).conto || []).some(c => String(c.ordine_id) === String(o.id)), 'Arriva la moto: il ricambio entra nel conto della scheda');
+    const toast = document.querySelector('.toast-msg');
+    ok(!!toast && /Collegato 1 ricambio già ordinato per YAMAHA TMAX RC123AA/.test(toast.textContent), 'Arriva la moto: avviso "Collegato 1 ricambio già ordinato" (' + (toast ? toast.textContent : '') + ')');
+    ok(_ordiniDelCliente('c-x', 'VECCHIO', 'ORDINE', [], []).length === 0 && (ordiniDB.push({ id: 8499, desc: 'PROVA NOME', cliente: 'ordine  vecchio', stato: 'todo' }), _ordiniDelCliente('c-x', 'VECCHIO', 'ORDINE', [], []).length === 1), 'Anagrafica: anche gli ordini vecchi senza cliente collegato si ritrovano dal nome (in qualsiasi ordine)');
+    ordiniDB = ordiniDB.filter(x => x.desc !== 'PASTIGLIE ATTESE' && x.id !== 8499); saveOrdini();
+    fb.scritturaRemota({ 'db/kra1': null, 'db/kra2': null }, false);
+    await attendi(150);
+    cancelEditOrdine(); switchView('board');
   });
 
   await passo('Offline', async () => {
