@@ -83,6 +83,20 @@
         .agenda-card .ag-ricambi span { font-size: 0.68rem !important; padding: 1px 7px !important; }
         .agenda-day.passato { opacity: 0.5; transition: opacity 0.2s; }
         .agenda-day.passato:hover { opacity: 1; }
+        /* Conto: totale e pulsanti sempre in vista in fondo alla finestra (solo Mac: il telefono ha i suoi pulsanti in alto) */
+        #conto-barra-totale { display: none; }
+        @media (min-width: 769px) {
+            #modal-conto .modal-content > .flex-row.mt-15 { position: sticky; bottom: -30px; z-index: 5; margin: 15px -30px -30px; padding: 14px 30px 18px; background: var(--card); border-top: 1px solid #334155; box-shadow: 0 -12px 24px rgba(0,0,0,0.35), 0 30px 0 var(--card); align-items: center; }
+            #conto-barra-totale { display: block; flex: 2.4; font-size: 0.95rem; color: var(--muted); line-height: 1.4; }
+            #conto-barra-totale b { color: white; font-variant-numeric: tabular-nums; }
+        }
+        .conto-testa { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 1rem; color: var(--muted); }
+        .conto-testa .ct-nome { color: white; font-size: 1.2rem; font-weight: 800; }
+        .conto-testa .ct-moto { color: #e2e8f0; font-weight: 700; }
+        .chip-lavoro { width: auto; margin: 0; padding: 5px 11px; border-radius: 16px; border: 1px solid #475569; background: rgba(255,255,255,0.04); color: #cbd5e1; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+        .chip-lavoro:hover { background: rgba(59,130,246,0.15); border-color: var(--info); color: white; }
+        .chip-lavoro.usato { opacity: 0.45; }
+        .info-chip { display: inline-block; margin: 6px 6px 0 0; padding: 2px 9px; border-radius: 12px; font-size: 0.78rem; font-weight: 700; }
         .card-compact .btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(30px, 1fr)); gap: 5px; margin-top: 4px; }
 
         .agenda-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; flex-grow: 1; overflow: hidden; margin-top: 15px;}
@@ -954,16 +968,18 @@
                     <input id="f_tel" placeholder="Telefono Cliente">
                     <div class="flex-row"><input id="f_marca" placeholder="Marca"> <input id="f_modello" placeholder="Modello"></div>
                     <div class="flex-row">
-                        <input id="f_targa" placeholder="Targa o Cliente 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('f')"> 
+                        <input id="f_targa" placeholder="Targa o Cliente 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" oninput="_avvisoMotoInOfficina()" onblur="autoFillForm('f'); _avvisoMotoInOfficina()"> 
                         <input id="f_km" type="number" placeholder="KM">
                     </div>
+                    <div id="nuova-doppione" class="hidden" role="status" style="margin:-4px 0 12px; padding:9px 12px; border-radius:8px; border:1px solid rgba(245,158,11,0.55); background:rgba(245,158,11,0.12); color:#fcd34d; font-size:0.88rem; font-weight:600; display:flex; align-items:center; justify-content:space-between; gap:10px;"></div>
                     
                     <label style="color: var(--info)">Acconti Ricevuti (€)</label>
                     <div id="acconti-container"></div>
                     <button class="btn btn-outline-info mb-15" onclick="addAcconto('acconti-container', 'f_acc_val', 'f_acc_date', null, '', '', true)">+ Aggiungi acconto</button>
                     
                     <label>Lavori da Eseguire</label>
-                    <textarea id="f_lavori" rows="4" placeholder="Note tecniche..."></textarea>
+                    <textarea id="f_lavori" rows="4" placeholder="Note tecniche..." oninput="_segnaLavoriUsati()"></textarea>
+                    <div id="f-lavori-frequenti" aria-label="Lavori frequenti" style="display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 6px;"></div>
                     <div class="flex-row mt-15">
                         <button class="btn btn-dark" onclick="isEditing=false; switchView('board')">❌ Annulla</button>
                         <button class="btn btn-purple" onclick="saveJob('special')">🕰️ Salva in Lavori Lunghi</button>
@@ -2097,6 +2113,7 @@
             </div>
 
             <div class="flex-row mt-15">
+                <div id="conto-barra-totale" aria-live="polite"></div>
                 <button class="btn btn-dark" onclick="closeModal('modal-conto')" style="flex:1">Annulla</button>
                 <button class="btn btn-dark" id="btn-stampa-preconto" onclick="stampaPrecontoFinestra()" title="Stampa il pre-conto così com'è nella finestra" style="flex:1">🖨️ Stampa</button>
                 <button class="btn btn-purple" onclick="saveJobConConto('doing')" style="flex:1.5">💾 Salva Pre-Conto</button>
@@ -3209,6 +3226,7 @@
             updateNavGroupHighlight();
             currentView = viewId;
             if(viewId === 'nuova' && !isEditing) clearForm();
+            if(viewId === 'nuova') _renderLavoriFrequenti();
             if(viewId === 'nuovo-cliente') _resetNuovoClienteForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
             if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') { statsSettOffset = 0; refreshStats(); } if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'incidentate') refreshIncidentate(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); } if(viewId === 'usate') { refreshUsate(); } if(viewId === 'garanzie') { currentGarTab = _garTabIniziale(); refreshGaranzie(); } if(viewId === 'vendite') refreshVendite();
@@ -3216,7 +3234,41 @@
 
         function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; const _sc=$('f_search_cliente'); if(_sc) _sc.value=''; refreshMiniAgenda(); }
         
+        // I lavori scritti più spesso nelle schede (righe uguali), altrimenti una lista di partenza
+        const LAVORI_BASE = ['TAGLIANDO', 'GOMME', 'PASTIGLIE FRENI', 'BATTERIA', 'KIT TRASMISSIONE', 'REVISIONE', 'CARBURAZIONE', 'DIAGNOSI'];
+        function _lavoriFrequenti() {
+            const conta = {};
+            db.forEach(j => {
+                if (j.stato === 'preventivo') return;
+                String(j.lavori_richiesti || '').split(/[\n,;]+/).forEach(r => {
+                    const t = r.trim().toUpperCase().replace(/\s+/g, ' ');
+                    if (t.length >= 3 && t.length <= 30 && /[A-Z]/.test(t)) conta[t] = (conta[t] || 0) + 1;
+                });
+            });
+            const top = Object.keys(conta).filter(t => conta[t] >= 3).sort((a, b) => conta[b] - conta[a] || a.localeCompare(b)).slice(0, 8);
+            LAVORI_BASE.forEach(t => { if (top.length < 8 && !top.includes(t)) top.push(t); });
+            return top;
+        }
+        function _renderLavoriFrequenti() {
+            const box = $('f-lavori-frequenti');
+            if (!box) return;
+            box.innerHTML = _lavoriFrequenti().map(t => `<button type="button" class="chip-lavoro" data-t="${htmlEsc(t)}" onclick="aggiungiLavoroFrequente(this.dataset.t)">+ ${htmlEsc(t)}</button>`).join('');
+            _segnaLavoriUsati();
+        }
+        function _righeLavori() { return ($('f_lavori') ? $('f_lavori').value : '').split('\n').map(r => r.trim().toUpperCase()); }
+        function aggiungiLavoroFrequente(t) {
+            const ta = $('f_lavori');
+            if (!ta || !t) return;
+            if (!_righeLavori().includes(t.toUpperCase())) ta.value = ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' + t : t;
+            ta.focus();
+            _segnaLavoriUsati();
+        }
+        function _segnaLavoriUsati() {
+            const righe = _righeLavori();
+            document.querySelectorAll('#f-lavori-frequenti .chip-lavoro').forEach(b => b.classList.toggle('usato', righe.includes(b.dataset.t.toUpperCase())));
+        }
         function refreshMiniAgenda() {
+            _avvisoMotoInOfficina();
             const container = $('mini-agenda-grid');
             if(!container) return;
             const dataScelta = $('f_data').value;
@@ -3362,8 +3414,38 @@
             const res = $('nuova-cliente-results');
             if (res) res.style.display = 'none';
             if (data.targa) mostraInfoClienteNuova(data.targa);
+            _avvisoMotoInOfficina();
+        }
+        // Targa con una scheda ancora aperta: avviso, si può comunque salvare
+        function _avvisoMotoInOfficina() {
+            const box = $('nuova-doppione');
+            if (!box) return;
+            const k = chiaveTarga($('f_targa') ? $('f_targa').value : '');
+            const idCorrente = $('f_id') ? $('f_id').value : '';
+            const j = k ? db.find(x => chiaveTarga(x.targa) === k && String(x.id) !== String(idCorrente) && ['todo', 'doing', 'done', 'special'].includes(x.stato)) : null;
+            box.classList.toggle('hidden', !j);
+            if (!j) { box.innerHTML = ''; return; }
+            const dove = j.stato === 'doing' ? `è già sul ponte dal ${formattaData(j.data)}`
+                : j.stato === 'done' ? 'è pronta da consegnare'
+                : j.stato === 'special' ? (j.special_cat === 'incidentate' ? 'è tra le Incidentate' : 'è nei Lavori Lunghi')
+                : j.data === getOggiLocale() ? 'è già tra gli appuntamenti di oggi' : `ha già un appuntamento il ${formattaData(j.data)}`;
+            box.innerHTML = `<span>⚠️ Questa moto ${dove} (${htmlEsc(`${(j.cognome || '').toUpperCase()} ${j.nome || ''}`.trim())}).</span><button type="button" onclick="previewJob(${j.id})" style="width:auto; flex-shrink:0; white-space:nowrap; margin:0; padding:5px 12px; border-radius:6px; border:1px solid #f59e0b; background:transparent; color:#fcd34d; font-weight:800; cursor:pointer;">🔍 Apri la scheda</button>`;
         }
 
+        // Prossimo tagliando, ricambi in attesa, lavori consigliati aperti, da saldare (stesso conto dell'Anagrafica: pronte e archiviate)
+        function _notizieClienteNuova(targa, lavori) {
+            const k = chiaveTarga(targa), chips = [];
+            const tag = taggliandiDB[String(targa).toUpperCase().trim()] || taggliandiDB[k];
+            if (tag && tag.data) chips.push(['rgba(59,130,246,0.15)', '#93c5fd', `📅 Prossimo tagliando ${formattaData(tag.data)}`]);
+            const ids = lavori.map(j => String(j.id));
+            const ric = (ordiniDB || []).filter(o => _ordineInAttesa(o) && (ids.includes(String(o.jobId)) || (k && chiaveTarga(o.targa) === k))).length;
+            if (ric) chips.push(['rgba(245,158,11,0.15)', '#fbbf24', `📦 ${ric} ${ric === 1 ? 'ricambio' : 'ricambi'} in attesa`]);
+            const cons = _consigliAperti(targa).length;
+            if (cons) chips.push(['rgba(250,204,21,0.12)', '#fde047', `💡 ${cons} ${cons === 1 ? 'lavoro consigliato' : 'lavori consigliati'} da fare`]);
+            const debito = lavori.filter(j => ['done', 'archived'].includes(j.stato)).reduce((s, j) => s + (parseFloat(j.totale_lordo) || 0) - (j.acconti || []).reduce((a, b) => a + (parseFloat(b.val) || 0), 0), 0);
+            if (debito > 0.01) chips.push(['rgba(239,68,68,0.15)', '#fca5a5', `⚠️ Da saldare ${debito.toFixed(2)} €`]);
+            return chips.length ? '<br>' + chips.map(([bg, col, t]) => `<span class="info-chip" style="background:${bg}; color:${col};">${htmlEsc(t)}</span>`).join('') : '';
+        }
         function mostraInfoClienteNuova(targa) {
             const el = $('nuova-cliente-info');
             if (!el || !targa) return;
@@ -3376,7 +3458,7 @@
             const dataF = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : '';
             el.style.display = 'block';
             el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:8px;padding:8px 14px;font-size:0.82rem;color:var(--success);">
-                <span>✅ Cliente già presente: <b>${n} lavori</b> precedenti${dataF ? ' · Ultimo: <b>' + dataF + '</b>' : ''}</span>
+                <span>✅ Cliente già presente: <b>${n} lavori</b> precedenti${dataF ? ' · Ultimo: <b>' + dataF + '</b>' : ''}${_notizieClienteNuova(targa, lavori)}</span>
                 <button onclick="document.getElementById('nuova-cliente-info').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:0 4px;line-height:1;">×</button>
             </div>`;
         }
@@ -6884,7 +6966,8 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             currentJobId = id;
             const j = db.find(x => String(x.id) === String(id));
             if(!j) return;
-            $('conto-header-info').innerText = `${j.cognome||''} | ${j.targa||'N/D'} | ${j.marca||''}`;
+            const _moto = `${j.marca || ''} ${j.modello || ''}`.trim();
+            $('conto-header-info').innerHTML = `<div class="conto-testa"><span class="ct-nome">${htmlEsc(`${(j.cognome || '').toUpperCase()} ${j.nome || ''}`.trim() || 'Cliente')}</span>${_moto ? `<span class="ct-moto">🏍️ ${htmlEsc(_moto)}</span>` : ''}<span class="targa-badge" style="font-size:0.85rem;">${htmlEsc(j.targa || 'N/D')}</span>${j.km ? `<span>${htmlEsc(j.km)} km</span>` : ''}${j.tel ? `<span>📞 ${htmlEsc(j.tel)}</span>` : ''}</div>`;
             const _notaSp = $('conto-nota-speciale');
             if (_notaSp) {
                 _notaSp.style.display = j.stato === 'special' ? '' : 'none';
@@ -7072,6 +7155,8 @@ A presto!`;
             segnaConsiglio(jobId, cid, 'avvisato');
         }
 
+        // IVA della voce: 0 è un valore valido (bolli, spese anticipate), 22 solo se manca
+        function _ivaRiga(tr) { const v = parseFloat(tr && tr.dataset.iva); return isNaN(v) ? 22 : v; }
         function calcContoTotal() {
             const rows = document.querySelectorAll('#conto-rows tr.voce-row');
             let totLordo = 0;
@@ -7081,7 +7166,7 @@ A presto!`;
                 const unitPrice = parseFloat(tr.querySelector('.r-price')?.value) || 0;
                 const qty = parseFloat(tr.querySelector('.r-qty')?.value) || 1;
                 const price = unitPrice * qty;
-                const ivaRate = parseFloat(tr.dataset.iva ?? 22) || 22;
+                const ivaRate = _ivaRiga(tr);
                 const imponibile = price / (1 + ivaRate / 100);
                 const ivaAmt = price - imponibile;
                 totLordo += price;
@@ -7117,6 +7202,8 @@ A presto!`;
 
             $('conto-acconti-tot').innerText = acc.toFixed(2) + ' €';
             const daPagare = totLordo - acc;
+            const barra = $('conto-barra-totale');
+            if (barra) barra.innerHTML = `Totale <b>${totLordo.toFixed(2)} €</b>${acc > 0 ? ` · Acconti <b>${acc.toFixed(2)} €</b>` : ''}<br>${daPagare > 0.01 ? `<span style="color:var(--accent); font-weight:800;">Da incassare ${daPagare.toFixed(2)} €</span>` : `<span style="color:var(--success); font-weight:800;">Saldato</span>`}`;
             $('conto-totale').innerHTML = daPagare > 0.01
                 ? `<h2 style="color:white; margin:0;">TOTALE: ${totLordo.toFixed(2)} €</h2><div style="color:var(--accent); font-size:1.2rem; font-weight:bold;">DA INCASSARE: ${daPagare.toFixed(2)} €</div>`
                 : `<h2 style="color:var(--success); margin:0;">SALDATO: ${totLordo.toFixed(2)} €</h2>`;
@@ -7132,7 +7219,7 @@ A presto!`;
                 desc:       tr.querySelector('.r-desc')?.value  || '',
                 price:      parseFloat(tr.querySelector('.r-price')?.value) || 0,
                 qty:        parseFloat(tr.querySelector('.r-qty')?.value)   || 1,
-                iva:        parseFloat(tr.dataset.iva || 22) || 22,
+                iva:        _ivaRiga(tr),
                 mag_codice: tr.dataset.magCodice || '',
                 ...(tr.dataset.ordineId ? { ordine_id: tr.dataset.ordineId } : {})
             })).filter(i => i.price > 0 || i.desc.trim() !== '');

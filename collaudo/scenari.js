@@ -2376,6 +2376,68 @@
     switchView('board'); await attendi(50);
   });
 
+  await passo('Ritocchi a Nuova scheda e Conto', async () => {
+    const piu = (n) => { const x = new Date(oggi + 'T12:00:00'); x.setDate(x.getDate() + n); return formatDateISO(x); };
+    const base = { targa: 'NC 1001', marca: 'ROYAL ENFIELD', modello: 'GT 650', cognome: 'D<b>X', nome: 'MICHELE', tel: '3310001001', clientId: 'c-nc' };
+    fb.scritturaRemota({
+      'db/-Nnc1': Object.assign({}, base, { id: 951, stato: 'doing', data: piu(-5), km: '18500', lavori_richiesti: 'KIT', conto: [{ desc: 'KIT', price: 122, qty: 1, iva: 22 }, { desc: 'BOLLO', price: 10, qty: 1, iva: 0 }], totale_lordo: 132, acconti: [{ val: 32, date: piu(-5) }] }),
+      'db/-Nnc2': Object.assign({}, base, { id: 952, stato: 'archived', data: piu(-200), data_chiusura: piu(-199), lavori_richiesti: 'TAGLIANDO', conto: [{ desc: 'T', price: 200, qty: 1, iva: 22 }], totale_lordo: 200, acconti: [{ val: 80, date: piu(-199) }], consigli: [{ id: 'kk1', testo: 'GOMMA POSTERIORE', mesi: 3, dal: piu(-199) }] }),
+      'db/-Nnc3': { id: 953, stato: 'archived', data: piu(-100), targa: 'NC9999', cognome: 'SOLO', nome: 'ARCHIVIO', conto: [], totale_lordo: 0, acconti: [], clientId: 'c-nc3' },
+      'tagliandi/NC 1001': { data: piu(160), km: '18500', note: '' }
+    }, false);
+    const ordPrima = JSON.parse(JSON.stringify(ordiniDB));
+    fb.scritturaRemota({ 'ordini': ordPrima.concat([{ id: 95101, jobId: 951, targa: 'NC 1001', desc: 'KIT', qta: 1, stato: 'doing', data: piu(-4) }]) }, false);
+    await attendi(60);
+
+    // Conto: intestazione, IVA 0%, barra con il totale
+    openClosingModal(951); await attendi(30);
+    const testa = document.getElementById('conto-header-info');
+    ok(testa.textContent.includes('D<B>X MICHELE') && testa.textContent.includes('ROYAL ENFIELD GT 650') && testa.textContent.includes('NC 1001') && testa.textContent.includes('18500 km') && testa.textContent.includes('3310001001') && !testa.querySelector('b'), 'Conto: intestazione con cliente, moto, targa, km e telefono (nomi con simboli come scritti)');
+    const righe = [...document.querySelectorAll('#conto-rows tr.voce-row')];
+    ok(righe[1].dataset.iva === '0' && _ivaRiga(righe[1]) === 0 && _ivaRiga(righe[0]) === 22 && _ivaRiga({ dataset: {} }) === 22, 'Conto: la voce al 0% resta 0% (22% solo se manca)');
+    const riep = document.getElementById('conto-iva-breakdown').textContent;
+    ok(riep.includes('Imponibile:') && riep.includes((122 / 1.22 + 10).toFixed(2)) && riep.includes('IVA 22%:') && riep.includes((122 - 122 / 1.22).toFixed(2)), 'Conto: riepilogo IVA giusto con una voce al 0%');
+    const barra = document.getElementById('conto-barra-totale');
+    ok(barra.textContent.includes('Totale 132.00 €') && barra.textContent.includes('Acconti 32.00 €') && barra.textContent.includes('Da incassare 100.00 €'), 'Conto: barra in fondo con totale, acconti e da incassare');
+    const fondo = document.querySelector('#modal-conto .modal-content > .flex-row.mt-15');
+    ok(getComputedStyle(fondo).position === 'sticky' && getComputedStyle(barra).display !== 'none', 'Conto: totale e pulsanti fissi in fondo alla finestra sul Mac');
+    righe[0].querySelector('.r-price').value = '22'; calcContoTotal();
+    ok(barra.textContent.includes('Da incassare') === false && barra.textContent.includes('Saldato'), 'Conto: la barra si aggiorna (saldato)');
+    righe[0].querySelector('.r-price').value = '122'; calcContoTotal();
+    saveJobConConto('doing'); await attendi(40);
+    const salvato = Object.values(recordDi('db', 951).conto);
+    ok(salvato.find(c => c.desc === 'BOLLO').iva === 0 && salvato.find(c => c.desc === 'KIT').iva === 22, 'Conto: salvando la voce al 0% resta 0%');
+    closeModal('modal-conto');
+
+    // Nuova: moto già in officina
+    switchView('nuova'); await attendi(30);
+    const avviso = document.getElementById('nuova-doppione');
+    ok(avviso.classList.contains('hidden'), 'Nuova: nessun avviso a modulo vuoto');
+    campo('f_targa', 'nc1001'); _avvisoMotoInOfficina();
+    ok(!avviso.classList.contains('hidden') && avviso.textContent.includes('è già sul ponte dal ' + formattaData(piu(-5))) && avviso.innerHTML.includes('previewJob(951)') && !avviso.querySelector('b'), 'Nuova: avviso "già sul ponte" anche scrivendo la targa senza spazio, con il pulsante per aprirla');
+    campo('f_id', '951'); _avvisoMotoInOfficina();
+    ok(avviso.classList.contains('hidden'), 'Nuova: nessun avviso modificando la stessa scheda');
+    campo('f_id', ''); campo('f_targa', 'NC9999'); _avvisoMotoInOfficina();
+    ok(avviso.classList.contains('hidden'), 'Nuova: nessun avviso per una moto con solo lavori chiusi');
+    // Più notizie sul cliente
+    switchView('board'); switchView('nuova'); await attendi(20);
+    selezionaClienteNuova({ targa: 'NC 1001', nome: 'MICHELE', cognome: 'D<b>X', tel: '3310001001', marca: 'ROYAL ENFIELD', modello: 'GT 650', km: '18500', clientId: 'c-nc' });
+    const info = document.getElementById('nuova-cliente-info').textContent;
+    ok(info.includes('Prossimo tagliando ' + formattaData(piu(160))) && info.includes('1 ricambio in attesa') && info.includes('1 lavoro consigliato da fare') && info.includes('Da saldare 120.00 €'), 'Nuova: tagliando, ricambi, consigliati e da saldare del cliente già presente');
+    ok(!avviso.classList.contains('hidden'), 'Nuova: scegliendo il cliente compare anche l\'avviso "già in officina"');
+    // Lavori frequenti
+    const chips = [...document.querySelectorAll('#f-lavori-frequenti .chip-lavoro')];
+    ok(chips.length === 8 && chips.some(c => c.dataset.t === 'TAGLIANDO'), 'Nuova: 8 lavori frequenti');
+    campo('f_lavori', '');
+    const tag = chips.find(c => c.dataset.t === 'TAGLIANDO');
+    tag.click(); tag.click();
+    const gomme = chips.find(c => c.dataset.t !== 'TAGLIANDO'); gomme.click();
+    ok(document.getElementById('f_lavori').value === 'TAGLIANDO\n' + gomme.dataset.t && tag.classList.contains('usato'), 'Nuova: un clic aggiunge la riga, senza doppioni; il pulsante usato si schiarisce');
+    // Pulizia
+    fb.scritturaRemota({ 'db/-Nnc1': null, 'db/-Nnc2': null, 'db/-Nnc3': null, 'tagliandi/NC 1001': null, 'ordini': ordPrima }, false);
+    switchView('board'); await attendi(50);
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
