@@ -3255,7 +3255,7 @@
             db.forEach(j => {
                 if (j.stato === 'preventivo') return;
                 String(j.lavori_richiesti || '').split(/[\n,;]+/).forEach(r => {
-                    const t = r.trim().toUpperCase().replace(/\s+/g, ' ');
+                    const t = r.trim().toUpperCase().replace(/^(\[[^\]]*\]\s*)+/, '').replace(/\s+/g, ' ');   // senza etichette davanti come [RIAPERTO]
                     if (t.length >= 3 && t.length <= 30 && /[A-Z]/.test(t)) conta[t] = (conta[t] || 0) + 1;
                 });
             });
