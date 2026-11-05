@@ -2038,7 +2038,7 @@
                 <button id="mc-tab-corrente" onclick="showCollabTab('corrente')" style="padding:6px 18px; border-radius:6px; border:none; background:var(--purple); color:white; font-weight:700; cursor:pointer; font-size:0.85rem;">📋 Scheda Corrente</button>
                 <button id="mc-tab-archivio" onclick="showCollabTab('archivio')" style="padding:6px 18px; border-radius:6px; border:1px solid #334155; background:transparent; color:var(--muted); cursor:pointer; font-size:0.85rem;">🗄️ Archivio Schede</button>
                 <span id="mc-archivio-badge" style="display:none; background:#8b5cf6; color:white; border-radius:20px; padding:2px 8px; font-size:0.72rem; align-self:center;"></span>
-                <select id="mc-mese" aria-label="Mese dei movimenti" onchange="_mcMese = this.value; openCollabDetail(currentCollabView)" style="width:auto; margin:0 0 0 auto; padding:5px 10px; font-size:0.85rem;"></select>
+                <select id="mc-mese" aria-label="Mese dei movimenti" onchange="_mcMese = this.value; openCollabDetail(currentCollabView, true)" style="width:auto; margin:0 0 0 auto; padding:5px 10px; font-size:0.85rem;"></select>
             </div>
             <div id="mc-cat-totali" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; flex-shrink:0;"></div>
 
@@ -5252,6 +5252,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const col = safeDecode(currentCollabView) || 'INTERNO'; 
             const i = parseFloat($('ld_importo').value) || 0, q = parseFloat($('ld_qta').value) || 1, e = $('ld_edit_id').value;
             if(!d || !ds) return mostraErrore("Data e Descrizione obbligatori!");
+            if (_mcMese && !d.startsWith(_mcMese)) _mcMese = '';   // movimento di un altro mese: si torna a "Tutti i mesi" così si vede
             if(e) { const idx = ledgerDB.findIndex(x => String(x.id) === String(e)); if(idx > -1) ledgerDB[idx] = { id: parseInt(e), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }; } 
             else { ledgerDB.push({ id: genId(), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }); }
             cancelLedgerEdit(); saveLedger();
@@ -5331,11 +5332,13 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 return parti.length ? chip(`<span style="color:var(--muted);">${htmlEsc(c)}</span> ${parti.join(' ')}`, 'white') : '';
             }).join('') + (_mcMese ? chip(`📅 Solo ${_nomeMese(_mcMese)}`, '#93c5fd') : '');
         }
-        function openCollabDetail(encName) {
+        // tieniModulo: cambiando mese non si perde quello che si sta scrivendo
+        function openCollabDetail(encName, tieniModulo) {
+            const giaAperta = !$('modal-collab').classList.contains('hidden');
             const name = safeDecode(encName); currentCollabView = encName; 
-            $('mc-title').innerText = "Cassa: " + name; cancelLedgerEdit(); 
+            $('mc-title').innerText = "Cassa: " + name; if (!tieniModulo) cancelLedgerEdit(); 
             
-            if (encName !== _mcCassa) { _mcCassa = encName; _mcMese = ''; }
+            if (!giaAperta || encName !== _mcCassa) { _mcCassa = encName; _mcMese = ''; }
             const tutti = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase());
             const mesi = [...new Set(tutti.map(x => String(x.data || '').slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort().reverse();
             if (_mcMese && !mesi.includes(_mcMese)) _mcMese = '';
@@ -7245,7 +7248,7 @@ A presto!`;
             $('conto-acconti-tot').innerText = acc.toFixed(2) + ' €';
             const daPagare = totLordo - acc;
             const barra = $('conto-barra-totale');
-            if (barra) barra.innerHTML = `Totale <b>${totLordo.toFixed(2)} €</b>${acc > 0 ? ` · Acconti <b>${acc.toFixed(2)} €</b>` : ''}<br>${daPagare > 0.01 ? `<span style="color:var(--accent); font-weight:800;">Da incassare ${daPagare.toFixed(2)} €</span>` : `<span style="color:var(--success); font-weight:800;">Saldato</span>`}`;
+            if (barra) barra.innerHTML = `Totale <b>${totLordo.toFixed(2)} €</b>${acc > 0 ? ` · Acconti <b>${acc.toFixed(2)} €</b>` : ''}<br>${daPagare > 0.01 ? `<span style="color:var(--accent); font-weight:800;">Da incassare ${daPagare.toFixed(2)} €</span>` : totLordo > 0.004 ? `<span style="color:var(--success); font-weight:800;">Saldato</span>` : acc > 0.004 ? `<span style="color:var(--info); font-weight:800;">Solo acconti</span>` : `<span>Nessuna voce</span>`}`;
             $('conto-totale').innerHTML = daPagare > 0.01
                 ? `<h2 style="color:white; margin:0;">TOTALE: ${totLordo.toFixed(2)} €</h2><div style="color:var(--accent); font-size:1.2rem; font-weight:bold;">DA INCASSARE: ${daPagare.toFixed(2)} €</div>`
                 : `<h2 style="color:var(--success); margin:0;">SALDATO: ${totLordo.toFixed(2)} €</h2>`;
