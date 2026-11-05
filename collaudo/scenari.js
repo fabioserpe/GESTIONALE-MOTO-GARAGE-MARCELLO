@@ -2594,6 +2594,49 @@
     switchView('board'); await attendi(50);
   });
 
+  await passo('Tagliandi: ricorda chi hai avvisato', async () => {
+    const oggi = getOggiLocale();
+    db.push({ id: 1995, stato: 'archived', data: _aggiungiMesi(oggi, -13), data_chiusura: _aggiungiMesi(oggi, -13), cognome: 'AVVISO', nome: 'PAOLO', tel: '3335556666', targa: 'AV111AA', marca: 'BMW', modello: 'GS', conto: [], acconti: [] });
+    db.push({ id: 1996, stato: 'archived', data: _aggiungiMesi(oggi, -12), data_chiusura: _aggiungiMesi(oggi, -12), cognome: 'AVVISO', nome: 'LUCA', tel: '3335557777', targa: 'AV222BB', marca: 'BMW', modello: 'R 1250', conto: [], acconti: [] });
+    saveDB();
+    taggliandiDB['AV111AA'] = { data: _aggiungiMesi(oggi, -1), km: '', note: '' };
+    taggliandiDB['AV222BB'] = { data: _aggiungiMesi(oggi, -1), km: '', note: '' };
+    saveTagliandi();
+    await attendi(50);
+    switchView('tagliandi');
+    const righe = () => [...document.querySelectorAll('#tagliandi-results .tag-card-row')];
+    const riga = t => righe().find(r => r.textContent.includes(t));
+    const pos = t => righe().indexOf(riga(t));
+    const ordineIniziale = pos('AV111AA') < pos('AV222BB');
+    const primo = ordineIniziale ? 'AV111AA' : 'AV222BB', secondo = ordineIniziale ? 'AV222BB' : 'AV111AA';
+    const aperte = [], wo = window.open;
+    window.open = u => { aperte.push(u); return null; };
+    try { sendWhatsAppTagliando(safeEncode(primo)); } finally { window.open = wo; }
+    ok(aperte.length === 1 && aperte[0].includes('wa.me/39'), 'Tagliandi avvisati: il WhatsApp si apre come prima');
+    const t = fb.leggi('tagliandi/' + primo);
+    ok(t.avvisato === oggi && t.avvisato_per === taggliandiDB[primo].data && t.data === taggliandiDB[primo].data, 'Tagliandi avvisati: salvati data dell\'avviso e scadenza, senza toccare il resto');
+    ok(riga(primo).textContent.includes('avvisato il ' + formattaData(oggi)) && riga(primo).classList.contains('tag-avvisato'), 'Tagliandi avvisati: la riga mostra "avvisato il" ed è più tenue');
+    ok(pos(primo) > pos(secondo), 'Tagliandi avvisati: scende sotto quelli ancora da avvisare');
+    openModalTagliando(safeEncode(primo));
+    document.getElementById('mt_note').value = 'TELEFONARE';
+    salvaTagliandoModal();
+    ok(riga(primo).textContent.includes('avvisato il'), 'Tagliandi avvisati: cambiando solo la nota l\'avviso resta');
+    taggliandiDB[primo] = { ...taggliandiDB[primo], data: _aggiungiMesi(oggi, 11) };
+    saveTagliandi();
+    await attendi(50);
+    refreshTagliandi();
+    ok(!riga(primo).textContent.includes('avvisato il') && !riga(primo).classList.contains('tag-avvisato'), 'Tagliandi avvisati: con la nuova scadenza torna da avvisare');
+    taggliandiDB[primo] = { ...taggliandiDB[primo], data: _aggiungiMesi(oggi, -1) };
+    saveTagliandi();
+    await attendi(50);
+    window.open = () => null;
+    try { sendWhatsAppTagliando(safeEncode(secondo)); } finally { window.open = wo; }
+    const cf = window.confirm; window.confirm = () => true;
+    try { togliAvvisoTagliando(safeEncode(secondo)); } finally { window.confirm = cf; }
+    ok(!fb.leggi('tagliandi/' + secondo).avvisato && !riga(secondo).textContent.includes('avvisato il'), 'Tagliandi avvisati: cliccando la scritta torna da avvisare');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
