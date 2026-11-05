@@ -2675,6 +2675,24 @@
     openPreventivoForm(j2.id, true);
     savePreventivo();
     ok(db.find(x => x.id === j2.id).anno === '2019', 'Anno: modificando la scheda dai Preventivi l\'anno resta');
+    taggliandiDB['AN123NO'] = { data: _aggiungiMesi(getOggiLocale(), -1), km: '', note: '', avvisato: getOggiLocale(), avvisato_per: _aggiungiMesi(getOggiLocale(), -1) };
+    saveTagliandi();
+    await attendi(50);
+    openEditClienteCognome(safeEncode(j2.clientId));
+    const riga = [...document.querySelectorAll('.vehicle-edit-row')].find(r => r.querySelector('.edit_v_targa').value === 'AN123NO');
+    ok(riga && riga.querySelector('.edit_v_anno').value === '2019', 'Anno: in Anagrafica, Modifica cliente, il campo Anno della moto è compilato');
+    riga.querySelector('.edit_v_anno').value = '2018';
+    saveClienteGlobale();
+    ok(db.filter(x => x.targa === 'AN123NO').every(x => x.anno === '2018') && recordDi('db', j1.id).anno === '2018', 'Anno: cambiato dall\'Anagrafica vale per tutto lo storico della moto');
+    ok(taggliandiDB['AN123NO'].avvisato === getOggiLocale(), 'Anno: salvando il cliente l\'avviso del tagliando resta');
+    switchView('archivio');
+    refreshArchive();
+    ok([...document.querySelectorAll('#archive-results .anno-moto')].some(e => e.textContent === '2018'), 'Anno: nell\'elenco dell\'Anagrafica accanto alla moto');
+    switchView('nuovo-cliente');
+    const nv = (id, x) => document.getElementById(id).value = x;
+    nv('nc-cognome', 'NUOVANNO'); nv('nc-nome', 'ELSA'); nv('nc-targa', 'NA999AA'); nv('nc-marca', 'BMW'); nv('nc-modello', 'F 900'); nv('nc-anno', '2022');
+    salvaNuovoCliente();
+    ok((db.find(x => x.targa === 'NA999AA') || {}).anno === '2022' && document.getElementById('nc-anno').value === '', 'Anno: anche nella pagina Nuovo cliente');
     switchView('board');
   });
 
