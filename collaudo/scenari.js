@@ -2637,6 +2637,47 @@
     switchView('board');
   });
 
+  await passo('Anno della moto', async () => {
+    switchView('nuova');
+    clearForm();
+    ok(!!document.getElementById('f_anno'), 'Anno: campo presente nella Nuova scheda');
+    document.getElementById('f_cognome').value = 'ANNATA';
+    document.getElementById('f_nome').value = 'PIERO';
+    document.getElementById('f_targa').value = 'AN123NO';
+    document.getElementById('f_marca').value = 'APRILIA';
+    document.getElementById('f_modello').value = 'TUONO';
+    document.getElementById('f_anno').value = '2019';
+    saveJob('todo');
+    const j1 = db.find(x => x.targa === 'AN123NO');
+    ok(j1 && j1.anno === '2019' && recordDi('db', j1.id).anno === '2019', 'Anno: salvato con la scheda');
+    refreshBoard();
+    const card = [...document.querySelectorAll('.card-compact')].find(c => c.textContent.includes('AN123NO'));
+    ok(card && card.querySelector('.anno-moto') && card.querySelector('.anno-moto').textContent === '2019', 'Anno: compare sulla Bacheca accanto al modello');
+    openClosingModal(j1.id);
+    ok(document.getElementById('conto-header-info').textContent.includes('TUONO · 2019'), 'Anno: compare nell\'intestazione del conto');
+    closeModal('modal-conto');
+    switchView('nuova');
+    clearForm();
+    document.getElementById('f_targa').value = 'an123no';
+    autoFillForm('f');
+    ok(document.getElementById('f_anno').value === '2019', 'Anno: scrivendo una targa già vista si ricompila da solo');
+    clearForm();
+    document.getElementById('f_cognome').value = 'ANNATA';
+    document.getElementById('f_targa').value = 'AN123NO';
+    saveJob('todo');
+    const j2 = db.filter(x => x.targa === 'AN123NO').pop();
+    ok(j2 !== j1 && j2.anno === '2019', 'Anno: una nuova scheda della stessa targa lo riprende anche se il campo è rimasto vuoto');
+    editJob(j2.id);
+    ok(document.getElementById('f_anno').value === '2019', 'Anno: modificando la scheda il campo è compilato');
+    document.getElementById('f_anno').value = '1850';
+    saveJob('todo');
+    ok(db.find(x => x.id === j2.id).anno === '2019', 'Anno: un anno impossibile non viene salvato (resta quello noto)');
+    openPreventivoForm(j2.id, true);
+    savePreventivo();
+    ok(db.find(x => x.id === j2.id).anno === '2019', 'Anno: modificando la scheda dai Preventivi l\'anno resta');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
