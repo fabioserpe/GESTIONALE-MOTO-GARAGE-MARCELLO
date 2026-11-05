@@ -97,6 +97,11 @@
         .chip-lavoro:hover { background: rgba(59,130,246,0.15); border-color: var(--info); color: white; }
         .chip-lavoro.usato { opacity: 0.45; }
         .info-chip { display: inline-block; margin: 6px 6px 0 0; padding: 2px 9px; border-radius: 12px; font-size: 0.78rem; font-weight: 700; }
+        /* Anagrafica: righe compatte con intestazione unica, menu Azioni su una riga */
+        .arch-testata { display: grid; grid-template-columns: minmax(220px, 1.4fr) minmax(240px, 1.5fr) 260px 110px; gap: 14px; padding: 0 16px 0 22px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.6px; color: var(--muted); }
+        .archive-card-row .dropdown-content button { white-space: nowrap; }
+        .arch-tel { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .arch-tel a { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 30px; padding: 0 8px; border-radius: 7px; text-decoration: none; font-weight: 800; font-size: 0.8rem; }
         .card-compact .btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(30px, 1fr)); gap: 5px; margin-top: 4px; }
 
         .agenda-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; flex-grow: 1; overflow: hidden; margin-top: 15px;}
@@ -294,6 +299,7 @@
             /* ---- ARCHIVIO CLIENTI: card multi-col → verticale ---- */
             .archive-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
             .archive-card-row > div:nth-child(4) { justify-content: flex-start !important; }
+            .arch-testata { display: none !important; }
             .prev-card-row { grid-template-columns: 1fr !important; gap: 6px !important; padding: 12px 14px !important; }
             .prev-card-row > div:last-child { justify-content: flex-start !important; }
 
@@ -7638,6 +7644,9 @@ A presto!`;
             const _nomeCount = {}; Object.values(clientiMap).forEach(c => { const _n = `${c.cognome.toUpperCase().trim()} ${c.nome.toUpperCase().trim()}`.trim(); _nomeCount[_n] = (_nomeCount[_n]||0) + 1; });
             const chiaviOrdinate = Object.keys(clientiMap).sort((a, b) => { const ca = clientiMap[a], cb = clientiMap[b]; return `${ca.cognome} ${ca.nome}`.localeCompare(`${cb.cognome} ${cb.nome}`); }); 
             
+            const _contaFiltri = { all: 0, dafare: 0, special: 0, dapagare: 0, fatti: 0 };
+            const _oggiArch = getOggiLocale();
+            container.insertAdjacentHTML('beforeend', '<div class="arch-testata"><span>CLIENTE</span><span>VEICOLI</span><span>CONTATTO</span><span></span></div>');
             chiaviOrdinate.forEach(chiave => { 
                 const c = clientiMap[chiave]; let debitoTotale = 0; let hasTodo = false; let hasDoing = false; let hasSpecial = false; 
                 
@@ -7648,8 +7657,16 @@ A presto!`;
                     if (job.stato === 'special') hasSpecial = true;
                 }); 
                 
-                let inLavorazione = hasTodo || hasDoing; 
-                const isDebitore = debitoTotale > 0.01; 
+                let inLavorazione = hasTodo || hasDoing;
+                const isDebitore = debitoTotale > 0.01;
+                const _matchRicerca = searchTerms.every(term => `${c.cognome} ${c.nome} ${c.tel} ${c.targhe.join(' ')} ${c.veicoliDettagli.map(v => `${v.marca} ${v.modello}`).join(' ')}`.toLowerCase().includes(term));
+                if (_matchRicerca) {
+                    _contaFiltri.all++;
+                    if (inLavorazione) _contaFiltri.dafare++;
+                    if (hasSpecial) _contaFiltri.special++;
+                    if (isDebitore) _contaFiltri.dapagare++;
+                    if (!inLavorazione && !isDebitore && !hasSpecial) _contaFiltri.fatti++;
+                }
                 
                 if (currentArchiveFilter === 'dafare' && !inLavorazione) return; 
                 if (currentArchiveFilter === 'special' && !hasSpecial) return;
@@ -7661,7 +7678,10 @@ A presto!`;
                 if(match) { 
                     let borderCol = isDebitore ? 'var(--accent)' : (inLavorazione ? 'var(--warning)' : (hasSpecial ? 'var(--purple)' : 'var(--success)')); 
                     
-                    let badgesHtml = `<div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">`; 
+                    const _visite = c.storia.filter(x => x.stato !== 'todo').map(x => String(x.data_chiusura || x.data || '').slice(0, 10)).filter(d => d && d <= _oggiArch).sort();
+                    const _ultimaVisita = _visite.length ? _visite[_visite.length - 1] : '';
+                    const _visitaHtml = _ultimaVisita ? `<div class="arch-visita" style="font-size:0.8rem; color:var(--muted); margin-top:2px;">Ultima visita ${formattaData(_ultimaVisita)}</div>` : '';
+                    let badgesHtml = `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">`; 
                     if (hasDoing) badgesHtml += `<div style="display:flex; align-items:center;"><span style="color:var(--warning); font-weight:bold; font-size:0.8rem; background:rgba(245, 158, 11, 0.1); padding: 4px 8px; border-radius: 4px;">⚙️ SUL PONTE</span></div>`; 
                     else if (hasTodo) badgesHtml += `<div style="display:flex; align-items:center;"><span style="color:var(--warning); font-weight:bold; font-size:0.8rem; background:rgba(245, 158, 11, 0.1); padding: 4px 8px; border-radius: 4px;">⚙️ DA FARE</span></div>`; 
                     
@@ -7686,7 +7706,7 @@ A presto!`;
                     let revertHtml = ''; 
                     if (inLavorazione || hasSpecial) { revertHtml = `<button onclick="revertClientJobsToToday('${safeKey}')" style="color:var(--warning); width:100%; text-align:left;">📅 Sposta a OGGI</button>`; } 
                     
-                    const row = document.createElement('div'); row.className = 'card archive-card-row'; row.style.display = 'grid'; row.style.gridTemplateColumns = 'minmax(200px, 1.5fr) minmax(200px, 1.5fr) 130px auto'; row.style.alignItems = 'start'; row.style.padding = '15px 20px'; row.style.margin = '0'; row.style.gap = '15px'; row.style.borderLeft = `6px solid ${borderCol}`; 
+                    const row = document.createElement('div'); row.className = 'card archive-card-row'; row.style.display = 'grid'; row.style.gridTemplateColumns = 'minmax(220px, 1.4fr) minmax(240px, 1.5fr) 260px 110px'; row.style.alignItems = 'center'; row.style.padding = '9px 16px'; row.style.margin = '0'; row.style.gap = '14px'; row.style.borderLeft = `6px solid ${borderCol}`; 
                     const billingKey = c.clientId;
                     const billingNameFallback = `${c.cognome.toUpperCase().trim()} ${c.nome.toUpperCase().trim()}`.trim();
                     const _bData = billingDB[billingKey] || billingDB[billingNameFallback] || {};
@@ -7694,11 +7714,16 @@ A presto!`;
                     const billingBadge = hasBilling ? `<span title="Dati fatturazione presenti" style="font-size:0.7rem; background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 6px; border-radius:4px; font-weight:bold; margin-left:8px;">🧾 FAT.</span>` : '';
                     const omonimoBadge = isOmonimo ? `<span title="Esiste un altro cliente con lo stesso nome" style="font-size:0.65rem; background:rgba(239,68,68,0.15); color:#f87171; padding:2px 6px; border-radius:4px; font-weight:bold; margin-left:8px;">⚠️ OMONIMO</span>` : '';
                     const _billingEncoded = safeEncode(billingKey); const _billingFallbackEncoded = safeEncode(billingNameFallback);
-                    row.innerHTML = `<div style="cursor:pointer;" onclick="viewHistoryCognome('${safeKey}')" title="Clicca per aprire conto e storico lavori"><div style="font-weight:bold; font-size:1.1rem; color:white; line-height:1.2; text-transform:uppercase;">${htmlEsc(c.cognome)} ${htmlEsc(c.nome)}${billingBadge}${omonimoBadge}</div>${badgesHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">VEICOLI INTESTATI:</div>${veicoliHtml}</div><div><div style="font-size:0.8rem; color:var(--muted); margin-bottom:5px; font-weight:bold;">CONTATTO:</div><div style="color:var(--text); font-size:0.9rem;">📞 ${htmlEsc(c.tel || 'N/D')}</div></div><div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;"><div class="dropdown"><button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.85rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button><div class="dropdown-content" style="right:0; top:100%; min-width:180px; z-index:100;"><button onclick="openStatoLavoriModal('${safeKey}')" style="color:var(--info); width:100%; text-align:left; font-weight:bold;">🔄 Cambia Stato Lavori</button>${revertHtml}<button onclick="sendWhatsAppArchiveCognome('${safeKey}')" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button><button onclick="newJobFromArchiveCognome('${safeKey}')" style="color:#10b981; width:100%; text-align:left;">🔧 Lavoro (Commessa)</button><button onclick="newVehicleFromArchiveCognome('${safeKey}')" style="color:#f59e0b; width:100%; text-align:left;">🏍️ Aggiungi Mezzo</button><button onclick="newPreventivoFromArchiveCognome('${safeKey}')" style="color:var(--purple); width:100%; text-align:left;">📝 Preventivo</button><button onclick="viewHistoryCognome('${safeKey}')" style="color:var(--info); width:100%; text-align:left;">📂 Storia Interventi</button><button onclick="openEditClienteCognome('${safeKey}')" style="color:var(--text); width:100%; text-align:left;">✏️ Modifica Cliente / Veicoli</button><button onclick="openBillingModal('${_billingEncoded}','${_billingFallbackEncoded}','${safeEncode(billingNameFallback)}')" style="color:#f59e0b; width:100%; text-align:left;">🧾 Fatturazione</button><button onclick="deleteCustomerCognome('${safeKey}')" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina Cliente</button></div></div></div>`; container.appendChild(row); 
+                    row.innerHTML = `<div style="cursor:pointer;" onclick="viewHistoryCognome('${safeKey}')" title="Clicca per aprire conto e storico lavori"><div style="font-weight:bold; font-size:1.1rem; color:white; line-height:1.2; text-transform:uppercase;">${htmlEsc(c.cognome)} ${htmlEsc(c.nome)}${billingBadge}${omonimoBadge}</div>${badgesHtml}</div><div>${veicoliHtml}${_visitaHtml}</div><div class="arch-tel"><span style="color:var(--text); font-size:0.9rem;">📞 ${htmlEsc(c.tel || 'N/D')}</span>${formatPhoneForWa(c.tel) ? `<a href="https://wa.me/${formatPhoneForWa(c.tel)}" target="_blank" rel="noopener" title="Apri la chat WhatsApp" aria-label="WhatsApp" style="background:rgba(37,211,102,0.15); border:1px solid rgba(37,211,102,0.5); color:#4ade80;">💬</a><a href="tel:${htmlEsc(String(c.tel).replace(/[^0-9+]/g, ''))}" title="Chiama" aria-label="Chiama" style="background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.45); color:#93c5fd;">📞</a>` : ''}</div><div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;"><div class="dropdown"><button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.85rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button><div class="dropdown-content" style="right:0; top:100%; min-width:250px; z-index:100;"><button onclick="openStatoLavoriModal('${safeKey}')" style="color:var(--info); width:100%; text-align:left; font-weight:bold;">🔄 Cambia Stato Lavori</button>${revertHtml}<button onclick="sendWhatsAppArchiveCognome('${safeKey}')" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button><button onclick="newJobFromArchiveCognome('${safeKey}')" style="color:#10b981; width:100%; text-align:left;">🔧 Lavoro (Commessa)</button><button onclick="newVehicleFromArchiveCognome('${safeKey}')" style="color:#f59e0b; width:100%; text-align:left;">🏍️ Aggiungi Mezzo</button><button onclick="newPreventivoFromArchiveCognome('${safeKey}')" style="color:var(--purple); width:100%; text-align:left;">📝 Preventivo</button><button onclick="viewHistoryCognome('${safeKey}')" style="color:var(--info); width:100%; text-align:left;">📂 Storia Interventi</button><button onclick="openEditClienteCognome('${safeKey}')" style="color:var(--text); width:100%; text-align:left;">✏️ Modifica Cliente / Veicoli</button><button onclick="openBillingModal('${_billingEncoded}','${_billingFallbackEncoded}','${safeEncode(billingNameFallback)}')" style="color:#f59e0b; width:100%; text-align:left;">🧾 Fatturazione</button><button onclick="deleteCustomerCognome('${safeKey}')" style="color:var(--accent); width:100%; text-align:left;">🗑️ Elimina Cliente</button></div></div></div>`; container.appendChild(row); 
                 } 
             }); 
+            _numeriFiltriArchivio(_contaFiltri);
         }
 
+        const ARCH_FILTRI = { all: 'Tutti', dafare: '⚙️ Da Fare', special: '🕰️ Lavori Lunghi', dapagare: '⚠️ Da Pagare', fatti: '✅ Lavori Fatti' };
+        function _numeriFiltriArchivio(conta) {
+            Object.keys(ARCH_FILTRI).forEach(id => { const b = $('filt-' + id); if (b) b.textContent = `${ARCH_FILTRI[id]} (${conta[id] || 0})`; });
+        }
         function toggleFatturazionePanel() {
             const panel = $('fatturazione-panel');
             const icon = $('fatturazione-toggle-icon');

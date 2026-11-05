@@ -2438,6 +2438,36 @@
     switchView('board'); await attendi(50);
   });
 
+  await passo('Ritocchi all\'Anagrafica', async () => {
+    const piu = (n) => { const x = new Date(oggi + 'T12:00:00'); x.setDate(x.getDate() + n); return formatDateISO(x); };
+    fb.scritturaRemota({
+      'db/-Nan1': { id: 961, stato: 'archived', data: piu(-40), data_chiusura: piu(-38), cognome: 'ZZANAG', nome: 'UNO', tel: '333 100 0961', targa: 'AN961', marca: 'HONDA', modello: 'SH', conto: [], totale_lordo: 100, acconti: [{ val: 40, date: piu(-38) }], clientId: 'c-an1' },
+      'db/-Nan2': { id: 962, stato: 'archived', data: piu(-90), cognome: 'ZZANAG', nome: 'UNO', tel: '333 100 0961', targa: 'AN961', marca: 'HONDA', modello: 'SH', conto: [], totale_lordo: 0, acconti: [], clientId: 'c-an1' },
+      'db/-Nan3': { id: 963, stato: 'todo', data: piu(3), cognome: 'ZZANAG', nome: 'DUE', tel: '', targa: 'AN963', marca: 'KTM', modello: 'DUKE', conto: [], totale_lordo: 0, acconti: [], clientId: 'c-an2' }
+    }, false);
+    switchView('archivio'); setArchiveFilter('all'); await attendi(80);
+    const righe = () => [...document.querySelectorAll('#archive-results .archive-card-row')];
+    const num = id => parseInt((document.getElementById('filt-' + id).textContent.match(/\((\d+)\)/) || [])[1], 10);
+    ok(document.querySelectorAll('#archive-results .arch-testata').length === 1 && !document.querySelector('#archive-results').textContent.includes('VEICOLI INTESTATI'), 'Anagrafica: un\'unica intestazione al posto delle scritte su ogni cliente');
+    ok(num('all') === righe().length && righe().length > 2, 'Anagrafica: "Tutti (N)" conta i clienti in elenco');
+    for (const f of ['dafare', 'dapagare', 'fatti', 'special']) { setArchiveFilter(f); await attendi(20); ok(num(f) === righe().length, 'Anagrafica: il numero sul filtro ' + f + ' corrisponde all\'elenco (' + righe().length + ')'); }
+    setArchiveFilter('all'); campo('search-input', 'zzanag'); refreshArchive();
+    ok(num('all') === 2 && num('dapagare') === 1 && num('dafare') === 1 && righe().length === 2, 'Anagrafica: con la ricerca i numeri contano solo i clienti trovati');
+    const uno = righe().find(r => r.textContent.includes('ZZANAG UNO')), due = righe().find(r => r.textContent.includes('ZZANAG DUE'));
+    ok(uno.textContent.includes('Ultima visita ' + formattaData(piu(-38))), 'Anagrafica: ultima visita = data di chiusura dell\'ultimo lavoro');
+    ok(!due.textContent.includes('Ultima visita'), 'Anagrafica: un appuntamento futuro non conta come visita');
+    const wa = uno.querySelector('.arch-tel a[href^="https://wa.me/"]'), tel = uno.querySelector('.arch-tel a[href^="tel:"]');
+    ok(wa && wa.getAttribute('href') === 'https://wa.me/393331000961' && tel && tel.getAttribute('href') === 'tel:3331000961', 'Anagrafica: 💬 e 📞 accanto al telefono');
+    ok(!due.querySelector('.arch-tel a'), 'Anagrafica: senza telefono niente pulsantini');
+    ok(uno.querySelector('.dropdown-content').style.minWidth === '250px' && uno.querySelector('.dropdown-content').innerHTML.includes('openStatoLavoriModal'), 'Anagrafica: menu Azioni più largo, stesse voci');
+    const ri = uno.getBoundingClientRect(), hd = document.querySelector('.arch-testata span:nth-child(2)').getBoundingClientRect(), veic = uno.children[1].getBoundingClientRect();
+    ok(Math.abs(hd.left - veic.left) < 3, 'Anagrafica: l\'intestazione VEICOLI sta sopra la colonna dei veicoli');
+    ok(ri.height < 95, 'Anagrafica: righe compatte (' + Math.round(ri.height) + ' px)');
+    campo('search-input', ''); refreshArchive();
+    fb.scritturaRemota({ 'db/-Nan1': null, 'db/-Nan2': null, 'db/-Nan3': null }, false);
+    switchView('board'); await attendi(50);
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
