@@ -2498,6 +2498,44 @@
     switchView('board'); await attendi(50);
   });
 
+  await passo('Ritocchi alla Prima Nota', async () => {
+    const piu = (n) => { const x = new Date(oggi + 'T12:00:00'); x.setDate(x.getDate() + n); return formatDateISO(x); };
+    const ledgerPrima = JSON.parse(JSON.stringify(ledgerDB));
+    const meseScorso = (() => { const x = new Date(oggi.slice(0, 7) + '-15T12:00:00'); x.setMonth(x.getMonth() - 1); return formatDateISO(x); })();
+    let id = 98000; const M = (data, tipo, cat, collab, desc, imp, qta) => ({ id: id++, data, tipo, cat, collab, desc, importo: imp, qta: qta || 1 });
+    const L = [M(oggi, 'in', 'officina', 'ZZCASSA', 'ENTRATA OGGI', 100), M(meseScorso, 'out', 'accessori', 'ZZCASSA', 'USCITA MESE SCORSO', 30, 2), M(oggi, 'out', 'officina', 'ZZCASSA', 'USCITA OGGI', 20), M(oggi, 'in', 'officina', '<B>Z</B>', 'X', 5)];
+    fb.scritturaRemota({ ledger: ledgerPrima.concat(L) }, false);
+    switchView('ledger'); await attendi(60);
+    const tutti = ledgerDB.reduce((a, m) => { const t = (m.importo || 0) * (m.qta || 1); a[m.tipo === 'in' ? 'in' : 'out'] += t; return a; }, { in: 0, out: 0 });
+    const bil = document.getElementById('ledger-balance').textContent;
+    const atteso = tutti.out - tutti.in;
+    ok(bil.includes('€ ' + Math.abs(atteso).toFixed(2)) && bil.includes(atteso < 0 ? 'ci devono' : atteso > 0 ? 'dobbiamo' : 'in pari') && !bil.includes('-'), 'Prima Nota: bilancio generale con "ci devono"/"dobbiamo" invece del segno meno (' + bil + ')');
+    ok(document.getElementById('collab-summary-grid').textContent.includes('<B>Z</B>') && !document.querySelector('#collab-summary-grid b'), 'Prima Nota: nome della cassa con simboli scritto così com\'è');
+    openCollabDetail(safeEncode('ZZCASSA')); await attendi(30);
+    const righe = [...document.querySelectorAll('#mc-rows tr')].map(tr => tr.textContent);
+    ok(righe.length === 3 && righe[2].includes('USCITA MESE SCORSO') && righe.slice(0, 2).every(r => r.includes(formattaData(oggi))), 'Cassa: movimenti in ordine di data, i più recenti in alto');
+    const chips = document.getElementById('mc-cat-totali').textContent;
+    ok(chips.includes('OFFICINA') && chips.includes('+ € 100.00') && chips.includes('− € 20.00') && chips.includes('ACCESSORI') && chips.includes('− € 60.00'), 'Cassa: totali per categoria (entrate e uscite)');
+    const sel = document.getElementById('mc-mese');
+    ok(sel.options.length === 3 && sel.value === '' && sel.options[1].value === oggi.slice(0, 7), 'Cassa: filtro con "Tutti i mesi" e i mesi dei movimenti, dal più recente');
+    sel.value = oggi.slice(0, 7); sel.onchange(); await attendi(20);
+    ok(document.querySelectorAll('#mc-rows tr').length === 2 && document.getElementById('mc-in').textContent.includes('100.00') && document.getElementById('mc-out').textContent.includes('20.00') && document.getElementById('mc-cat-totali').textContent.includes('Solo ' + _nomeMese(oggi.slice(0, 7))), 'Cassa: scegliendo il mese restano i suoi movimenti e i totali di quel mese');
+    campo('ld_desc', 'NUOVO DEL MESE'); campo('ld_importo', '7'); saveLedgerEntry(); await attendi(30);
+    openCollabDetail(currentCollabView); await attendi(20);
+    ok(document.getElementById('mc-mese').value === oggi.slice(0, 7) && document.querySelectorAll('#mc-rows tr').length === 3, 'Cassa: dopo un movimento nuovo il mese scelto resta');
+    openCollabDetail(safeEncode('INTERNO')); await attendi(20);
+    ok(document.getElementById('mc-mese').value === '', 'Cassa: cambiando cassa si torna a "Tutti i mesi"');
+    showCollabTab('archivio');
+    ok(document.getElementById('mc-mese').style.display === 'none' && document.getElementById('mc-cat-totali').style.display === 'none', 'Cassa: filtro e totali nascosti nell\'Archivio schede');
+    showCollabTab('corrente'); closeModal('modal-collab');
+    ok(document.getElementById('ld_tipo').style.width === '215px' && document.getElementById('ld_importo').placeholder === 'Importo €', 'Cassa: campi del modulo interi');
+    // Importi con al massimo 2 decimali
+    ok(!/minimumFractionDigits: ?2 ?\}/.test(document.documentElement.innerHTML.replace(/<script[^>]*src[^>]*><\/script>/g, '')) , 'Importi: tutti con al massimo 2 decimali');
+    ok((1627.602).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) === '1627,60', 'Importi: 1627,602 diventa 1627,60');
+    fb.scritturaRemota({ ledger: ledgerPrima }, false);
+    switchView('board'); await attendi(50);
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
