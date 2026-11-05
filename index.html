@@ -102,6 +102,9 @@
         .archive-card-row .dropdown-content button { white-space: nowrap; }
         .arch-tel { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
         .arch-tel a { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 30px; padding: 0 8px; border-radius: 7px; text-decoration: none; font-weight: 800; font-size: 0.8rem; }
+        /* Preventivi: righe compatte con intestazione unica (stesse colonne della riga) */
+        .prev-testata { display: grid; grid-template-columns: minmax(240px, 1.6fr) minmax(200px, 1fr) minmax(230px, 1fr) 250px; gap: 14px; padding: 0 16px 0 21px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; }
+        .prev-card-row .dropdown-content button { white-space: nowrap; }
         .card-compact .btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(30px, 1fr)); gap: 5px; margin-top: 4px; }
 
         .agenda-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; flex-grow: 1; overflow: hidden; margin-top: 15px;}
@@ -302,6 +305,8 @@
             .arch-testata { display: none !important; }
             .prev-card-row { grid-template-columns: 1fr !important; gap: 6px !important; padding: 12px 14px !important; }
             .prev-card-row > div:last-child { justify-content: flex-start !important; }
+            .prev-testata { display: none !important; }
+            #prev-search { width: 100% !important; }
 
             /* ---- LISTA ATTESA MOTO: card multi-col → verticale ---- */
             .attesa-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -1118,7 +1123,8 @@
                     <h2 style="color:var(--purple); margin:0 0 10px;">📝 Preventivi</h2>
                     <div id="prev-tab-bar" style="display:flex; border-bottom:1px solid #334155;"></div>
                 </div>
-                <div style="display:flex; gap:8px; margin-top:4px; flex-shrink:0;">
+                <div style="display:flex; gap:8px; margin-top:4px; flex-shrink:1; flex-wrap:wrap; justify-content:flex-end; align-items:center;">
+                    <input type="search" id="prev-search" aria-label="Cerca nei preventivi" placeholder="🔍 Cerca cliente, targa o moto…" oninput="refreshPreventivi()" style="width:320px; margin:0; border:2px solid var(--purple); background:var(--card);">
                     <button class="btn btn-dark w-auto" onclick="openPeritiModal()" style="border:1px solid var(--info); color:var(--info);">📋 Rubrica Periti</button>
                     <button class="btn btn-purple w-auto" onclick="openPreventivoForm()">➕ Nuovo</button>
                 </div>
@@ -7340,13 +7346,15 @@ A presto!`;
             const c      = $('preventivi-results');
             if (!c) return;
 
-            const aperti  = db.filter(j => j.stato === 'preventivo')
+            const _qPrev = ($('prev-search') ? $('prev-search').value : '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+            const _trovaPrev = j => _qPrev.every(t => `${j.cognome || ''} ${j.nome || ''} ${j.targa || ''} ${j.marca || ''} ${j.modello || ''} ${j.tel || ''}`.toLowerCase().includes(t));
+            const aperti  = db.filter(j => j.stato === 'preventivo' && _trovaPrev(j))
                               .sort((a,b) => new Date(b.data)-new Date(a.data));
             const storico = db.filter(j =>
                 j.stato !== 'preventivo' && (
                     j.era_preventivo === true ||
                     (j.lavori_richiesti === 'Vedi voci preventivo' && (j.conto||[]).length > 0)
-                )
+                ) && _trovaPrev(j)
             ).sort((a,b) => new Date(b.data_accettazione||b.data)-new Date(a.data_accettazione||a.data));
 
             // ── TAB BAR (fuori dalla griglia risultati) ───────────────────
@@ -7384,11 +7392,12 @@ A presto!`;
             // ── TAB APERTI: stile Anagrafica ──────────────────────────────
             if (_prevTab === 'aperti') {
                 if (aperti.length === 0) {
-                    c.innerHTML = `<p style="color:var(--muted);">Nessun preventivo aperto.</p>`;
+                    c.innerHTML = `<p style="color:var(--muted);">${_qPrev.length ? 'Nessun preventivo aperto trovato.' : 'Nessun preventivo aperto.'}</p>`;
                     return;
                 }
                 const list = document.createElement('div');
                 list.style.cssText = 'display:flex; flex-direction:column; gap:8px;';
+                list.insertAdjacentHTML('beforeend', '<div class="prev-testata"><span>CLIENTE</span><span>MOTO</span><span>TOTALE E CONTATTO</span><span></span></div>');
                 aperti.forEach(p => {
                     const nVoci = (p.conto||[]).length;
                     const totale = (p.totale_lordo||0).toFixed(2);
@@ -7396,36 +7405,35 @@ A presto!`;
                     const moto = [p.marca, p.modello].filter(Boolean).join(' ') || '—';
                     const row = document.createElement('div');
                     row.className = 'card prev-card-row';
-                    row.style.cssText = 'display:grid; grid-template-columns: minmax(180px,1.6fr) minmax(140px,1fr) minmax(140px,1fr) auto; align-items:start; gap:14px; padding:14px 18px; margin:0; border-left:5px solid var(--purple);';
+                    row.style.cssText = 'display:grid; grid-template-columns: minmax(240px,1.6fr) minmax(200px,1fr) minmax(230px,1fr) 250px; align-items:center; gap:14px; padding:9px 16px; margin:0; border-left:5px solid var(--purple);';
                     row.innerHTML = `
                         <!-- COL 1: Nominativo + targa -->
                         <div>
                             <div style="font-weight:bold; font-size:1rem; color:white; text-transform:uppercase; line-height:1.3;">${htmlEsc((p.cognome||'').toUpperCase())} ${htmlEsc(p.nome||'')}</div>
                             <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
                                 <span class="targa-badge" style="background:var(--purple); border:none; font-size:0.68rem; padding:2px 8px;">${htmlEsc(p.targa||'NO TARGA')}</span>
-                                <span style="background:rgba(167,139,250,0.15); color:var(--purple); padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:bold; border:1px solid rgba(167,139,250,0.3);">In attesa risposta</span>
+                                <span style="background:rgba(167,139,250,0.15); color:var(--purple); padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:bold; border:1px solid rgba(167,139,250,0.3);">In attesa risposta</span>${_giorniDaData(p.data) >= 15 ? `<span class="giorni-ponte" style="margin-left:0;" title="Preventivo del ${formattaData(p.data)}: in attesa da ${_giorniDaData(p.data)} giorni">da ${_giorniDaData(p.data)} gg</span>` : ''}
                                 ${p.assicurativo ? `<span style="background:rgba(56,189,248,0.12); color:var(--info); padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:bold; border:1px solid rgba(56,189,248,0.35);">🛡️ ${htmlEsc((_peritoById(p.perito_id) && _nomePerito(_peritoById(p.perito_id))) || 'Assicurativo')}${p.n_sinistro ? ' · n. ' + htmlEsc(p.n_sinistro) : ''}</span>` : ''}
                                 ${p.inviato_perito ? `<span style="color:var(--success); font-size:0.68rem; font-weight:bold;">📤 Inviato il ${formattaData(p.inviato_perito.data)}</span>` : ''}
                             </div>
                         </div>
                         <!-- COL 2: Moto + data -->
                         <div>
-                            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">MOTO:</div>
                             <div style="color:var(--text); font-size:0.88rem;">🏍️ ${htmlEsc(moto)}</div>
                             <div style="color:var(--muted); font-size:0.75rem; margin-top:3px;">📅 ${formattaData(p.data)}</div>
                         </div>
                         <!-- COL 3: Totale + tel + voci toggle -->
                         <div>
-                            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">TOTALE:</div>
                             <div style="font-weight:bold; font-size:1.1rem; color:var(--success);">€ ${totale}</div>
-                            ${p.tel ? `<div style="color:var(--info); font-size:0.78rem; margin-top:4px;">📞 ${htmlEsc(p.tel)}</div>` : ''}
+                            ${p.tel ? `<div class="arch-tel" style="margin-top:4px;"><span style="color:var(--info); font-size:0.82rem;">📞 ${htmlEsc(p.tel)}</span>${formatPhoneForWa(p.tel) ? `<a href="https://wa.me/${formatPhoneForWa(p.tel)}" target="_blank" rel="noopener" title="Apri la chat WhatsApp" aria-label="WhatsApp" style="background:rgba(37,211,102,0.15); border:1px solid rgba(37,211,102,0.5); color:#4ade80;">💬</a><a href="tel:${htmlEsc(String(p.tel).replace(/[^0-9+]/g, ''))}" title="Chiama" aria-label="Chiama" style="background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.45); color:#93c5fd;">📞</a>` : ''}</div>` : ''}
                             <button onclick="_prevToggleVoci('a${p.id}')" id="pv-tog-a${p.id}" style="background:none; border:none; color:var(--muted); font-size:0.72rem; cursor:pointer; padding:0; margin-top:6px; display:block;">${nVoci} voce${nVoci!==1?'i':''} ▼</button>
                         </div>
-                        <!-- COL 4: Dropdown azioni -->
-                        <div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;">
+                        <!-- COL 4: Accettato + dropdown azioni -->
+                        <div style="display:flex; justify-content:flex-end; align-items:center; align-self:center; gap:8px;">
+                            <button class="btn btn-success w-auto prev-accettato" style="padding:8px 12px; font-size:0.83rem; margin:0;" onclick="accettaPreventivo(${p.id})" title="Il cliente ha accettato: converti in commessa">✅ Accettato</button>
                             <div class="dropdown">
                                 <button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.83rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button>
-                                <div class="dropdown-content" style="right:0; top:100%; min-width:190px; z-index:100;">
+                                <div class="dropdown-content" style="right:0; top:100%; min-width:250px; z-index:100;">
                                     <button onclick="accettaPreventivo(${p.id})" style="color:var(--success); width:100%; text-align:left; font-weight:bold;">✅ Converti in Commessa</button>
                                     <button onclick="archiviaPreventivo(${p.id})" style="color:#94a3b8; width:100%; text-align:left;">📁 Archivia in Storico</button>
                                     <button onclick="sendWhatsAppPreventivo(${p.id})" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button>
@@ -7451,11 +7459,12 @@ A presto!`;
             // ── TAB STORICO: stile Anagrafica ─────────────────────────────
             if (_prevTab === 'storico') {
                 if (storico.length === 0) {
-                    c.innerHTML = `<p style="color:var(--muted);">Nessun preventivo convertito trovato.</p>`;
+                    c.innerHTML = `<p style="color:var(--muted);">${_qPrev.length ? 'Nessun preventivo trovato nello storico.' : 'Nessun preventivo convertito trovato.'}</p>`;
                     return;
                 }
                 const list = document.createElement('div');
                 list.style.cssText = 'display:flex; flex-direction:column; gap:8px;';
+                list.insertAdjacentHTML('beforeend', '<div class="prev-testata"><span>CLIENTE</span><span>MOTO</span><span>TOTALE E CONTATTO</span><span></span></div>');
                 storico.forEach(p => {
                     const sl = statoLbl[p.stato] || { txt: p.stato||'—', col:'var(--muted)' };
                     const nVoci = (p.conto||[]).length;
@@ -7465,7 +7474,7 @@ A presto!`;
                     const dataStr = formattaData(p.data) + (p.data_accettazione ? ' → ✅ ' + formattaData(p.data_accettazione) : '');
                     const row = document.createElement('div');
                     row.className = 'card prev-card-row';
-                    row.style.cssText = 'display:grid; grid-template-columns: minmax(180px,1.6fr) minmax(140px,1fr) minmax(140px,1fr) auto; align-items:start; gap:14px; padding:14px 18px; margin:0; border-left:5px solid #475569;';
+                    row.style.cssText = 'display:grid; grid-template-columns: minmax(240px,1.6fr) minmax(200px,1fr) minmax(230px,1fr) 250px; align-items:center; gap:14px; padding:9px 16px; margin:0; border-left:5px solid #475569;';
                     row.innerHTML = `
                         <!-- COL 1: Nominativo + targa + stato badge -->
                         <div>
@@ -7477,22 +7486,20 @@ A presto!`;
                         </div>
                         <!-- COL 2: Moto + date -->
                         <div>
-                            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">MOTO:</div>
                             <div style="color:var(--text); font-size:0.88rem;">🏍️ ${htmlEsc(moto)}</div>
                             <div style="color:var(--muted); font-size:0.72rem; margin-top:3px;">${dataStr}</div>
                         </div>
                         <!-- COL 3: Totale + tel + voci toggle -->
                         <div>
-                            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:4px; font-weight:bold;">TOTALE:</div>
                             <div style="font-weight:bold; font-size:1.1rem; color:var(--success);">€ ${totale}</div>
-                            ${p.tel ? `<div style="color:var(--info); font-size:0.78rem; margin-top:4px;">📞 ${htmlEsc(p.tel)}</div>` : ''}
+                            ${p.tel ? `<div class="arch-tel" style="margin-top:4px;"><span style="color:var(--info); font-size:0.82rem;">📞 ${htmlEsc(p.tel)}</span>${formatPhoneForWa(p.tel) ? `<a href="https://wa.me/${formatPhoneForWa(p.tel)}" target="_blank" rel="noopener" title="Apri la chat WhatsApp" aria-label="WhatsApp" style="background:rgba(37,211,102,0.15); border:1px solid rgba(37,211,102,0.5); color:#4ade80;">💬</a><a href="tel:${htmlEsc(String(p.tel).replace(/[^0-9+]/g, ''))}" title="Chiama" aria-label="Chiama" style="background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.45); color:#93c5fd;">📞</a>` : ''}</div>` : ''}
                             <button onclick="_prevToggleVoci('s${p.id}')" id="pv-tog-s${p.id}" style="background:none; border:none; color:var(--muted); font-size:0.72rem; cursor:pointer; padding:0; margin-top:6px; display:block;">${nVoci} voce${nVoci!==1?'i':''} ▼</button>
                         </div>
                         <!-- COL 4: Dropdown azioni -->
                         <div style="display:flex; justify-content:flex-end; align-items:center; align-self:center;">
                             <div class="dropdown">
                                 <button class="btn btn-outline-info" style="width:auto; padding:8px 12px; font-size:0.83rem;" onclick="toggleDropdown(this)">⚙️ Azioni ▼</button>
-                                <div class="dropdown-content" style="right:0; top:100%; min-width:190px; z-index:100;">
+                                <div class="dropdown-content" style="right:0; top:100%; min-width:250px; z-index:100;">
                                     <button onclick="convertiStoricoInCommessa(${p.id})" style="color:var(--success); width:100%; text-align:left;">✅ Converti in Commessa</button>
                                     <button onclick="printPreventivo(${p.id})" style="color:var(--text); width:100%; text-align:left;">🖨️ Stampa Preventivo</button>
                                     <button onclick="sendWhatsAppPreventivo(${p.id})" style="color:var(--whatsapp); width:100%; text-align:left;">📲 Invia WhatsApp</button>
