@@ -1992,6 +1992,10 @@
     await attendi(1900);
     const pag2 = fb.leggi('passaporti/' + idx.codice) || {};
     ok(Object.values(pag2.interventi || {}).length === 3 && pag2.km === 25000, 'Passaporto: si aggiorna da solo quando si chiude un altro lavoro della moto');
+    ok(!('anno' in pag2), 'Passaporto: senza anno della moto il campo non c\'è');
+    fb.scritturaRemota({ 'db/kp4/anno': '2019' });
+    await attendi(1900);
+    ok((fb.leggi('passaporti/' + idx.codice) || {}).anno === '2019', 'Passaporto: scritto l\'anno della moto, il passaporto si aggiorna da solo');
     let n = nScr();
     fb.scritturaRemota({ 'db/kp5': { id: 8305, cognome: 'ALTRO', targa: 'ZZ000ZZ', stato: 'archived', data: '2026-01-01' } }, false);
     await attendi(1900);

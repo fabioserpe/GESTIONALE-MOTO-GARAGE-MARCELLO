@@ -8048,6 +8048,7 @@ A presto!`;
             return {
                 v: 1,
                 moto: `${rif.marca || ''} ${rif.modello || ''}`.trim().toUpperCase(),
+                ...(_annoDiTarga(key) ? { anno: _annoDiTarga(key) } : {}),   // v210: solo se scritto, così i passaporti senza anno non cambiano
                 targa: _targaParziale(key),
                 km,
                 dal: fatti.length ? dataDi(fatti[0]).slice(0, 7) : null,
