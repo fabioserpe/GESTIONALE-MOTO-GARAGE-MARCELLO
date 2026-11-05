@@ -67,6 +67,22 @@
         @keyframes pulse-orange { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
         .card-compact .customer-info { font-size: 0.8rem; color: var(--muted); display: block; margin-top: 2px; }
         .card-compact .work-box-compact { padding: 6px 8px; margin: 0; font-size: 0.8rem; max-height: 60px; overflow-y: auto; background: rgba(0,0,0,0.25); border-left: 2px solid var(--muted); color: #cbd5e1; white-space: pre-wrap; line-height: 1.3; border-radius: 4px; }
+        /* Bacheca e Agenda più ordinate e leggibili (stessi elementi e pulsanti di prima) */
+        .card-compact { padding: 9px 11px; gap: 5px; margin-bottom: 8px; }
+        .card-compact .customer-info { font-size: 0.88rem; color: #aab6c8; }
+        .card-compact .targa-badge { font-size: 0.86rem; }
+        .card-compact .work-box-compact { font-size: 0.84rem; }
+        .card-compact .wb-2righe { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .targa-al-volo { cursor: pointer; }
+        .targa-al-volo:hover { background: rgba(249,115,22,0.35) !important; }
+        .giorni-ponte { display: inline-block; margin-left: 6px; background: rgba(239,68,68,0.14); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); padding: 1px 7px; border-radius: 4px; font-size: 0.78rem; font-weight: 800; }
+        .agenda-card { padding: 8px 10px; margin-bottom: 8px; }
+        .agenda-card .ag-moto { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .agenda-card .ag-note { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .agenda-card .ag-ricambi > div { margin-top: 4px !important; }
+        .agenda-card .ag-ricambi span { font-size: 0.68rem !important; padding: 1px 7px !important; }
+        .agenda-day.passato { opacity: 0.5; transition: opacity 0.2s; }
+        .agenda-day.passato:hover { opacity: 1; }
         .card-compact .btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(30px, 1fr)); gap: 5px; margin-top: 4px; }
 
         .agenda-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; flex-grow: 1; overflow: hidden; margin-top: 15px;}
@@ -5927,10 +5943,47 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
 
+        // Moto sul ponte da più di 2 settimane: dalla data della scheda (non c'è una data di "messa sul ponte")
+        function _giorniDaData(iso) {
+            if (!iso) return 0;
+            return Math.round((new Date(getOggiLocale() + 'T12:00:00') - new Date(String(iso).slice(0, 10) + 'T12:00:00')) / 86400000);
+        }
+        function _badgeGiorniOfficina(j) {
+            const g = _giorniDaData(j.data);
+            return g >= 15 ? `<span class="giorni-ponte" title="In officina da ${g} giorni (scheda del ${formattaData(j.data)})">da ${g} gg</span>` : '';
+        }
+        // Targa scritta direttamente sulla scheda della Bacheca (come da "Modifica scheda": maiuscole, appuntamento aggiornato)
+        function scriviTargaAlVolo(id, el) {
+            const j = db.find(x => String(x.id) === String(id));
+            if (!j || !el || !el.parentNode) return;
+            const box = document.createElement('span');
+            box.className = 'targa-al-volo-box';
+            box.style.cssText = 'display:inline-flex; gap:4px; align-items:center;';
+            box.innerHTML = `<input type="text" aria-label="Targa" placeholder="TARGA" style="width:110px; margin:0; padding:3px 7px; font-family:monospace; font-weight:bold; font-size:0.9rem; text-transform:uppercase;"><button type="button" title="Salva la targa" style="width:auto; margin:0; padding:3px 9px; background:var(--success); border:none; color:white; border-radius:6px; cursor:pointer; font-weight:bold;">✓</button>`;
+            box.onclick = ev => ev.stopPropagation();
+            box.onmousedown = ev => ev.stopPropagation();
+            el.replaceWith(box);
+            const inp = box.querySelector('input');
+            const salva = () => {
+                const t = inp.value.toUpperCase().trim();
+                if (!t) { refreshBoard(); return; }
+                if (!_puoSalvare('db', 'agenda')) return;
+                saveSnapshot();
+                j.targa = t;
+                agendaDB.filter(a => String(a.jobId) === String(j.id)).forEach(a => { a.raw_targa = t; a.moto = `${j.marca || ''} ${j.modello || ''} - ${t}`.trim(); });
+                sincronizzaAnagrafica(t, j.nome, j.cognome, j.tel, j.marca, j.modello, j.clientId);
+                saveDBAgenda();
+                refreshBoard();
+                mostraToast('Targa ' + t + ' salvata');
+            };
+            box.querySelector('button').onclick = salva;
+            inp.onkeydown = ev => { if (ev.key === 'Enter') salva(); if (ev.key === 'Escape') refreshBoard(); };
+            inp.focus();
+        }
         function refreshBoard() {
             chiudiTuttiMenuBoard();
             const lists = { todo: $('list-todo'), doing: $('list-doing'), done: $('list-done') }; Object.values(lists).forEach(l => { if(l) l.innerHTML = ''; });
-            let c = { todo: 0, doing: 0, done: 0 }; const colors = { todo: 'var(--accent)', doing: 'var(--warning)', done: 'var(--success)' }; const oggi = getOggiLocale();
+            let c = { todo: 0, doing: 0, done: 0 }; const daIncassare = { todo: 0, doing: 0, done: 0 }; const colors = { todo: 'var(--accent)', doing: 'var(--warning)', done: 'var(--success)' }; const oggi = getOggiLocale();
             
             // --- MOTORE DI RICERCA OFFICINA ---
             const searchInput = $('board-search-input');
@@ -6026,6 +6079,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 card.ondragend = (ev) => { ev.target.style.opacity = "1"; };
 
                 const daPagare = lordo - accTot;
+                if (lordo > 0 && daPagare > 0.009) daIncassare[j.stato] += daPagare;
                 const priceBadge = lordo > 0
                     ? (daPagare <= 0.01
                         ? `<span style="float:right; background:rgba(34,197,94,0.2); color:#22c55e; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.8rem; margin-left:5px;">€ ${lordo.toFixed(2)}</span>`
@@ -6036,7 +6090,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 const bKey = `${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim();
                 const billBadge = (billingDB[bKey] && (billingDB[bKey].cf || billingDB[bKey].piva)) ? `<span title="Dati fatturazione presenti" style="background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 5px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:4px;">🧾</span>` : '';
                 const targaBadge = noTarga
-                    ? `<span class="targa-badge" style="background:rgba(249,115,22,0.2); color:#f97316; border:1px solid #f97316; animation:pulse-orange 1.5s infinite;">⚠️ TARGA MANCANTE</span>`
+                    ? `<span class="targa-badge targa-al-volo" onclick="event.stopPropagation(); scriviTargaAlVolo(${j.id}, this)" title="Clicca per scrivere la targa" style="background:rgba(249,115,22,0.2); color:#f97316; border:1px solid #f97316; animation:pulse-orange 1.5s infinite;">⚠️ TARGA MANCANTE ✏️</span>`
                     : `<span class="targa-badge">${htmlEsc(j.targa)}</span>`;
                 const contattatoRow = j.stato === 'done'
                     ? (j.cliente_contattato
@@ -6048,7 +6102,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 <div style="cursor:pointer;" onclick="previewJob(${j.id})" title="Clicca per leggere dettagli e conto">
                     <div class="flex-between">
                         ${targaBadge}
-                        <div>${billBadge}${priceBadge}<small style="color:var(--muted); font-size:0.75rem; margin-left:8px;">${formattaData(j.data)}</small></div>
+                        <div>${billBadge}${priceBadge}<small style="color:var(--muted); font-size:0.8rem; margin-left:8px;">${formattaData(j.data)}</small>${j.stato === 'doing' ? _badgeGiorniOfficina(j) : ''}</div>
                     </div>
                     <div class="flex-between" style="align-items:center; margin-top:5px;">
     <div style="line-height:1.2;">
@@ -6060,17 +6114,18 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     ${accTot>0?`<div style="font-size:0.75rem; color:var(--info); font-weight:bold; margin-top:3px;">Acconti: €${accTot.toFixed(2)}${lordo > 0 && daPagare <= 0.01 ? ` <span style="color:#22c55e; font-weight:600; margin-left:6px;">· acconti = totale attuale</span>` : ''}</div>`:''}
                     ${_badgeRicambi(j.id, j.stato === 'todo' ? ((_appuntamentoDelJob(j.id) || {}).data || j.data) : null)}
                     ${j.stato !== 'done' ? _badgeConsigli(j) : ''}
-                    <div class="work-box-compact" style="margin-top:8px; pointer-events:none; max-height:55px; overflow:hidden;">${htmlEsc(j.lavori_richiesti||'...')}</div>
+                    <div class="work-box-compact" title="${htmlEsc(j.lavori_richiesti||'')}" style="margin-top:5px;"><div class="wb-2righe">${htmlEsc(j.lavori_richiesti||'...')}</div></div>
                 </div>
                 ${contattatoRow}
-                <div class="card-btns" style="display:flex; gap:5px; margin-top:8px; align-items:center; flex-wrap:wrap;">
+                <div class="card-btns" style="display:flex; gap:5px; margin-top:6px; align-items:center; flex-wrap:wrap;">
                     ${primaryBtns}
                 </div>`;
                 
                 if(lists[j.stato]) lists[j.stato].appendChild(card);
             });
             _aggiornaTabBacheca(c);
-            if($('title-todo')) $('title-todo').innerText = `APPUNTAMENTI OGGI (${c.todo})`; if($('title-doing')) $('title-doing').innerText = `SUL PONTE (${c.doing})`; if($('title-done')) $('title-done').innerText = `PRONTE / CONSEGNA (${c.done})`;
+            if($('title-todo')) $('title-todo').innerText = `APPUNTAMENTI OGGI (${c.todo})`; const _tot = s => daIncassare[s] > 0.009 ? ` · € ${new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(Math.round(daIncassare[s]))} da incassare` : '';
+            if($('title-doing')) $('title-doing').innerText = `SUL PONTE (${c.doing})${_tot('doing')}`; if($('title-done')) $('title-done').innerText = `PRONTE / CONSEGNA (${c.done})${_tot('done')}`;
         }
 
         function toggleContattato(id) {
@@ -6138,6 +6193,14 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         function cambiaSettimana(offset) { const d = new Date(dataInizioSettimana); d.setDate(d.getDate() + (offset * 7)); dataInizioSettimana = d; refreshAgenda(); }
         
         // Helper che genera l'HTML di una singola card appuntamento
+        // Moto senza la targa ripetuta (la targa ha già la sua etichetta) e senza il trattino finale
+        function _motoAgenda(a) {
+            const m = `${a.raw_marca || ''} ${a.raw_modello || ''}`.trim();
+            if (m) return m;
+            let s = String(a.moto || '');
+            if (a.raw_targa) s = s.split(' - ' + a.raw_targa).join('');
+            return s.replace(/\s*-\s*$/, '').trim();
+        }
         function _renderAgendaCard(a, extraStyle = '') {
             let statusClass = '';
             const jobCollegato = db.find(j => String(j.id) === String(a.jobId));
@@ -6147,19 +6210,18 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             }
             return `<div class="agenda-card ${a.tipo === 'personale' ? 'personal' : ''} ${statusClass}" draggable="true" ondragstart="dragAgenda(event, ${a.id})" ondragend="this.style.opacity='1'" onclick="modificaApp(${a.id})" title="Trascina per spostare" ${extraStyle}>
                 <div class="flex-between" style="pointer-events:none;">
-                    <span>🕒 ${a.ora||'--:--'} ${a.tipo==='personale'?'💸':''}</span>
+                    <span>🕒 ${a.ora||'--:--'} ${a.tipo==='personale'?'💸':''}${a.tipo !== 'personale' && a.tel ? ` <span style="color:#93c5fd; font-weight:600; margin-left:4px;">📞 ${htmlEsc(a.tel)}</span>` : ''}</span>
                     <span style="display:inline-flex; gap:4px;">
                     ${(jobCollegato && !['done', 'archived'].includes(jobCollegato.stato)) ? `<button type="button" onclick="event.stopPropagation(); ordinaRicambioPerJob('${htmlEsc(a.jobId)}')" title="Ordina un ricambio per questa moto" aria-label="Ordina ricambio" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.45); color:#f59e0b; padding:1px 5px; border-radius:4px; cursor:pointer; pointer-events:auto; font-size:0.85rem; line-height:1.3;">📦</button>` : ''}
                     ${a.jobId ? `<span onclick="event.stopPropagation(); previewJob(${a.jobId})" title="Vedi Anteprima Lavori" style="background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px; cursor:zoom-in; pointer-events:auto;">🔍</span>` : ''}
                     </span>
                 </div>
                 <div style="color:white; margin-top:4px; font-weight:bold; pointer-events:none;">${htmlEsc(a.cliente)}</div>
-                ${a.tipo !== 'personale' ? `<div style="color:var(--muted); font-size:0.75rem; pointer-events:none; margin-top:2px;">
-                    ${a.raw_targa ? `<span style="background:rgba(255,255,255,0.08); padding:1px 6px; border-radius:4px; color:white; font-weight:bold; font-family:monospace;">${htmlEsc(a.raw_targa)}</span> ` : ''}
-                    ${a.moto ? `🏍️ ${htmlEsc(a.moto)}` : ''}${a.tel ? ` | 📞 ${htmlEsc(a.tel)}` : ''}
+                ${a.tipo !== 'personale' && (a.raw_targa || _motoAgenda(a)) ? `<div class="ag-moto" style="color:#aab6c8; font-size:0.8rem; pointer-events:none; margin-top:2px;">
+                    ${a.raw_targa ? `<span style="background:rgba(255,255,255,0.08); padding:1px 6px; border-radius:4px; color:white; font-weight:bold; font-family:monospace;">${htmlEsc(a.raw_targa)}</span> ` : ''}${htmlEsc(_motoAgenda(a))}
                 </div>` : ''}
-                ${a.note ? `<div style="font-size:0.75rem; margin-top:6px; padding-top:6px; border-top:1px dashed #334155; color:var(--info); pointer-events:none;">${htmlEsc(a.note)}</div>` : ''}
-                ${(jobCollegato && !['done', 'archived'].includes(jobCollegato.stato)) ? `<div style="pointer-events:none;">${_badgeRicambi(a.jobId, a.data)}</div>` : ''}
+                ${a.note ? `<div class="ag-note" title="${htmlEsc(a.note)}" style="font-size:0.8rem; margin-top:5px; padding-top:5px; border-top:1px dashed #334155; color:var(--info);">${htmlEsc(a.note)}</div>` : ''}
+                ${(jobCollegato && !['done', 'archived'].includes(jobCollegato.stato)) ? `<div class="ag-ricambi" style="pointer-events:none;">${_badgeRicambi(a.jobId, a.data)}</div>` : ''}
                 ${a.meteo_chiesto && a.meteo_chiesto === a.data ? `<div style="font-size:0.75rem; margin-top:6px; color:#93c5fd; font-weight:700; pointer-events:none;">🌧️ Conferma chiesta</div>` : ''}
             </div>`;
         }
@@ -6242,7 +6304,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 const isOggi = dStr === getOggiLocale(); 
                 
                 grid.innerHTML += `
-                <div class="agenda-day" style="${isOggi ? 'border: 2px solid var(--info);' : ''} transition: background-color 0.2s;" ondragover="allowDropAgenda(event)" ondragleave="leaveDropAgenda(event)" ondrop="dropAgenda(event, '${dStr}')">
+                <div class="agenda-day${dStr < getOggiLocale() ? ' passato' : ''}" style="${isOggi ? 'border: 2px solid var(--info);' : ''} transition: background-color 0.2s;" ondragover="allowDropAgenda(event)" ondragleave="leaveDropAgenda(event)" ondrop="dropAgenda(event, '${dStr}')">
                     <div class="agenda-header" style="${isOggi ? 'color: white; background: var(--info); border-radius: 8px;' : ''}; display:flex; align-items:center; justify-content:space-between; padding-bottom:8px;">
                         <span style="pointer-events:none; flex:1; text-align:center;">${nomi[i]}<br><small style="font-weight:normal;">${formattaData(dStr)}</small></span>
                         <button onclick="event.stopPropagation(); apriModalApp('${dStr}')" title="Nuovo appuntamento ${formattaData(dStr)}"
