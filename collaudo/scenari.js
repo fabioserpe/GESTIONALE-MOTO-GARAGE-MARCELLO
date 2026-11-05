@@ -2403,6 +2403,13 @@
     ok(getComputedStyle(fondo).position === 'sticky' && getComputedStyle(barra).display !== 'none', 'Conto: totale e pulsanti fissi in fondo alla finestra sul Mac');
     righe[0].querySelector('.r-price').value = '22'; calcContoTotal();
     ok(barra.textContent.includes('Da incassare') === false && barra.textContent.includes('Saldato'), 'Conto: la barra si aggiorna (saldato)');
+    righe.forEach(r => { r.querySelector('.r-price').dataset.prima = r.querySelector('.r-price').value; r.querySelector('.r-price').value = ''; });
+    const accPrima = [...document.querySelectorAll('#conto-acconti-container .c_acc_val')].map(x => x.value);
+    document.querySelectorAll('#conto-acconti-container .c_acc_val').forEach(x => { x.value = ''; }); calcContoTotal();
+    ok(barra.textContent.includes('Nessuna voce') && !barra.textContent.includes('Saldato'), 'Conto: con il conto vuoto la barra non dice "Saldato"');
+    document.querySelectorAll('#conto-acconti-container .c_acc_val').forEach((x, k) => { x.value = accPrima[k]; }); calcContoTotal();
+    ok(barra.textContent.includes('Solo acconti'), 'Conto: senza voci ma con un acconto dice "Solo acconti"');
+    righe.forEach(r => { r.querySelector('.r-price').value = r.querySelector('.r-price').dataset.prima; });
     righe[0].querySelector('.r-price').value = '122'; calcContoTotal();
     saveJobConConto('doing'); await attendi(40);
     const salvato = Object.values(recordDi('db', 951).conto);
@@ -2523,6 +2530,19 @@
     campo('ld_desc', 'NUOVO DEL MESE'); campo('ld_importo', '7'); saveLedgerEntry(); await attendi(30);
     openCollabDetail(currentCollabView); await attendi(20);
     ok(document.getElementById('mc-mese').value === oggi.slice(0, 7) && document.querySelectorAll('#mc-rows tr').length === 3, 'Cassa: dopo un movimento nuovo il mese scelto resta');
+    // cambiando mese non si perde quello che si sta scrivendo
+    campo('ld_desc', 'SCRITTO A META'); campo('ld_importo', '12');
+    sel.value = ''; sel.onchange(); await attendi(20);
+    ok(document.getElementById('ld_desc').value === 'SCRITTO A META' && document.getElementById('ld_importo').value === '12', 'Cassa: cambiando mese il modulo non si svuota');
+    sel.value = oggi.slice(0, 7); sel.onchange(); await attendi(20);
+    // movimento di un altro mese con il filtro attivo: si torna a "Tutti i mesi"
+    campo('ld_data', meseScorso); campo('ld_desc', 'MESE SCORSO NUOVO'); campo('ld_importo', '3'); saveLedgerEntry(); await attendi(30);
+    openCollabDetail(currentCollabView); await attendi(20);
+    ok(document.getElementById('mc-mese').value === '' && document.getElementById('mc-rows').textContent.includes('MESE SCORSO NUOVO'), 'Cassa: un movimento di un altro mese fa tornare a "Tutti i mesi" e si vede');
+    // chiudendo e riaprendo la stessa cassa si riparte da "Tutti i mesi"
+    sel.value = oggi.slice(0, 7); sel.onchange(); await attendi(20);
+    closeModal('modal-collab'); openCollabDetail(safeEncode('ZZCASSA')); await attendi(20);
+    ok(document.getElementById('mc-mese').value === '' && document.getElementById('ld_desc').value === '', 'Cassa: riaprendo la stessa cassa si riparte da "Tutti i mesi" e modulo vuoto');
     openCollabDetail(safeEncode('INTERNO')); await attendi(20);
     ok(document.getElementById('mc-mese').value === '', 'Cassa: cambiando cassa si torna a "Tutti i mesi"');
     showCollabTab('archivio');
