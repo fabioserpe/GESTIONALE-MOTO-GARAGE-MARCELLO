@@ -10456,7 +10456,7 @@ A presto!`;
                     else if (diff <= 60) { stato = 'presto';  presto++; }
                     else                 { stato = 'ok';      ok++; }
                 }
-                return { ...v, tag, dataTag, stato, giorniAllaScadenza };
+                return { ...v, tag, dataTag, stato, giorniAllaScadenza, avvisato: _avvisatoTagliando(tag) };
             });
 
             // Aggiorna badge contatori
@@ -10478,6 +10478,7 @@ A presto!`;
             veicoli.sort((a, b) => {
                 const so = statoOrd[a.stato] - statoOrd[b.stato];
                 if (so !== 0) return so;
+                if (!!a.avvisato !== !!b.avvisato) return a.avvisato ? 1 : -1;   // prima quelli ancora da avvisare
                 if (a.dataTag && b.dataTag) return a.dataTag.localeCompare(b.dataTag);
                 return 0;
             });
@@ -10510,11 +10511,12 @@ A presto!`;
                 const safeChiave = safeEncode(_tagJob ? _tagJob.clientId : `${v.cognome} ${v.nome}`.trim().toUpperCase());
 
                 const extrasHtml = [
+                    v.avvisato ? `<span onclick="togliAvvisoTagliando('${safeEncodedTarga}')" title="Avvisato su WhatsApp il ${formattaData(v.avvisato)}. Clicca per segnarlo di nuovo da avvisare" style="cursor:pointer; font-size:0.72rem; font-weight:bold; padding:2px 9px; border-radius:20px; white-space:nowrap; background:rgba(37,211,102,0.15); color:#4ade80; border:1px solid rgba(37,211,102,0.4);">📲 avvisato il ${formattaData(v.avvisato)}</span>` : '',
                     v.tag.km   ? `<span style="color:var(--muted); font-size:0.72rem;">🏁 ${v.tag.km} km</span>` : '',
                     v.tag.note ? `<span style="color:var(--info); font-size:0.72rem;">📝 ${htmlEsc(v.tag.note)}</span>` : ''
                 ].filter(Boolean).join('');
 
-                return `<div class="tag-card-row" style="background:var(--card); border-left:4px solid ${ss.border}; ${ss.bg?'background:'+ss.bg+';':''} border-radius:10px; padding:10px 16px; display:grid; grid-template-columns: 120px 1fr auto auto auto; gap:10px; align-items:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">
+                return `<div class="tag-card-row${v.avvisato ? ' tag-avvisato' : ''}" style="${v.avvisato ? 'opacity:0.6; ' : ''}background:var(--card); border-left:4px solid ${ss.border}; ${ss.bg?'background:'+ss.bg+';':''} border-radius:10px; padding:10px 16px; display:grid; grid-template-columns: 120px 1fr auto auto auto; gap:10px; align-items:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">
 
                     <!-- Col 1: Targa + moto -->
                     <div>
@@ -10536,7 +10538,7 @@ A presto!`;
 
                     <!-- Col 3: WA -->
                     ${hasTel
-                        ? `<button onclick="sendWhatsAppTagliando('${safeEncodedTarga}')" class="btn btn-wa w-auto" style="padding:7px 12px; font-size:0.8rem; white-space:nowrap;">📲 WA</button>`
+                        ? `<button onclick="sendWhatsAppTagliando('${safeEncodedTarga}')" class="btn btn-wa w-auto" ${v.avvisato ? `title="Già avvisato il ${formattaData(v.avvisato)}: puoi riscrivergli"` : ''} style="padding:7px 12px; font-size:0.8rem; white-space:nowrap;">📲 WA</button>`
                         : `<span style="font-size:0.72rem; color:var(--muted); text-align:center; width:52px;">No tel.</span>`
                     }
 
@@ -10586,6 +10588,24 @@ Prenota subito il tuo appuntamento presso *${MGM_INFO.nome}*! 🏍️
 A presto!`;
 
             window.open(`https://wa.me/${tel}?text=${encodeURIComponent(txt)}`, '_blank');
+            _segnaAvvisoTagliando(targa, true);
+        }
+
+        // Avviso del tagliando (v206): taggliandiDB[TARGA].avvisato = data del WhatsApp, avvisato_per = scadenza a cui si riferiva.
+        // Vale solo finché la scadenza non cambia: con il nuovo tagliando (data diversa) torna "da avvisare" da solo.
+        function _avvisatoTagliando(tag) { return !!(tag && tag.avvisato && tag.avvisato_per === (tag.data || '')) ? tag.avvisato : ''; }
+        function _segnaAvvisoTagliando(targa, si) {
+            if (!_puoSalvare('tagliandi')) return;
+            const tag = taggliandiDB[targa] || (taggliandiDB[targa] = {});
+            if (si) { tag.avvisato = getOggiLocale(); tag.avvisato_per = tag.data || ''; }
+            else { delete tag.avvisato; delete tag.avvisato_per; }
+            database.ref('/').update({ ['tagliandi/' + targa + '/avvisato']: tag.avvisato || null, ['tagliandi/' + targa + '/avvisato_per']: si ? tag.avvisato_per : null })
+                .then(showCloudCheck).catch(_onSaveError);
+            if (currentView === 'tagliandi') refreshTagliandi();
+        }
+        function togliAvvisoTagliando(encodedTarga) {
+            const targa = safeDecode(encodedTarga);
+            if (confirm(`Segnare ${targa} di nuovo come "da avvisare"?`)) _segnaAvvisoTagliando(targa, false);
         }
 
 
@@ -10709,7 +10729,8 @@ A presto!`;
             const km    = $('mt_km').value;
             const note  = $('mt_note').value.trim();
             if (data || km || note) {
-                taggliandiDB[targa] = { data, km, note };
+                const prima = taggliandiDB[targa] || {};
+                taggliandiDB[targa] = { data, km, note, ...(prima.avvisato ? { avvisato: prima.avvisato, avvisato_per: prima.avvisato_per || '' } : {}) };
             } else {
                 delete taggliandiDB[targa];
             }
