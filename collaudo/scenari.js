@@ -2435,6 +2435,7 @@
     // Lavori frequenti
     const chips = [...document.querySelectorAll('#f-lavori-frequenti .chip-lavoro')];
     ok(chips.length === 8 && chips.some(c => c.dataset.t === 'TAGLIANDO'), 'Nuova: 8 lavori frequenti');
+    ok(_lavoriFrequenti.toString().includes('RIAPERTO') && (() => { const prima = db.length; db.push({ id: 'x1', stato: 'archived', lavori_richiesti: '[RIF. OFFICINA] ZZETICHETTA' }, { id: 'x2', stato: 'archived', lavori_richiesti: '[RIAPERTO] ZZETICHETTA' }, { id: 'x3', stato: 'archived', lavori_richiesti: 'ZZETICHETTA' }); const l = _lavoriFrequenti(); db.splice(prima, 3); return l.includes('ZZETICHETTA') && !l.some(x => x.startsWith('[')); })(), 'Nuova: lavori frequenti senza etichette davanti come [RIAPERTO] (contano come lo stesso lavoro)');
     campo('f_lavori', '');
     const tag = chips.find(c => c.dataset.t === 'TAGLIANDO');
     tag.click(); tag.click();
