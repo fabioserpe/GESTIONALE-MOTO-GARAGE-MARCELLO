@@ -1248,7 +1248,7 @@
 
                     <div style="border-top:1px solid #334155; padding-top:16px; margin-bottom:16px;">
                         <div style="font-size:0.8rem; color:var(--muted); font-weight:bold; margin-bottom:12px; letter-spacing:0.5px;">VEICOLO (opzionale)</div>
-                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;">
+                        <div class="nc-veicolo-griglia" style="display:grid; grid-template-columns:1fr 1fr 1fr 110px; gap:14px;">
                             <div>
                                 <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:5px;">TARGA</label>
                                 <input id="nc-targa" type="text" placeholder="Es. AB123CD" style="margin:0; text-transform:uppercase;">
@@ -1260,6 +1260,10 @@
                             <div>
                                 <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:5px;">MODELLO</label>
                                 <input id="nc-modello" type="text" placeholder="Es. CBR 600" style="margin:0;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:5px;">ANNO</label>
+                                <input id="nc-anno" type="number" inputmode="numeric" min="1950" max="2100" step="1" placeholder="Es. 2019" style="margin:0;">
                             </div>
                         </div>
                     </div>
@@ -3524,6 +3528,11 @@
             if (!k) return '';
             const j = db.filter(x => chiaveTarga(x.targa) === k && x.anno && String(x.id) !== String(escludiId)).sort((a, b) => String(a.data_chiusura || a.data || '').localeCompare(String(b.data_chiusura || b.data || ''))).pop();
             return j ? String(j.anno) : '';
+        }
+        function _mappaAnniTarghe() {
+            const m = {}, d = {};
+            db.forEach(x => { const k = chiaveTarga(x.targa); const q = String(x.data_chiusura || x.data || ''); if (k && x.anno && (!(k in d) || q >= d[k])) { m[k] = String(x.anno); d[k] = q; } });
+            return m;
         }
         function _annoValido(v) { const n = parseInt(v, 10); return n >= 1900 && n <= new Date().getFullYear() + 1 ? String(n) : ''; }
         function autoFillForm(p) { const tEl = $(p + '_targa'); if (!tEl) return; const tInput = tEl.value.toUpperCase().trim(); if (!tInput) return; const c = db.filter(j => j.targa === tInput).pop(); if(c) { if($(p+'_nome')) $(p+'_nome').value = c.nome||''; if($(p+'_cognome')) $(p+'_cognome').value = c.cognome||''; if($(p+'_tel')) $(p+'_tel').value = c.tel||''; if($(p+'_marca')) $(p+'_marca').value = c.marca||''; if($(p+'_modello')) $(p+'_modello').value = c.modello||''; if($(p+'_km')) $(p+'_km').value = c.km||''; if($(p+'_anno')) $(p+'_anno').value = _annoDiTarga(tInput); if(p === 'f') mostraInfoClienteNuova(tInput); } }
@@ -7666,7 +7675,7 @@ A presto!`;
         function toggleNuovoClienteForm() { switchView('nuovo-cliente', null); }
 
         function _resetNuovoClienteForm() {
-            ['nc-cognome','nc-nome','nc-tel','nc-targa','nc-marca','nc-modello'].forEach(id => { const el = $(id); if(el) el.value = ''; });
+            ['nc-cognome','nc-nome','nc-tel','nc-targa','nc-marca','nc-modello','nc-anno'].forEach(id => { const el = $(id); if(el) el.value = ''; });
             setTimeout(() => { const el = $('nc-cognome'); if(el) el.focus(); }, 80);
         }
 
@@ -7679,7 +7688,8 @@ A presto!`;
             const marca   = ($('nc-marca').value || '').trim();
             const modello = ($('nc-modello').value || '').trim();
             const clientId = genClientId();
-            const record = { id: genId(), clientId, cognome, nome, tel, targa, marca, modello, stato: 'cliente', data: getOggiLocale(), descrizione: '', totale_lordo: 0, acconti: [] };
+            const anno    = _annoValido($('nc-anno') ? $('nc-anno').value : '');
+            const record = { id: genId(), clientId, cognome, nome, tel, targa, marca, modello, ...(anno ? { anno } : {}), stato: 'cliente', data: getOggiLocale(), descrizione: '', totale_lordo: 0, acconti: [] };
             if(typeof saveSnapshot === 'function') saveSnapshot();
             db.push(record);
             saveDB();
@@ -7688,7 +7698,9 @@ A presto!`;
             mostraToast(`✅ Cliente ${cognome} ${nome} aggiunto all'anagrafica.`, '#10b981');
         }
 
+        let _anniArchivio = null;   // anno per targa, ricalcolato a ogni disegno dell'Anagrafica
         function refreshArchive() {
+            _anniArchivio = null;
             const query = $('search-input').value.toLowerCase().trim(); const searchTerms = query.split(/\s+/); const container = $('archive-results'); if (!container) return; container.classList.remove('grid-cards'); container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px'; container.innerHTML = ''; const clientiMap = {}; db.forEach(j => { if(!j.cognome) return; const key = j.clientId || `${j.cognome.toUpperCase().trim()} ${j.nome ? j.nome.toUpperCase().trim() : ''}`.trim(); if(!clientiMap[key]) { clientiMap[key] = { clientId: j.clientId || key, cognome: j.cognome, nome: j.nome || '', tel: j.tel || '', veicoli: new Set(), veicoliDettagli: [], storia: [], targhe: [] }; } if(j.tel) clientiMap[key].tel = j.tel; if(j.targa && !clientiMap[key].veicoli.has(j.targa)) { clientiMap[key].veicoli.add(j.targa); clientiMap[key].targhe.push(j.targa); clientiMap[key].veicoliDettagli.push({ targa: j.targa, marca: j.marca || '', modello: j.modello || '' }); } if (j.stato !== 'preventivo' && j.stato !== 'cliente') { clientiMap[key].storia.push(j); } });
             // Rileva omonimi: stessi nomi ma clientId diversi
             const _nomeCount = {}; Object.values(clientiMap).forEach(c => { const _n = `${c.cognome.toUpperCase().trim()} ${c.nome.toUpperCase().trim()}`.trim(); _nomeCount[_n] = (_nomeCount[_n]||0) + 1; });
@@ -7751,7 +7763,7 @@ A presto!`;
                     if (_ricTxt) badgesHtml += `<div style="display:flex; align-items:center;"><span class="ric-cliente" style="color:#f59e0b; font-weight:bold; font-size:0.8rem; background:rgba(245,158,11,0.1); padding:4px 8px; border-radius:6px; border:1px solid rgba(245,158,11,0.3);">📦 ${htmlEsc(_ricTxt)}</span></div>`;
                     badgesHtml += `</div>`; 
                     
-                    let veicoliHtml = c.veicoliDettagli.map(v => `<div style="margin-bottom:4px;"><span class="targa-badge" style="font-size:0.75rem; padding:2px 6px;">${htmlEsc(v.targa)}</span> <span style="color:var(--text); font-size:0.85rem;">${htmlEsc(v.marca)} ${htmlEsc(v.modello)}</span></div>`).join(''); if(!veicoliHtml) veicoliHtml = '<small style="color:var(--muted)">Nessun veicolo registrato</small>'; 
+                    const _anni = _anniArchivio || (_anniArchivio = _mappaAnniTarghe()); let veicoliHtml = c.veicoliDettagli.map(v => `<div style="margin-bottom:4px;"><span class="targa-badge" style="font-size:0.75rem; padding:2px 6px;">${htmlEsc(v.targa)}</span> <span style="color:var(--text); font-size:0.85rem;">${htmlEsc(v.marca)} ${htmlEsc(v.modello)}</span>${_anni[chiaveTarga(v.targa)] ? ` <span class="anno-moto" style="color:var(--muted); font-size:0.8rem; font-weight:700;">${htmlEsc(_anni[chiaveTarga(v.targa)])}</span>` : ''}</div>`).join(''); if(!veicoliHtml) veicoliHtml = '<small style="color:var(--muted)">Nessun veicolo registrato</small>'; 
                     
                     let revertHtml = ''; 
                     if (inLavorazione || hasSpecial) { revertHtml = `<button onclick="revertClientJobsToToday('${safeKey}')" style="color:var(--warning); width:100%; text-align:left;">📅 Sposta a OGGI</button>`; } 
@@ -7797,7 +7809,7 @@ A presto!`;
                     const tagData = taggliandiDB[v.targa] || {};
                     const _eCI = safeEncode(clientId);
                     const _eT  = safeEncode(v.targa);
-                    vContainer.innerHTML += `<div class="section-dark mb-15 vehicle-edit-row" style="border-left: 3px solid var(--info); padding: 10px;"><input type="hidden" class="edit_v_old_targa" value="${safeEncode(v.targa)}"><label>Targa Veicolo</label><input class="edit_v_targa" placeholder="Targa" value="${(v.targa||'').replace(/"/g, '&quot;')}" style="margin-bottom:10px;"><div class="flex-row"><div style="flex:1"><label>Marca</label><input class="edit_v_marca" placeholder="Marca" value="${(v.marca||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:1"><label>Modello</label><input class="edit_v_modello" placeholder="Modello" value="${(v.modello||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div></div><div style="margin-top:10px; padding-top:10px; border-top:1px dashed #334155;"><label style="color:#fb923c;">🔧 Prossimo Tagliando</label><div class="flex-row"><div style="flex:1"><label style="font-size:0.7rem;">Data scadenza</label><input type="date" class="edit_v_tagliando_data" value="${tagData.data||''}" style="margin-bottom:0;"></div><div style="flex:1"><label style="font-size:0.7rem;">KM scadenza (opz.)</label><input type="number" class="edit_v_tagliando_km" placeholder="es. 15000" value="${tagData.km||''}" style="margin-bottom:0;"></div><div style="flex:1.5"><label style="font-size:0.7rem;">Note (es. tipo olio)</label><input type="text" class="edit_v_tagliando_note" placeholder="es. Olio 10W40, filtri..." value="${(tagData.note||'').replace(/"/g,'&quot;')}" style="margin-bottom:0; text-transform:uppercase;"></div></div></div><div style="display:flex; gap:6px; margin-top:10px; padding-top:8px; border-top:1px dashed #334155;"><button type="button" onclick="scollegaVeicoloCliente('${_eCI}','${_eT}')" style="flex:1; background:rgba(99,102,241,0.12); color:#a78bfa; border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:7px 4px; font-size:0.75rem; cursor:pointer;">🔀 Separa in nuovo cliente</button><button type="button" onclick="eliminaVeicoloCliente('${_eCI}','${_eT}')" style="flex:1; background:rgba(239,68,68,0.1); color:#f87171; border:1px solid rgba(239,68,68,0.28); border-radius:8px; padding:7px 4px; font-size:0.75rem; cursor:pointer;">🗑️ Elimina veicolo</button></div></div>`;
+                    vContainer.innerHTML += `<div class="section-dark mb-15 vehicle-edit-row" style="border-left: 3px solid var(--info); padding: 10px;"><input type="hidden" class="edit_v_old_targa" value="${safeEncode(v.targa)}"><label>Targa Veicolo</label><input class="edit_v_targa" placeholder="Targa" value="${(v.targa||'').replace(/"/g, '&quot;')}" style="margin-bottom:10px;"><div class="flex-row"><div style="flex:1"><label>Marca</label><input class="edit_v_marca" placeholder="Marca" value="${(v.marca||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:1"><label>Modello</label><input class="edit_v_modello" placeholder="Modello" value="${(v.modello||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:0 0 100px"><label>Anno</label><input class="edit_v_anno" type="number" inputmode="numeric" min="1950" max="2100" step="1" placeholder="Anno" value="${htmlEsc(_annoDiTarga(v.targa))}" style="margin-bottom:0;"></div></div><div style="margin-top:10px; padding-top:10px; border-top:1px dashed #334155;"><label style="color:#fb923c;">🔧 Prossimo Tagliando</label><div class="flex-row"><div style="flex:1"><label style="font-size:0.7rem;">Data scadenza</label><input type="date" class="edit_v_tagliando_data" value="${tagData.data||''}" style="margin-bottom:0;"></div><div style="flex:1"><label style="font-size:0.7rem;">KM scadenza (opz.)</label><input type="number" class="edit_v_tagliando_km" placeholder="es. 15000" value="${tagData.km||''}" style="margin-bottom:0;"></div><div style="flex:1.5"><label style="font-size:0.7rem;">Note (es. tipo olio)</label><input type="text" class="edit_v_tagliando_note" placeholder="es. Olio 10W40, filtri..." value="${(tagData.note||'').replace(/"/g,'&quot;')}" style="margin-bottom:0; text-transform:uppercase;"></div></div></div><div style="display:flex; gap:6px; margin-top:10px; padding-top:8px; border-top:1px dashed #334155;"><button type="button" onclick="scollegaVeicoloCliente('${_eCI}','${_eT}')" style="flex:1; background:rgba(99,102,241,0.12); color:#a78bfa; border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:7px 4px; font-size:0.75rem; cursor:pointer;">🔀 Separa in nuovo cliente</button><button type="button" onclick="eliminaVeicoloCliente('${_eCI}','${_eT}')" style="flex:1; background:rgba(239,68,68,0.1); color:#f87171; border:1px solid rgba(239,68,68,0.28); border-radius:8px; padding:7px 4px; font-size:0.75rem; cursor:pointer;">🗑️ Elimina veicolo</button></div></div>`;
                 });
                 if (Object.keys(vehiclesMap).length === 0) vContainer.innerHTML += `<p style="color:var(--muted); font-size:0.8rem; font-style:italic;">Nessun veicolo registrato per questo cliente.</p>`;
             }
@@ -7839,7 +7851,8 @@ A presto!`;
                     oldTarga:  safeDecode(row.querySelector('.edit_v_old_targa').value).toUpperCase().trim(),
                     newTarga:  newTarga,
                     newMarca:  row.querySelector('.edit_v_marca').value.toUpperCase().trim(),
-                    newModello: row.querySelector('.edit_v_modello').value.toUpperCase().trim()
+                    newModello: row.querySelector('.edit_v_modello').value.toUpperCase().trim(),
+                    newAnno:   row.querySelector('.edit_v_anno') ? _annoValido(row.querySelector('.edit_v_anno').value) : null
                 });
                 const tagData = {
                     data:  row.querySelector('.edit_v_tagliando_data').value || '',
@@ -7853,6 +7866,8 @@ A presto!`;
                 }
                 if (newTarga) {
                     if (tagData.data || tagData.km || tagData.note) {
+                        const prima = taggliandiDB[newTarga] || {};
+                        if (prima.avvisato) { tagData.avvisato = prima.avvisato; tagData.avvisato_per = prima.avvisato_per || ''; }
                         taggliandiDB[newTarga] = tagData;
                     } else {
                         delete taggliandiDB[newTarga];
@@ -7864,7 +7879,7 @@ A presto!`;
             // oC è ora il clientId — filtra per clientId
             const _clientJobIds = new Set(db.filter(j => j.clientId === oC).map(j => String(j.id)));
             db.forEach(j => {
-                if(j.clientId === oC){ j.nome = nNome; j.cognome = nCognome; j.tel = nTel; const t = j.targa ? j.targa.toUpperCase().trim() : ''; const vUpdate = vehiclesUpdates.find(vu => vu.oldTarga === t); if (vUpdate && t !== '') { j.targa = vUpdate.newTarga; j.marca = vUpdate.newMarca; j.modello = vUpdate.newModello; } modified = true; }
+                if(j.clientId === oC){ j.nome = nNome; j.cognome = nCognome; j.tel = nTel; const t = j.targa ? j.targa.toUpperCase().trim() : ''; const vUpdate = vehiclesUpdates.find(vu => vu.oldTarga === t); if (vUpdate && t !== '') { j.targa = vUpdate.newTarga; j.marca = vUpdate.newMarca; j.modello = vUpdate.newModello; if (vUpdate.newAnno) j.anno = vUpdate.newAnno; else if (vUpdate.newAnno === '') delete j.anno; } modified = true; }
             });
             agendaDB.forEach(a => {
                 if (a.jobId && _clientJobIds.has(String(a.jobId))) { a.cliente = `${nCognome} ${nNome}`.trim(); a.raw_cognome = nCognome; a.raw_nome = nNome; a.tel = nTel; const oldT = a.raw_targa ? a.raw_targa.toUpperCase().trim() : ''; const vUpdate = vehiclesUpdates.find(vu => vu.oldTarga === oldT); if (vUpdate && oldT !== '') { a.raw_targa = vUpdate.newTarga; a.raw_marca = vUpdate.newMarca; a.raw_modello = vUpdate.newModello; a.moto = `${vUpdate.newMarca} ${vUpdate.newModello} - ${vUpdate.newTarga}`.trim(); } }
