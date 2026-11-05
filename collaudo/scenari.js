@@ -2309,6 +2309,73 @@
     switchView('board');
   });
 
+  await passo('Ritocchi a Bacheca e Agenda', async () => {
+    const piu = (n) => { const x = new Date(oggi + 'T12:00:00'); x.setDate(x.getDate() + n); return formatDateISO(x); };
+    const J = (id, stato, data, extra) => Object.assign({ id, stato, data, targa: 'RT' + id, marca: 'HONDA', modello: 'SH', cognome: 'RITOCCO', nome: 'N' + id, tel: '3330009' + id, lavori_richiesti: 'LAVORO ' + id, conto: [], totale_lordo: 0, acconti: [], clientId: 'c-rt' + id }, extra || {});
+    fb.scritturaRemota({
+      'db/-Nrt1': J(901, 'doing', piu(-20), { conto: [{ desc: 'X', price: 300, qty: 1, iva: 22 }], totale_lordo: 300, acconti: [{ val: 100, date: piu(-20) }], lavori_richiesti: 'RIGA UNO\nRIGA DUE\nRIGA "TRE" <b>QUATTRO</b>' }),
+      'db/-Nrt2': J(902, 'doing', piu(-10), { conto: [{ desc: 'X', price: 50, qty: 1, iva: 22 }], totale_lordo: 50, acconti: [{ val: 50, date: piu(-10) }] }),
+      'db/-Nrt3': J(903, 'todo', oggi, { targa: '' }),
+      'db/-Nrt4': J(904, 'done', piu(-30), { conto: [{ desc: 'X', price: 80, qty: 1, iva: 22 }], totale_lordo: 80 }),
+      'agenda/-Nrt5': { id: 9905, tipo: 'officina', data: oggi, ora: '09:00', cliente: 'RITOCCO N903', moto: 'HONDA SH - ', tel: '3330009903', note: 'NOTA LUNGA', jobId: 903, raw_nome: 'N903', raw_cognome: 'RITOCCO', raw_marca: 'HONDA', raw_modello: 'SH', raw_targa: '' }
+    }, false);
+    switchView('board'); await attendi(80);
+    const scheda = id => [...document.querySelectorAll('.card-compact')].find(c => c.innerHTML.includes('previewJob(' + id + ')'));
+    // Giorni in officina
+    ok(scheda(901).querySelector('.giorni-ponte') && scheda(901).querySelector('.giorni-ponte').textContent === 'da 20 gg', 'Bacheca: "da 20 gg" sulla moto sul ponte da 20 giorni');
+    ok(!scheda(902).querySelector('.giorni-ponte'), 'Bacheca: niente giorni sotto le 2 settimane');
+    ok(!scheda(904).querySelector('.giorni-ponte'), 'Bacheca: niente giorni sulle moto pronte');
+    // Note su 2 righe con il testo intero al passaggio del mouse, testo protetto
+    const box = scheda(901).querySelector('.work-box-compact');
+    ok(box.querySelector('.wb-2righe') && box.getAttribute('title') === 'RIGA UNO\nRIGA DUE\nRIGA "TRE" <b>QUATTRO</b>' && !box.querySelector('b'), 'Bacheca: note su 2 righe, testo intero nel suggerimento, simboli come scritti');
+    const righe = box.querySelector('.wb-2righe');
+    ok(righe.getBoundingClientRect().height < parseFloat(getComputedStyle(righe).lineHeight || '16') * 2.6 + 1 || righe.clientHeight < 45, 'Bacheca: le note occupano al massimo 2 righe');
+    // Totali da incassare (conto meno acconti)
+    const tDoing = document.getElementById('title-doing').textContent, tDone = document.getElementById('title-done').textContent;
+    const atteso = db.filter(j => j.stato === 'doing').reduce((s, j) => { const l = parseFloat(j.totale_lordo) || 0, a = (j.acconti || []).reduce((x, y) => x + (parseFloat(y.val) || 0), 0); return s + (l > 0 && l - a > 0.009 ? l - a : 0); }, 0);
+    ok(tDoing.includes('€ ' + new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(Math.round(atteso)) + ' da incassare') && atteso >= 200, 'Bacheca: totale da incassare nel titolo Sul ponte (' + tDoing + ')');
+    ok(/da incassare/.test(tDone) && !/da incassare/i.test(document.getElementById('title-todo').textContent), 'Bacheca: totale anche sulle Pronte, non sugli appuntamenti');
+    // Targa scritta al volo
+    const etichetta = scheda(903).querySelector('.targa-al-volo');
+    ok(etichetta && etichetta.textContent.includes('TARGA MANCANTE'), 'Targa mancante: etichetta cliccabile');
+    etichetta.click();
+    let inp = scheda(903).querySelector('.targa-al-volo-box input');
+    ok(!!inp, 'Targa mancante: al clic compare la casella');
+    inp.value = ''; scheda(903).querySelector('.targa-al-volo-box button').click(); await attendi(30);
+    ok(!recordDi('db', 903).targa && scheda(903).querySelector('.targa-al-volo'), 'Targa mancante: vuota non salva niente');
+    scheda(903).querySelector('.targa-al-volo').click();
+    inp = scheda(903).querySelector('.targa-al-volo-box input');
+    inp.value = 'zz'; inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await attendi(30);
+    ok(!recordDi('db', 903).targa, 'Targa mancante: Esc annulla');
+    scheda(903).querySelector('.targa-al-volo').click();
+    inp = scheda(903).querySelector('.targa-al-volo-box input');
+    const n0 = nScr();
+    inp.value = ' fx 123ab '; inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await attendi(40);
+    ok(recordDi('db', 903).targa === 'FX 123AB', 'Targa mancante: Invio salva la targa in maiuscolo nel cloud');
+    const app = recordDi('agenda', 9905);
+    ok(app.raw_targa === 'FX 123AB' && app.moto === 'HONDA SH - FX 123AB', 'Targa mancante: aggiornato anche l\'appuntamento in Agenda');
+    ok(chiaviDa(n0).every(k => /^(db|agenda)\//.test(k)), 'Targa mancante: salva solo schede e appuntamenti');
+    ok(scheda(903).querySelector('.targa-badge').textContent.includes('FX 123AB'), 'Targa mancante: la scheda mostra la targa');
+    // Agenda compatta
+    const lun = new Date(oggi + 'T12:00:00'); lun.setDate(lun.getDate() - ((lun.getDay() + 6) % 7)); lun.setHours(0, 0, 0, 0);
+    const settPrima = dataInizioSettimana; dataInizioSettimana = lun;
+    switchView('agenda'); await attendi(60);
+    const card = _renderAgendaCard(agendaDB.find(a => a.id === 9905));
+    ok(card.includes('📞 3330009903') && card.includes('ag-note') && card.includes('ag-moto') && !card.includes('| 📞'), 'Agenda: telefono sulla riga dell\'ora, note su 2 righe');
+    ok(_motoAgenda({ moto: 'HONDA SH - AB123', raw_targa: 'AB123' }) === 'HONDA SH' && _motoAgenda({ moto: 'BMW R 45 -' }) === 'BMW R 45' && _motoAgenda({ raw_marca: 'KTM', raw_modello: '890', moto: 'X' }) === 'KTM 890', 'Agenda: moto senza targa ripetuta né trattino finale');
+    const giorni = [...document.querySelectorAll('#agenda-grid .agenda-day')];
+    const passati = giorni.filter(g => g.classList.contains('passato')).length;
+    const attesi = [0, 1, 2, 3, 4, 5].filter(n => { const d = new Date(lun); d.setDate(d.getDate() + n); return formatDateISO(d) < oggi; }).length;
+    ok(giorni.length === 6 && passati === attesi, 'Agenda: giorni passati più tenui (' + passati + ' su 6), oggi e i prossimi normali');
+    dataInizioSettimana = new Date(lun); dataInizioSettimana.setDate(dataInizioSettimana.getDate() - 7); refreshAgenda();
+    ok([...document.querySelectorAll('#agenda-grid .agenda-day')].every(g => g.classList.contains('passato')), 'Agenda: la settimana scorsa tutta tenue');
+    dataInizioSettimana = settPrima;
+    // Pulizia
+    const pul = { 'db/-Nrt1': null, 'db/-Nrt2': null, 'db/-Nrt3': null, 'db/-Nrt4': null, 'agenda/-Nrt5': null };
+    fb.scritturaRemota(pul, false);
+    switchView('board'); await attendi(50);
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
