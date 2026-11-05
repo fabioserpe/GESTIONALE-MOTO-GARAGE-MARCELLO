@@ -298,6 +298,7 @@
             /* ---- FORM NUOVO CLIENTE ---- */
             #view-nuovo-cliente .form-panel { padding: 20px !important; }
             #view-nuovo-cliente div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
+            .prev-moto-griglia { grid-template-columns: 1fr 1fr !important; }
 
             /* ---- ARCHIVIO CLIENTI: card multi-col → verticale ---- */
             .archive-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -1057,6 +1058,7 @@
                             <div class="flex-row mt-10">
                                 <input id="app_marca" placeholder="Marca moto">
                                 <input id="app_modello" placeholder="Modello">
+                                <input id="app_anno" type="number" inputmode="numeric" min="1950" max="2100" step="1" placeholder="Anno" title="Anno della moto: lo ricordo per questa targa" style="max-width:90px;">
                                 <input id="app_km" type="number" placeholder="KM" style="max-width:90px;">
                             </div>
                             <input id="app_targa" placeholder="Targa" style="margin-top:10px; text-transform:uppercase;">
@@ -1157,9 +1159,10 @@
                     <input id="p_cognome" placeholder="Cognome (Obbligatorio)" onblur="checkCustomerBikes('p')" style="margin:0;">
                     <input id="p_tel" placeholder="Telefono" style="margin:0;">
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:22px;">
+                <div class="prev-moto-griglia" style="display:grid; grid-template-columns:1fr 1fr 100px 1fr 1fr; gap:10px; margin-bottom:22px;">
                     <input id="p_marca" placeholder="Marca" style="margin:0;">
                     <input id="p_modello" placeholder="Modello" style="margin:0;">
+                    <input id="p_anno" type="number" inputmode="numeric" min="1950" max="2100" step="1" placeholder="Anno" title="Anno della moto: lo ricordo per questa targa" style="margin:0;">
                     <input id="p_targa" placeholder="Targa 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillForm('p'); aggiornaLibrettoBox()" oninput="aggiornaLibrettoBox()" style="border-color:var(--purple); margin:0;">
                     <input id="p_km" type="number" placeholder="KM" style="margin:0;">
                 </div>
@@ -1739,7 +1742,7 @@
                     <div><label>Telefono</label><input id="g_tel" type="tel" style="margin:0;"></div>
                     <div><label>Marca</label><input id="g_marca" style="margin:0;"></div>
                     <div><label>Modello</label><input id="g_modello" style="margin:0;"></div>
-                    <div><label>Targa</label><input id="g_targa" style="margin:0;"></div>
+                    <div><label>Targa · Anno</label><div style="display:flex; gap:6px;"><input id="g_targa" style="margin:0; flex:1; min-width:0;"><input id="g_anno" type="number" inputmode="numeric" min="1950" max="2100" step="1" placeholder="Anno" title="Anno della moto: lo ricordo per questa targa" style="margin:0; width:84px; flex:0 0 84px;"></div></div>
                 </div>
                 <div class="mob-form-grid" style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid #334155;">
                     <div><label>Cosa è in garanzia *</label><input id="g_cosa" placeholder="Es. pompa freno anteriore che perde" style="margin:0;"></div>
@@ -1972,7 +1975,8 @@
                     <div class="flex-row">
                         <input id="m_app_marca" placeholder="Marca">
                         <input id="m_app_modello" placeholder="Modello">
-                        <input id="m_app_km" type="number" placeholder="KM" style="max-width:90px; margin:0;">
+                        <input id="m_app_anno" type="number" inputmode="numeric" min="1950" max="2100" step="1" placeholder="Anno" title="Anno della moto: lo ricordo per questa targa" style="max-width:90px;">
+                        <input id="m_app_km" type="number" placeholder="KM" style="max-width:90px;">
                     </div>
                     <div class="flex-row">
                         <input id="m_app_targa" placeholder="Targa o Cliente 🔍" list="targhe-salvate" onfocus="resetTargaField(this)" onblur="autoFillAgenda('m')">
@@ -3517,6 +3521,7 @@
             if ($('p_marca')) $('p_marca').value = data.marca || '';
             if ($('p_modello')) $('p_modello').value = data.modello || '';
             if ($('p_km')) $('p_km').value = data.km || '';
+            if ($('p_anno')) $('p_anno').value = _annoDiTarga(data.targa);
             const sc = $('p_search_cliente'); if (sc) sc.value = '';
             const res = $('prev-cliente-results'); if (res) res.style.display = 'none';
         }
@@ -3581,6 +3586,7 @@
             $('app_cognome').value = dati.cognome;
             $('app_marca').value = dati.marca;
             $('app_modello').value = dati.modello;
+            if ($('app_anno')) $('app_anno').value = _annoDiTarga(dati.targa);
             $('app_tel').value = dati.tel;
             $('app_search_results').style.display = 'none';
             $('app_search_cliente').value = '';
@@ -3588,7 +3594,7 @@
         }
 
         function clearClienteAgenda() {
-            ['app_targa','app_nome','app_cognome','app_marca','app_modello','app_tel'].forEach(id => { if ($(id)) $(id).value = ''; });
+            ['app_targa','app_nome','app_cognome','app_marca','app_modello','app_anno','app_tel'].forEach(id => { if ($(id)) $(id).value = ''; });
             if ($('app_search_cliente')) { $('app_search_cliente').value = ''; $('app_search_cliente').placeholder = '🔍 Digita nome, cognome o targa...'; }
         }
 
@@ -3616,6 +3622,7 @@
                 $(p+'_modello').value = c.modello||'';
                 if (c.targa) $(p+'_targa').value = c.targa;
                 if (c.km && $(p+'_km')) $(p+'_km').value = c.km;
+                if ($(p+'_anno')) $(p+'_anno').value = _annoDiTarga(c.targa);
             }
         }
         function sincronizzaAnagrafica(targa, nome, cognome, tel, marca, modello, clientId) { if (!targa || String(targa).trim() === '') return; targa = String(targa).toUpperCase().trim(); const ex = db.filter(j => j.targa === targa); if (ex.length > 0) { db.forEach(j => { if (j.targa === targa) { if(nome) j.nome = nome; if(cognome) j.cognome = cognome; if(tel) j.tel = tel; if(marca) j.marca = marca; if(modello) j.modello = modello; if(clientId && !j.clientId) j.clientId = clientId; } }); } else { db.push({ id: genId(), data: getOggiLocale(), nome: nome || '', cognome: cognome || '', tel: tel || '', marca: marca || '', modello: modello || '', targa: targa, km: '', acconti: [], lavori_richiesti: 'Inserimento rapido', stato: 'archived', conto: [], totale_lordo: 0, clientId: clientId || genClientId() }); } }
@@ -4970,7 +4977,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             apriModalApp();
             const metti = (k, v) => { const e = $(k); if (e) e.value = v || ''; };
             metti('app_cognome', g.cognome); metti('app_nome', g.nome); metti('app_tel', g.tel);
-            metti('app_marca', g.marca); metti('app_modello', g.modello); metti('app_targa', g.targa);
+            metti('app_marca', g.marca); metti('app_modello', g.modello); metti('app_targa', g.targa); metti('app_anno', g.anno || _annoDiTarga(g.targa));
             metti('app_note', 'GARANZIA: ' + (g.cosa || '') + (g.pratica ? ' (pratica ' + g.pratica + ')' : ''));
             metti('app_garanzia_id', String(g.id));
             if ($('app-form-title')) $('app-form-title').innerText = '📅 Appuntamento per la garanzia';
@@ -4983,6 +4990,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const metti = (k, v) => { const e = $(k); if (e) e.value = v || ''; };
             metti('g_id', g ? String(g.id) : '');
             ['cognome', 'nome', 'tel', 'marca', 'modello', 'targa', 'cosa', 'fornitore', 'pratica', 'note'].forEach(c => metti('g_' + c, g ? g[c] : ''));
+            metti('g_anno', g ? (g.anno || _annoDiTarga(g.targa)) : '');
             metti('g_data', g ? g.data_richiesta : getOggiLocale());
             metti('g_search_cliente', '');
             const r = $('gar-cliente-results'); if (r) r.style.display = 'none';
@@ -4999,7 +5007,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         }
         function salvaGaranzia() {
             const v = k => ($(k) ? $(k).value : '').trim();
-            const dati = { cognome: v('g_cognome'), nome: v('g_nome'), tel: v('g_tel'), marca: v('g_marca'), modello: v('g_modello'), targa: v('g_targa').toUpperCase(),
+            const dati = { cognome: v('g_cognome'), nome: v('g_nome'), tel: v('g_tel'), marca: v('g_marca'), modello: v('g_modello'), targa: v('g_targa').toUpperCase(), anno: _annoValido(v('g_anno')) || _annoDiTarga(v('g_targa')),
                 cosa: v('g_cosa'), fornitore: v('g_fornitore'), pratica: v('g_pratica'), note: v('g_note'), data_richiesta: v('g_data') || getOggiLocale() };
             if (!dati.cognome) return mostraErrore('Scrivi il cognome del cliente');
             if (!dati.cosa) return mostraErrore('Scrivi cosa è in garanzia');
@@ -5033,6 +5041,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         function selezionaClienteGaranzia(data) {
             if (typeof data === 'string') data = JSON.parse(data);
             ['nome', 'cognome', 'tel', 'targa', 'marca', 'modello'].forEach(c => { const e = $('g_' + c); if (e) e.value = data[c] || ''; });
+            if ($('g_anno')) $('g_anno').value = _annoDiTarga(data.targa);
             const sc = $('g_search_cliente'); if (sc) sc.value = '';
             const res = $('gar-cliente-results'); if (res) res.style.display = 'none';
             const c = $('g_cosa'); if (c) c.focus();
@@ -5858,6 +5867,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             $('p_marca').value = j.marca || '';
             $('p_modello').value = j.modello || '';
             $('p_km').value = j.km || '';
+            if ($('p_anno')) $('p_anno').value = j.anno || _annoDiTarga(j.targa);
             $('p-conto-rows').innerHTML = '';
             addVocePrev('','',22,true);
             _setAssicForm({ assicurativo: true });
@@ -6695,7 +6705,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         function apriModalApp(dataPreimpostata) {
             $('app_id').value = ''; $('app_job_id').value = ''; $('app_tipo').value = 'officina'; if($('app_garanzia_id')) $('app_garanzia_id').value = '';
             $('app_data').value = dataPreimpostata || getOggiLocale(); $('app_ora').value = '09:00';
-            $('app_nome').value = ''; $('app_cognome').value = ''; $('app_marca').value = ''; $('app_modello').value = ''; $('app_targa').value = ''; $('app_tel').value = ''; $('app_note').value = ''; if($('app_km')) $('app_km').value = '';
+            $('app_nome').value = ''; $('app_cognome').value = ''; $('app_marca').value = ''; $('app_modello').value = ''; $('app_targa').value = ''; $('app_tel').value = ''; $('app_note').value = ''; if($('app_km')) $('app_km').value = ''; if($('app_anno')) $('app_anno').value = '';
             if($('app-acconti-container')) $('app-acconti-container').innerHTML = '';
             if($('app-form-title')) $('app-form-title').innerText = '📅 Nuovo Appuntamento';
             toggleAppFields();
@@ -6725,9 +6735,11 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const motoStr = tipoVal === 'officina' ? `${marca} ${modello} - ${targa}`.trim() : ''; 
             
             const kmVal = $(p+'_km') ? ($(p+'_km').value || '') : '';
+            const annoVal = tipoVal === 'officina' ? (_annoValido($(p+'_anno') ? $(p+'_anno').value : '') || _annoDiTarga(targa)) : '';
             const app = { id: idVal ? parseInt(idVal) : genId(), tipo: tipoVal, jobId: (tipoVal === 'officina' && jobIdVal) ? parseInt(jobIdVal) : null, data: dataVal, ora: oraVal, cliente: clienteStr, moto: motoStr, tel: tel, note: note, km: kmVal, raw_nome: nome, raw_cognome: cognome, raw_marca: marca, raw_modello: modello, raw_targa: targa }; 
             
             if(!app.data || !cognome) return mostraErrore("Data e Cognome/Oggetto sono obbligatori!"); 
+            if (annoVal) app.raw_anno = annoVal;
             // Appuntamento nato da una garanzia: resta collegato (garanzia_id), anche quando lo si modifica dalla finestra
             const _garId = (!isModal && $('app_garanzia_id')) ? $('app_garanzia_id').value : '';
             if (_garId) app.garanzia_id = _garId;
@@ -6736,7 +6748,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 const nJobId = genId();
                 const accontiApp = !isModal ? extractList('#app-acconti-container .acc-row', '.app_acc_val', '.app_acc_date', true) : [];
                 let _agCId = ''; if(targa){const _ex=db.find(j=>j.targa===targa&&j.clientId);if(_ex)_agCId=_ex.clientId;} if(!_agCId){const _k=`${cognome.toUpperCase().trim()} ${nome.toUpperCase().trim()}`.trim();const _ex2=db.find(j=>j.clientId&&`${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim()===_k);if(_ex2)_agCId=_ex2.clientId;} if(!_agCId)_agCId=genClientId();
-                db.push({ id: nJobId, data: app.data, nome: nome, cognome: cognome, tel: tel, marca: marca, modello: modello, targa: targa, km: kmVal || "", acconti: accontiApp, lavori_richiesti: note, stato: 'todo', conto: [], totale_lordo: 0, clientId: _agCId });
+                db.push({ id: nJobId, data: app.data, nome: nome, cognome: cognome, tel: tel, marca: marca, modello: modello, targa: targa, km: kmVal || "", ...(annoVal ? { anno: annoVal } : {}), acconti: accontiApp, lavori_richiesti: note, stato: 'todo', conto: [], totale_lordo: 0, clientId: _agCId });
                 app.jobId = nJobId; 
             } else if(app.jobId) { 
                 const iJ = db.findIndex(x => String(x.id) === String(app.jobId)); 
@@ -6745,6 +6757,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     if(db[iJ].stato === 'todo') { db[iJ].data = app.data; }
                     db[iJ].nome = nome; db[iJ].cognome = cognome; db[iJ].tel = tel; db[iJ].marca = marca; db[iJ].modello = modello; db[iJ].targa = targa; db[iJ].lavori_richiesti = note;
                     if(kmVal) db[iJ].km = kmVal;
+                    if(annoVal) db[iJ].anno = annoVal;
                 } 
             } 
             
@@ -6765,7 +6778,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 switchView('agenda');
             }
         }
-        function prenotaDaOfficina(id) { const existingApp = agendaDB.find(a => String(a.jobId) === String(id)); if (existingApp) { modificaApp(existingApp.id); return; } const j = db.find(x => String(x.id) === String(id)); if(!j) return; apriModalApp(); $('app_job_id').value = j.id; $('app_tipo').value = 'officina'; toggleAppFields(); $('app_nome').value = j.nome||''; $('app_cognome').value = j.cognome||''; $('app_marca').value = j.marca||''; $('app_modello').value = j.modello||''; $('app_targa').value = j.targa||''; $('app_tel').value = j.tel||''; $('app_note').value = `[Rif. Officina] ${j.lavori_richiesti||''}`.trim(); const d = new Date(); d.setDate(d.getDate() + 1); $('app_data').value = formatDateISO(d); refreshMiniAppAgenda(); }
+        function prenotaDaOfficina(id) { const existingApp = agendaDB.find(a => String(a.jobId) === String(id)); if (existingApp) { modificaApp(existingApp.id); return; } const j = db.find(x => String(x.id) === String(id)); if(!j) return; apriModalApp(); $('app_job_id').value = j.id; $('app_tipo').value = 'officina'; toggleAppFields(); $('app_nome').value = j.nome||''; $('app_cognome').value = j.cognome||''; $('app_marca').value = j.marca||''; $('app_modello').value = j.modello||''; $('app_targa').value = j.targa||''; if($('app_anno')) $('app_anno').value = j.anno || _annoDiTarga(j.targa); $('app_tel').value = j.tel||''; $('app_note').value = `[Rif. Officina] ${j.lavori_richiesti||''}`.trim(); const d = new Date(); d.setDate(d.getDate() + 1); $('app_data').value = formatDateISO(d); refreshMiniAppAgenda(); }
         function passaAlPonteDaAgenda(id, targetState = 'doing') { 
             const a = agendaDB.find(x => String(x.id) === String(id)); if (!a) return; 
             const cg = a.raw_cognome || a.cliente || ''; if (!cg) return mostraErrore("Errore: Il cognome/cliente è necessario."); 
@@ -6778,7 +6791,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             } else {
                 const nI = genId();
                 let _ponCId = ''; if(tg){const _ex=db.find(j=>j.targa===tg&&j.clientId);if(_ex)_ponCId=_ex.clientId;} if(!_ponCId){const _k=`${cg.toUpperCase().trim()} ${nm.toUpperCase().trim()}`.trim();const _ex2=db.find(j=>j.clientId&&`${(j.cognome||'').toUpperCase().trim()} ${(j.nome||'').toUpperCase().trim()}`.trim()===_k);if(_ex2)_ponCId=_ex2.clientId;} if(!_ponCId)_ponCId=genClientId();
-                db.push({ id: nI, data: a.data, nome: nm, cognome: cg, tel: a.tel || '', marca: mc, modello: md, targa: tg, km: "", acconti: [], lavori_richiesti: a.note || '', stato: targetState, conto: [], totale_lordo: 0, clientId: _ponCId });
+                db.push({ id: nI, data: a.data, nome: nm, cognome: cg, tel: a.tel || '', marca: mc, modello: md, targa: tg, km: "", ...((a.raw_anno || _annoDiTarga(tg)) ? { anno: a.raw_anno || _annoDiTarga(tg) } : {}), acconti: [], lavori_richiesti: a.note || '', stato: targetState, conto: [], totale_lordo: 0, clientId: _ponCId });
                 a.jobId = nI;
             } 
             sincronizzaAnagrafica(tg, nm, cg, a.tel, mc, md);
@@ -6803,6 +6816,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             // Carica km: prima dall'appuntamento, poi dalla commessa collegata
             const kmJob = a.km || (a.jobId ? (db.find(j=>String(j.id)===String(a.jobId))?.km || '') : '');
             if($('m_app_km')) $('m_app_km').value = kmJob;
+            if($('m_app_anno')) $('m_app_anno').value = (a.jobId ? (db.find(j=>String(j.id)===String(a.jobId))?.anno || '') : '') || a.raw_anno || _annoDiTarga(a.raw_targa);
             toggleAppFields('m'); 
             
             const btnDel = $('m_btn-elimina-app'); btnDel.classList.remove('hidden'); 
@@ -7317,8 +7331,8 @@ A presto!`;
         // =====================================================================
         // 10. PREVENTIVI
         // =====================================================================
-        function openPreventivoForm(id = null, fromStorico = false) { isEditing = !!id; _editingStorico = fromStorico; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); if(!p){mostraErrore('Preventivo non trovato');return;} $('p_id').value = p.id; $('p_nome').value=p.nome||''; $('p_cognome').value=p.cognome||''; $('p_tel').value=p.tel||''; $('p_targa').value=p.targa||''; $('p_marca').value=p.marca||''; $('p_modello').value=p.modello||''; $('p_km').value=p.km||''; (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVocePrev(c.desc,p.stato==='preventivo'?Number(((parseFloat(c.price)||0)/(parseFloat(c.qty)||1)).toFixed(6)):c.price,c.iva!==undefined?c.iva:22,false,c.qty||1)):addVocePrev('','',22,false); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; addVocePrev('','',22,false); } _setAssicForm(id ? db.find(j=>String(j.id)===String(id)) : null); calcPrevTotale(); }
-        function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; $('p-conto-rows').innerHTML=''; addVocePrev('','',22,false); _setAssicForm(null); calcPrevTotale(); setTimeout(() => checkCustomerBikes('p'), 100); }
+        function openPreventivoForm(id = null, fromStorico = false) { isEditing = !!id; _editingStorico = fromStorico; switchView('crea-prev'); $('p-conto-rows').innerHTML = ''; if(id) { const p = db.find(j=>String(j.id)===String(id)); if(!p){mostraErrore('Preventivo non trovato');return;} $('p_id').value = p.id; $('p_nome').value=p.nome||''; $('p_cognome').value=p.cognome||''; $('p_tel').value=p.tel||''; $('p_targa').value=p.targa||''; $('p_marca').value=p.marca||''; $('p_modello').value=p.modello||''; $('p_km').value=p.km||''; if($('p_anno')) $('p_anno').value=p.anno||_annoDiTarga(p.targa); (p.conto&&p.conto.length>0)?p.conto.forEach(c=>addVocePrev(c.desc,p.stato==='preventivo'?Number(((parseFloat(c.price)||0)/(parseFloat(c.qty)||1)).toFixed(6)):c.price,c.iva!==undefined?c.iva:22,false,c.qty||1)):addVocePrev('','',22,false); } else { $('p_id').value=''; $('p_nome').value=''; $('p_cognome').value=''; $('p_tel').value=''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; if($('p_anno')) $('p_anno').value=''; addVocePrev('','',22,false); } _setAssicForm(id ? db.find(j=>String(j.id)===String(id)) : null); calcPrevTotale(); }
+        function newPreventivoFromArchiveCognome(encodedChiave) { const clientId = safeDecode(encodedChiave); const jobs = getJobsByClientId(clientId); if(!jobs.length) return; const u = jobs[jobs.length-1]; isEditing = false; switchView('crea-prev'); $('p_id').value=''; $('p_nome').value=u.nome||''; $('p_cognome').value=u.cognome||''; $('p_tel').value=u.tel||''; $('p_targa').value=''; $('p_marca').value=''; $('p_modello').value=''; $('p_km').value=''; if($('p_anno')) $('p_anno').value=''; $('p-conto-rows').innerHTML=''; addVocePrev('','',22,false); _setAssicForm(null); calcPrevTotale(); setTimeout(() => checkCustomerBikes('p'), 100); }
         function calcPrevTotale() {
             const rows = document.querySelectorAll('#p-conto-rows tr.voce-row');
             let totLordo = 0;
@@ -7354,7 +7368,7 @@ A presto!`;
             if (tEl) tEl.textContent = `TOTALE: ${totLordo.toFixed(2)} \u20ac`;
         }
         function calcPrevTotal() { calcPrevTotale(); }
-        function savePreventivo(inviaWA = false, comeCommessa = false, doStampa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = Array.from(document.querySelectorAll('#p-conto-rows tr.voce-row')).map(tr => ({ desc: tr.querySelector('.p-desc')?.value||'', price: (parseFloat(tr.querySelector('.p-price')?.value)||0)*(parseFloat(tr.querySelector('.p-qty')?.value)||1), iva: parseFloat(tr.dataset.iva??22)||0, qty: parseFloat(tr.querySelector('.p-qty')?.value)||1 })).filter(i => i.price > 0 || (i.desc||'').trim() !== ''); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const _orig = exI > -1 ? db[exI] : null; const _storico = _editingStorico && _orig && _orig.stato !== 'preventivo'; const data = { id: nowId, data: _storico ? (_orig.data||getOggiLocale()) : getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, anno: (_orig && _orig.anno) || _annoDiTarga($('p_targa').value), acconti: _orig ? (_orig.acconti||[]) : [], lavori_richiesti: _storico ? (_orig.lavori_richiesti||'Vedi voci preventivo') : 'Vedi voci preventivo', stato: _storico ? _orig.stato : (comeCommessa ? 'todo' : 'preventivo'), era_preventivo: true, data_accettazione: _storico ? (_orig.data_accettazione||null) : (comeCommessa ? getOggiLocale() : null), conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId, assicurativo: !!($('p_assic') && $('p_assic').checked), perito_id: ($('p_assic') && $('p_assic').checked && $('p_perito').value !== '__nuovo') ? ($('p_perito').value || '') : '', n_sinistro: ($('p_assic') && $('p_assic').checked) ? ($('p_sinistro').value || '').trim() : '', inviato_perito: (_orig && _orig.inviato_perito) || null }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa && !_storico && agendaDB.findIndex(a=>String(a.jobId)===String(nowId))===-1) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; _editingStorico = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(doStampa) { printPreventivo(nowId); return; } if(comeCommessa && !_storico) switchView('board'); else switchView('preventivi'); }
+        function savePreventivo(inviaWA = false, comeCommessa = false, doStampa = false) { const idF = $('p_id').value; const nowId = idF ? parseInt(idF) : genId(); const exI = db.findIndex(x=>String(x.id)===String(nowId)); const items = Array.from(document.querySelectorAll('#p-conto-rows tr.voce-row')).map(tr => ({ desc: tr.querySelector('.p-desc')?.value||'', price: (parseFloat(tr.querySelector('.p-price')?.value)||0)*(parseFloat(tr.querySelector('.p-qty')?.value)||1), iva: parseFloat(tr.dataset.iva??22)||0, qty: parseFloat(tr.querySelector('.p-qty')?.value)||1 })).filter(i => i.price > 0 || (i.desc||'').trim() !== ''); let _prevClientId = exI > -1 ? (db[exI].clientId || '') : ''; if (!_prevClientId) { const _tg = ($('p_targa').value||'').toUpperCase().trim(); if (_tg) { const _ex = db.find(j => j.targa === _tg && j.clientId); if (_ex) _prevClientId = _ex.clientId; } } if (!_prevClientId) _prevClientId = genClientId(); const _orig = exI > -1 ? db[exI] : null; const _storico = _editingStorico && _orig && _orig.stato !== 'preventivo'; const data = { id: nowId, data: _storico ? (_orig.data||getOggiLocale()) : getOggiLocale(), nome: $('p_nome').value.trim(), cognome: $('p_cognome').value.trim(), tel: $('p_tel').value.trim(), marca: $('p_marca').value.trim(), modello: $('p_modello').value.trim(), targa: $('p_targa').value.toUpperCase().trim(), km: $('p_km').value, anno: _annoValido($('p_anno') ? $('p_anno').value : '') || (_orig && _orig.anno) || _annoDiTarga($('p_targa').value, nowId), acconti: _orig ? (_orig.acconti||[]) : [], lavori_richiesti: _storico ? (_orig.lavori_richiesti||'Vedi voci preventivo') : 'Vedi voci preventivo', stato: _storico ? _orig.stato : (comeCommessa ? 'todo' : 'preventivo'), era_preventivo: true, data_accettazione: _storico ? (_orig.data_accettazione||null) : (comeCommessa ? getOggiLocale() : null), conto: items, totale_lordo: items.reduce((a,b)=>a+b.price,0), clientId: _prevClientId, assicurativo: !!($('p_assic') && $('p_assic').checked), perito_id: ($('p_assic') && $('p_assic').checked && $('p_perito').value !== '__nuovo') ? ($('p_perito').value || '') : '', n_sinistro: ($('p_assic') && $('p_assic').checked) ? ($('p_sinistro').value || '').trim() : '', inviato_perito: (_orig && _orig.inviato_perito) || null }; if(!data.cognome) return mostraErrore("Cognome obbligatorio!"); if(inviaWA && (!data.tel || data.tel.trim() === '')) return mostraErrore("Devi inserire il Telefono del cliente per poter inviare il messaggio WhatsApp!"); exI > -1 ? db[exI] = data : db.push(data); if (comeCommessa && !_storico && agendaDB.findIndex(a=>String(a.jobId)===String(nowId))===-1) { agendaDB.push({ id: genId(), tipo: 'officina', jobId: nowId, data: data.data, ora: '09:00', cliente: `${data.cognome} ${data.nome}`.trim(), moto: `${data.marca} ${data.modello} - ${data.targa}`.trim(), tel: data.tel, note: data.lavori_richiesti, raw_nome: data.nome, raw_cognome: data.cognome, raw_marca: data.marca, raw_modello: data.modello, raw_targa: data.targa }); } sincronizzaAnagrafica(data.targa, data.nome, data.cognome, data.tel, data.marca, data.modello); comeCommessa ? saveDBAgenda() : saveDB(); isEditing = false; _editingStorico = false; if(inviaWA) sendWhatsAppPreventivo(nowId); if(doStampa) { printPreventivo(nowId); return; } if(comeCommessa && !_storico) switchView('board'); else switchView('preventivi'); }
         function archiviaPreventivo(id) {
             if (!confirm('Archiviare questo preventivo nello storico senza convertirlo in commessa?')) return;
             const i = db.findIndex(j => String(j.id) === String(id));
