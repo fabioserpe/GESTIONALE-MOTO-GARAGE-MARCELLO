@@ -2013,7 +2013,7 @@
                 <input type="hidden" id="ld_edit_id">
                 <div class="flex-row mc-form-row" style="flex-wrap: nowrap; align-items: center;">
                     <input type="date" id="ld_data" style="width:140px; margin:0;">
-                    <select id="ld_tipo" style="width:140px; margin:0;">
+                    <select id="ld_tipo" style="width:215px; margin:0;">
                         <option value="in">🟢 Avere — ci devono</option>
                         <option value="out">🔴 Dare — dobbiamo</option>
                     </select>
@@ -2027,7 +2027,7 @@
                     </select>
                     <input id="ld_qta" type="number" placeholder="Q.tà" value="1" style="width:80px; margin:0;">
                     <input type="text" id="ld_desc" placeholder="Descrizione..." style="flex:1; margin:0;">
-                    <input type="number" id="ld_importo" placeholder="Importo € (Opz.)" step="0.01" style="width:140px; margin:0;">
+                    <input type="number" id="ld_importo" placeholder="Importo €" title="Importo (facoltativo)" step="0.01" style="width:150px; margin:0;">
                     <button id="btn-save-ledger" class="btn btn-success w-auto" onclick="saveLedgerEntry()" style="margin:0;">➕ Aggiungi</button>
                     <button id="btn-cancel-ledger" class="btn btn-dark w-auto hidden" onclick="cancelLedgerEdit()" style="margin:0;">❌</button>
                 </div>
@@ -2038,7 +2038,9 @@
                 <button id="mc-tab-corrente" onclick="showCollabTab('corrente')" style="padding:6px 18px; border-radius:6px; border:none; background:var(--purple); color:white; font-weight:700; cursor:pointer; font-size:0.85rem;">📋 Scheda Corrente</button>
                 <button id="mc-tab-archivio" onclick="showCollabTab('archivio')" style="padding:6px 18px; border-radius:6px; border:1px solid #334155; background:transparent; color:var(--muted); cursor:pointer; font-size:0.85rem;">🗄️ Archivio Schede</button>
                 <span id="mc-archivio-badge" style="display:none; background:#8b5cf6; color:white; border-radius:20px; padding:2px 8px; font-size:0.72rem; align-self:center;"></span>
+                <select id="mc-mese" aria-label="Mese dei movimenti" onchange="_mcMese = this.value; openCollabDetail(currentCollabView)" style="width:auto; margin:0 0 0 auto; padding:5px 10px; font-size:0.85rem;"></select>
             </div>
+            <div id="mc-cat-totali" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; flex-shrink:0;"></div>
 
             <div id="mc-table-section" style="flex-grow: 1; overflow-y: auto; overflow-x: hidden; background:white; border-radius:10px; border:1px solid #cbd5e1;">
                 <table style="width:100%; color:white; border-collapse:collapse; font-size:1rem;">
@@ -5289,7 +5291,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             if($('ledger-tot-in')) $('ledger-tot-in').innerText = "€ " + ti.toFixed(2); 
             if($('ledger-tot-out')) $('ledger-tot-out').innerText = "€ " + to.toFixed(2);
             const bal = to - ti;
-            if($('ledger-balance')) { $('ledger-balance').innerText = "€ " + bal.toFixed(2); $('ledger-balance').style.color = bal <= 0 ? 'var(--info)' : 'var(--accent)'; }
+            if($('ledger-balance')) { const _lb = bal < -0.004 ? 'ci devono' : bal > 0.004 ? 'dobbiamo' : 'in pari'; $('ledger-balance').innerHTML = `${bal < -0.004 ? '+ ' : bal > 0.004 ? '− ' : ''}€ ${Math.abs(bal).toFixed(2)} <span style="font-size:0.95rem; font-weight:700; color:var(--muted);">· ${_lb}</span>`; $('ledger-balance').style.color = bal < -0.004 ? 'var(--success)' : bal > 0.004 ? 'var(--accent)' : 'var(--info)'; }
             
             const sg = $('collab-summary-grid');
             if(sg) {
@@ -5299,7 +5301,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     const rColor = r <= 0 ? 'var(--success)' : 'var(--accent)';
                     const rLabel = r <= 0 ? (r < 0 ? 'ci devono' : 'in pari') : 'dobbiamo';
                     sg.innerHTML += `<div class="card card-clickable" style="padding:15px; border-top: 4px solid var(--purple); margin:0;" onclick="openCollabDetail('${safeN}')">
-                        <div style="font-weight:bold; color:white; margin-bottom:10px; font-size:1.1rem; text-transform:uppercase;">${n}</div>
+                        <div style="font-weight:bold; color:white; margin-bottom:10px; font-size:1.1rem; text-transform:uppercase;">${htmlEsc(n)}</div>
                         <div class="flex-between" style="font-size:0.85rem; margin-bottom:5px;"><span style="color:var(--success);">Avere</span><span style="color:var(--success)">€ ${s.in.toFixed(2)}</span></div>
                         <div class="flex-between" style="font-size:0.85rem; margin-bottom:10px;"><span style="color:var(--accent);">Dare</span><span style="color:var(--accent)">€ ${s.out.toFixed(2)}</span></div>
                         <div class="flex-between" style="border-top:1px solid #334155; padding-top:10px; font-weight:bold; font-size:1rem;"><span>Saldo <span style="font-size:0.7rem; font-weight:400; color:var(--muted);">(${rLabel})</span></span><span style="color:${rColor}">€ ${Math.abs(r).toFixed(2)}</span></div>
@@ -5308,13 +5310,40 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             }
         }
 
+        // Finestra della cassa: mese scelto (vuoto = tutti), si azzera cambiando cassa
+        let _mcMese = '', _mcCassa = null;
+        const MESI_IT = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+        function _nomeMese(m) { const [a, n] = m.split('-'); return `${MESI_IT[parseInt(n, 10) - 1] || n} ${a}`; }
+        function _totaliCategorieCassa(list) {
+            const box = $('mc-cat-totali');
+            if (!box) return;
+            const cat = {};
+            list.forEach(m => {
+                const c = (m.cat || 'officina').toUpperCase(), tot = (parseFloat(m.importo) || 0) * (parseFloat(m.qta) || 1);
+                if (!cat[c]) cat[c] = { in: 0, out: 0 };
+                cat[c][m.tipo === 'in' ? 'in' : 'out'] += tot;
+            });
+            const chip = (testo, col) => `<span style="background:rgba(255,255,255,0.05); border:1px solid #334155; border-radius:14px; padding:3px 10px; font-size:0.82rem; color:${col}; font-weight:700;">${testo}</span>`;
+            box.innerHTML = Object.keys(cat).sort((a, b) => catOrder.indexOf(a.toLowerCase()) - catOrder.indexOf(b.toLowerCase()) || a.localeCompare(b)).map(c => {
+                const v = cat[c], parti = [];
+                if (v.in > 0.004) parti.push(`<span style="color:var(--success);">+ € ${v.in.toFixed(2)}</span>`);
+                if (v.out > 0.004) parti.push(`<span style="color:var(--accent);">− € ${v.out.toFixed(2)}</span>`);
+                return parti.length ? chip(`<span style="color:var(--muted);">${htmlEsc(c)}</span> ${parti.join(' ')}`, 'white') : '';
+            }).join('') + (_mcMese ? chip(`📅 Solo ${_nomeMese(_mcMese)}`, '#93c5fd') : '');
+        }
         function openCollabDetail(encName) {
             const name = safeDecode(encName); currentCollabView = encName; 
             $('mc-title').innerText = "Cassa: " + name; cancelLedgerEdit(); 
             
-            const list = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase()).sort((a,b) => {
-                if(a.cat !== b.cat) return catOrder.indexOf(a.cat || 'officina') - catOrder.indexOf(b.cat || 'officina'); return new Date(b.data) - new Date(a.data);
-            });
+            if (encName !== _mcCassa) { _mcCassa = encName; _mcMese = ''; }
+            const tutti = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase());
+            const mesi = [...new Set(tutti.map(x => String(x.data || '').slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort().reverse();
+            if (_mcMese && !mesi.includes(_mcMese)) _mcMese = '';
+            const selMese = $('mc-mese');
+            if (selMese) selMese.innerHTML = `<option value="">Tutti i mesi</option>` + mesi.map(m => `<option value="${m}" ${m === _mcMese ? 'selected' : ''}>${_nomeMese(m)}</option>`).join('');
+            const list = tutti.filter(x => !_mcMese || String(x.data || '').startsWith(_mcMese))
+                .sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || (Number(b.id) || 0) - (Number(a.id) || 0));
+            _totaliCategorieCassa(list);
             
             let ti = 0, to = 0; const tb = $('mc-rows'); if(!tb) return; tb.innerHTML = '';
             const isMob = window.innerWidth <= 768;
@@ -5410,6 +5439,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const archivioPanel = $('mc-archivio-panel');
             const btnCorrente = $('mc-tab-corrente');
             const btnArchivio = $('mc-tab-archivio');
+            ['mc-mese', 'mc-cat-totali'].forEach(id => { const el = $(id); if (el) el.style.display = tab === 'corrente' ? '' : 'none'; });
             if (tab === 'corrente') {
                 tableSection.style.display = '';
                 archivioPanel.style.display = 'none';
@@ -9726,7 +9756,7 @@ A presto!`;
                         <span style="color:var(--muted);">ordinato ${formattaData(o.data_ordine) || '—'}</span>
                         <span class="oa-arrivo" style="color:${ritardo ? 'var(--accent)' : 'var(--warning)'}; font-weight:800;">${o.data_prevista ? (ritardo ? '⏰ doveva arrivare il ' : 'arrivo previsto ') + formattaData(o.data_prevista) : 'arrivo da definire'}</span>
                         <span style="background:#334155; color:white; border-radius:12px; padding:2px 10px; font-size:0.85rem; font-weight:800;">${attesa} pz in arrivo</span>
-                        ${tot > 0 ? `<span style="color:var(--muted); font-size:0.88rem;">€ ${tot.toLocaleString('it-IT', { minimumFractionDigits: 2 })}</span>` : ''}
+                        ${tot > 0 ? `<span style="color:var(--muted); font-size:0.88rem;">€ ${tot.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>` : ''}
                     </div>
                     <div style="display:flex; gap:6px;">
                         <button type="button" class="btn btn-success w-auto" onclick="arrivoTuttoAbb('${o.id}')" style="margin:0;">📥 Arrivato tutto</button>
@@ -10109,7 +10139,7 @@ A presto!`;
                     <td style="${catBg} padding:11px 14px;"></td>
                     <td style="${catBg} padding:11px 14px;"></td>
                     <td style="${catBg} padding:11px 14px; text-align:right;">
-                        <span style="font-size:0.8rem; font-weight:800; color:white;">€ ${totCat.toLocaleString('it-IT',{minimumFractionDigits:2})}</span>
+                        <span style="font-size:0.8rem; font-weight:800; color:white;">€ ${totCat.toLocaleString('it-IT',{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </td>
                     <td style="${catBg} padding:11px 14px;"></td>`;
                 tbody.appendChild(trH);
@@ -10207,7 +10237,7 @@ A presto!`;
                                 onblur="this.style.background='transparent'; this.style.outline='none'; if(this.value===''||isNaN(parseFloat(this.value)))this.value='0.00'; modificaArticoloMag('${cod}','prezzo_pubblico',this.value)">
                         </td>
                         <td style="padding:8px 12px; text-align:right;">
-                            <div style="font-weight:800; color:#1e293b;">€ ${totN.toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
+                            <div style="font-weight:800; color:#1e293b;">€ ${totN.toLocaleString('it-IT',{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         </td>
                         <td style="padding:8px 10px; text-align:center;">
                             <button onclick="eliminaArticoloMag('${cod}')"
@@ -10240,8 +10270,8 @@ A presto!`;
             </div>
             <div class="stat-card" style="border-top-color:var(--info);">
                 <div>Valore Netto</div>
-                <div class="stat-val" style="color:var(--info); font-size:1.5rem;">€ ${tN.toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
-                <div style="font-size:0.75rem; color:var(--muted); margin-top:3px;">IVA incl.: € ${tI.toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
+                <div class="stat-val" style="color:var(--info); font-size:1.5rem;">€ ${tN.toLocaleString('it-IT',{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div style="font-size:0.75rem; color:var(--muted); margin-top:3px;">IVA incl.: € ${tI.toLocaleString('it-IT',{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </div>
             <div class="stat-card" style="border-top-color:var(--warning); cursor:pointer;" onclick="toggleFiltroSottosogliaMag()" title="Clicca per filtrare">
                 <div>Da Riordinare</div>
@@ -10251,7 +10281,7 @@ A presto!`;
 `;
             if (window.innerWidth > 768) {
                 Object.entries(stats).sort((a,b)=>b[1]-a[1]).slice(0,2).forEach(([cat,val]) => {
-                    if (val > 0) html += `<div class="stat-card"><div style="font-size:0.75rem;">${cat}</div><div class="stat-val" style="font-size:1.3rem;">€ ${val.toLocaleString('it-IT',{minimumFractionDigits:2})}</div></div>`;
+                    if (val > 0) html += `<div class="stat-card"><div style="font-size:0.75rem;">${cat}</div><div class="stat-val" style="font-size:1.3rem;">€ ${val.toLocaleString('it-IT',{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div>`;
                 });
             }
             c.innerHTML = html;
@@ -11547,23 +11577,23 @@ if ('serviceWorker' in navigator) {
             if (kpi) kpi.innerHTML = `
                 <div class="stat-card" style="border-top-color:#f43f5e;">
                     <div style="font-size:0.82rem;color:var(--muted);">Da Pagare</div>
-                    <div class="stat-val" style="color:#f43f5e;">€ ${totAperte.toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
+                    <div class="stat-val" style="color:#f43f5e;">€ ${totAperte.toLocaleString('it-IT',{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">${aperte.length} scadenze aperte</div>
                 </div>
                 <div class="stat-card" style="border-top-color:var(--accent); cursor:pointer;" onclick="scadFiltro='scadute'; refreshScadenze()">
                     <div style="font-size:0.82rem;color:var(--muted);">Scadute non pagate</div>
                     <div class="stat-val" style="color:var(--accent);">${scadute.length}</div>
-                    <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">€ ${scadute.reduce((a,s)=>a+(parseFloat(s.importo)||0),0).toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">€ ${scadute.reduce((a,s)=>a+(parseFloat(s.importo)||0),0).toLocaleString('it-IT',{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </div>
                 <div class="stat-card" style="border-top-color:var(--warning);">
                     <div style="font-size:0.82rem;color:var(--muted);">Entro 7 giorni</div>
                     <div class="stat-val" style="color:var(--warning);">${imminenti.length}</div>
-                    <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">€ ${imminenti.reduce((a,s)=>a+(parseFloat(s.importo)||0),0).toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">€ ${imminenti.reduce((a,s)=>a+(parseFloat(s.importo)||0),0).toLocaleString('it-IT',{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </div>
                 <div class="stat-card" style="border-top-color:var(--success);">
                     <div style="font-size:0.82rem;color:var(--muted);">Pagate (storico)</div>
                     <div class="stat-val" style="color:var(--success);">${scadenzeDB.filter(s=>s.stato==='pagata').length}</div>
-                    <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">€ ${scadenzeDB.filter(s=>s.stato==='pagata').reduce((a,s)=>a+(parseFloat(s.importo)||0),0).toLocaleString('it-IT',{minimumFractionDigits:2})}</div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">€ ${scadenzeDB.filter(s=>s.stato==='pagata').reduce((a,s)=>a+(parseFloat(s.importo)||0),0).toLocaleString('it-IT',{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </div>`;
 
             // Filtri bottoni
@@ -11596,7 +11626,7 @@ if ('serviceWorker' in navigator) {
                 const col = isPagata ? colori.pagata : colori[urgenza];
                 const labelUrgenza = { scaduta:'SCADUTA', imminente:'URGENTE', attenzione:'IN SCADENZA', default:'', pagata:'PAGATA' };
                 const badge = (isPagata ? 'pagata' : urgenza) !== 'default' ? `<span style="font-size:0.65rem;font-weight:900;background:${col}22;color:${col};border:1px solid ${col};border-radius:4px;padding:1px 6px;margin-left:6px;">${labelUrgenza[isPagata?'pagata':urgenza]}</span>` : '';
-                const importoStr = s.importo > 0 ? `€ ${parseFloat(s.importo).toLocaleString('it-IT',{minimumFractionDigits:2})}` : '—';
+                const importoStr = s.importo > 0 ? `€ ${parseFloat(s.importo).toLocaleString('it-IT',{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
                 const ricBadge = s.ricorrenza && s.ricorrenza !== 'una-tantum' ? `<span style="font-size:0.65rem;background:rgba(99,102,241,0.2);color:#818cf8;border:1px solid #818cf8;border-radius:4px;padding:1px 5px;margin-left:4px;">🔄 ${s.ricorrenza}</span>` : '';
                 return `<div style="background:var(--card);border-radius:10px;border-left:4px solid ${col};padding:14px 16px;display:flex;align-items:center;gap:12px;${isPagata?'opacity:0.6':''}">
                     <div style="font-size:1.5rem;flex-shrink:0;">${SCAD_CAT_EMOJI[s.categoria]||'📄'}</div>
