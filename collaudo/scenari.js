@@ -2468,6 +2468,36 @@
     switchView('board'); await attendi(50);
   });
 
+  await passo('Ritocchi ai Preventivi', async () => {
+    const piu = (n) => { const x = new Date(oggi + 'T12:00:00'); x.setDate(x.getDate() + n); return formatDateISO(x); };
+    const P = (id, d, cog, extra) => Object.assign({ id, stato: 'preventivo', data: piu(d), cognome: cog, nome: 'PV', marca: 'HONDA', modello: 'SH', targa: 'PR' + id, tel: '333 200 ' + id, era_preventivo: true, lavori_richiesti: 'Vedi voci preventivo', conto: [{ desc: 'X', price: 100, qty: 1, iva: 22 }], totale_lordo: 100, clientId: 'c-pr' + id }, extra || {});
+    fb.scritturaRemota({ 'db/-Npr1': P(971, -20, 'ZZPREVA'), 'db/-Npr2': P(972, -5, 'ZZPREVB'), 'db/-Npr3': P(973, -60, 'ZZPREVC', { stato: 'archived', data_accettazione: piu(-50) }) }, false);
+    switchView('preventivi'); setPrevTab('aperti'); await attendi(60);
+    const lista = () => document.getElementById('preventivi-results');
+    const riga = cog => [...lista().querySelectorAll('.prev-card-row')].find(r => r.textContent.includes(cog));
+    ok(lista().querySelectorAll('.prev-testata').length === 1 && !lista().textContent.includes('MOTO:') && !lista().textContent.includes('TOTALE:'), 'Preventivi: un\'unica intestazione al posto di MOTO:/TOTALE: su ogni riga');
+    ok(riga('ZZPREVA').querySelector('.giorni-ponte') && riga('ZZPREVA').querySelector('.giorni-ponte').textContent === 'da 20 gg' && !riga('ZZPREVB').querySelector('.giorni-ponte'), 'Preventivi: "da 20 gg" sul preventivo fermo da 20 giorni, niente sotto le 2 settimane');
+    const wa = riga('ZZPREVA').querySelector('.arch-tel a[href^="https://wa.me/"]');
+    ok(wa && wa.getAttribute('href') === 'https://wa.me/39333200971' && riga('ZZPREVA').querySelector('.arch-tel a[href="tel:333200971"]'), 'Preventivi: 💬 e 📞 accanto al telefono');
+    ok(riga('ZZPREVA').querySelector('.dropdown-content').style.minWidth === '250px', 'Preventivi: menu Azioni più largo');
+    // Ricerca
+    campo('prev-search', 'zzpreva'); refreshPreventivi();
+    ok(lista().querySelectorAll('.prev-card-row').length === 1 && riga('ZZPREVA'), 'Preventivi: la ricerca trova il preventivo giusto');
+    campo('prev-search', 'pr973'); refreshPreventivi();
+    ok(lista().textContent.includes('Nessun preventivo aperto trovato') && /Storico\s*1/.test(document.getElementById('prev-tab-bar').textContent), 'Preventivi: la ricerca vale anche per lo storico (numero sulla scheda)');
+    setPrevTab('storico');
+    ok(lista().querySelectorAll('.prev-card-row').length === 1 && riga('ZZPREVC') && lista().querySelectorAll('.prev-testata').length === 1, 'Preventivi: nello storico solo il preventivo cercato, con l\'intestazione');
+    campo('prev-search', ''); setPrevTab('aperti');
+    // ✅ Accettato
+    const btn = riga('ZZPREVA').querySelector('.prev-accettato');
+    ok(btn && btn.getAttribute('onclick') === 'accettaPreventivo(971)', 'Preventivi: pulsante ✅ Accettato sulla riga');
+    btn.click(); await attendi(20);
+    ok(!document.getElementById('modal-accetta-prev').classList.contains('hidden') && document.getElementById('ap_job_id').value === '971', 'Preventivi: ✅ Accettato apre la stessa conferma di "Converti in Commessa"');
+    closeModal('modal-accetta-prev');
+    fb.scritturaRemota({ 'db/-Npr1': null, 'db/-Npr2': null, 'db/-Npr3': null }, false);
+    switchView('board'); await attendi(50);
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
