@@ -2536,6 +2536,43 @@
     switchView('board'); await attendi(50);
   });
 
+  await passo('Km dei lavori passati nello Storico', async () => {
+    const piu = (n) => { const x = new Date(oggi + 'T12:00:00'); x.setDate(x.getDate() + n); return formatDateISO(x); };
+    const J = (id, d, km, extra) => Object.assign({ id, stato: 'archived', data: piu(d), data_chiusura: piu(d), cognome: 'ZZKM', nome: 'PROVA', targa: 'KM 001', marca: 'HONDA', modello: 'SH', km, conto: [{ desc: 'TAGLIANDO', price: 150, qty: 1, iva: 22, mag_codice: 'OLIO-01' }, { desc: 'BOLLO', price: 10, qty: 1, iva: 0 }], totale_lordo: 160, acconti: [{ val: 160, date: piu(d) }], clientId: 'c-zzkm' }, extra || {});
+    fb.scritturaRemota({ 'db/-Nkm1': J(991, -300, '12000'), 'db/-Nkm2': J(992, -100, ''), 'db/-Nkm3': J(993, -10, '21000') }, false);
+    viewHistoryCognome(safeEncode('c-zzkm')); await attendi(30);
+    const card = id => [...document.querySelectorAll('#st-corpo > div')].find(d => d.innerHTML.includes('openEditStorico(' + id + ','));
+    ok(card(992).querySelector('.km-manca') && !card(991).querySelector('.km-manca') && card(991).textContent.includes('KM: 12000'), 'Storico: "+ km" sui lavori senza km, i km negli altri');
+    const contoPrima = JSON.stringify(recordDi('db', 992).conto), accPrima = JSON.stringify(recordDi('db', 992).acconti);
+    card(992).querySelector('.km-manca').click();
+    let inp = card(992).querySelector('.km-storico input');
+    ok(!!inp, 'Storico: cliccando "+ km" compare la casella');
+    const errPrima = (window.__errori || []).length;
+    inp.value = 'abc'; inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await attendi(20);
+    ok(!recordDi('db', 992).km && card(992).querySelector('.km-storico input'), 'Storico: testo non numerico non si salva');
+    inp.value = '15.500'; const n0 = nScr(); inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await attendi(30);
+    ok(recordDi('db', 992).km === '15500' && card(992).textContent.includes('KM: 15500'), 'Storico: Invio salva i km (anche scritti con il punto)');
+    ok(JSON.stringify(recordDi('db', 992).conto) === contoPrima && JSON.stringify(recordDi('db', 992).acconti) === accPrima && Object.values(recordDi('db', 992).conto)[0].mag_codice === 'OLIO-01' && Object.values(recordDi('db', 992).conto)[1].iva === 0, 'Storico: conto, acconti, collegamento al magazzino e IVA restano com\'erano');
+    ok(chiaviDa(n0).length > 0 && chiaviDa(n0).every(k => k.startsWith('db/-Nkm2')), 'Storico: salva solo quel lavoro');
+    // km fuori ordine: chiede conferma
+    const conf = window.confirm; let chiesto = '';
+    window.confirm = m => { chiesto = m; return false; };
+    try {
+      card(992).querySelector('.km-storico button').click();
+      inp = card(992).querySelector('.km-storico input'); inp.value = '9000'; inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await attendi(20);
+      ok(chiesto.includes('12000 km') && recordDi('db', 992).km === '15500', 'Storico: km più bassi di un lavoro precedente chiedono conferma (annullato: non salva)');
+      window.confirm = m => { chiesto = m; return true; };
+      inp.value = '25000'; inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await attendi(20);
+      ok(chiesto.includes('21000 km') && recordDi('db', 992).km === '25000', 'Storico: km più alti di un lavoro successivo chiedono conferma (confermato: salva)');
+    } finally { window.confirm = conf; }
+    card(992).querySelector('.km-storico button').click();
+    inp = card(992).querySelector('.km-storico input'); inp.value = '55555'; inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await attendi(20);
+    ok(recordDi('db', 992).km === '25000' && card(992).textContent.includes('KM: 25000'), 'Storico: Esc annulla');
+    closeModal('modal-storico');
+    fb.scritturaRemota({ 'db/-Nkm1': null, 'db/-Nkm2': null, 'db/-Nkm3': null }, false);
+    switchView('board'); await attendi(50);
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
