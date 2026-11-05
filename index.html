@@ -8229,6 +8229,47 @@ A presto!`;
             return [att ? att + (att === 1 ? ' ricambio in attesa' : ' ricambi in attesa') : '', arr ? arr + (arr === 1 ? ' arrivato' : ' arrivati') : ''].filter(Boolean).join(' · ');
         }
 
+        // Km dei lavori nello Storico: se mancano si scrivono lì (si salvano solo i km, conto e acconti restano come sono)
+        function _kmStoricoHtml(h) {
+            return h.km
+                ? `| 🏁 KM: ${htmlEsc(h.km)} <button type="button" onclick="kmStoricoAlVolo(${h.id}, this)" title="Correggi i km" aria-label="Correggi i km" style="width:auto; margin:0 0 0 2px; padding:0 4px; background:transparent; border:none; cursor:pointer; font-size:0.85rem;">✏️</button>`
+                : `| <button type="button" class="km-manca" onclick="kmStoricoAlVolo(${h.id}, this)" title="Scrivi i km di questo lavoro" style="width:auto; margin:0; padding:2px 9px; border-radius:12px; border:1px dashed var(--warning); background:rgba(245,158,11,0.1); color:var(--warning); font-weight:800; font-size:0.8rem; cursor:pointer;">🏁 + km</button>`;
+        }
+        function _kmFuoriOrdine(j, km) {
+            const k = chiaveTarga(j.targa);
+            if (!k) return '';
+            const altri = db.filter(x => String(x.id) !== String(j.id) && chiaveTarga(x.targa) === k && parseInt(x.km, 10) > 0);
+            const prima = altri.filter(x => String(x.data || '') < String(j.data || '') && parseInt(x.km, 10) > km);
+            const dopo = altri.filter(x => String(x.data || '') > String(j.data || '') && parseInt(x.km, 10) < km);
+            if (prima.length) return `Il ${formattaData(prima[0].data)} la moto aveva già ${prima[0].km} km.`;
+            if (dopo.length) return `Il ${formattaData(dopo[0].data)} la moto aveva solo ${dopo[0].km} km.`;
+            return '';
+        }
+        function kmStoricoAlVolo(id, el) {
+            const j = db.find(x => String(x.id) === String(id));
+            const box = el && el.closest('.km-storico');
+            if (!j || !box) return;
+            box.innerHTML = `| 🏁 <input type="text" inputmode="numeric" aria-label="Chilometri" placeholder="KM" value="${htmlEsc(j.km || '')}" style="width:100px; margin:0; padding:2px 7px; font-size:0.9rem; font-weight:bold;"> <button type="button" title="Salva i km" style="width:auto; margin:0; padding:2px 9px; background:var(--success); border:none; color:white; border-radius:6px; cursor:pointer; font-weight:bold;">✓</button>`;
+            const inp = box.querySelector('input');
+            const chiudi = () => { box.innerHTML = _kmStoricoHtml(j); };
+            const salva = () => {
+                const testo = inp.value.trim();
+                if (!testo) { chiudi(); return; }
+                const km = parseInt(testo.replace(/[.\s]/g, ''), 10);
+                if (!/^[\d.\s]+$/.test(testo) || !(km > 0) || km > 999999) { mostraErrore('Scrivi i km solo con i numeri (es. 18500)'); inp.focus(); return; }
+                const strano = _kmFuoriOrdine(j, km);
+                if (strano && !confirm(`${strano}\nSalvo lo stesso ${km} km?`)) { inp.focus(); return; }
+                if (!_puoSalvare('db')) return;
+                saveSnapshot();
+                j.km = String(km);
+                saveDB();
+                chiudi();
+                mostraToast('Km salvati');
+            };
+            box.querySelector('button').onclick = salva;
+            inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); ev.stopPropagation(); salva(); } if (ev.key === 'Escape') { ev.stopPropagation(); chiudi(); } };
+            inp.focus(); inp.select();
+        }
         function viewHistoryCognome(encodedChiave) {
             const clientId = safeDecode(encodedChiave); const hList = getJobsByClientId(clientId).filter(j => j.stato !== 'preventivo' && j.stato !== 'cliente'); const _fj = getJobsByClientId(clientId).find(j => j.cognome) || {}; const _label = `${(_fj.cognome||'').toUpperCase()} ${_fj.nome||''}`.trim() || clientId; $('st-titolo').innerText = `Storia Interventi & Conti: ${_label}`;
             const stCorpo = $('st-corpo'); if(!stCorpo) return;
@@ -8282,7 +8323,7 @@ A presto!`;
                 const actionEdit = isWorking ? `closeModal('modal-storico'); editJob(${h.id});` : `openEditStorico(${h.id}, '${safeTarga}')`;
                 const actionPrint = isWorking ? `printJobSheet(${h.id})` : `printInvoice(${h.id})`;
 
-                return `<div style="padding:15px; background:${bgCol}; border-radius:10px; margin-bottom:15px; border-left:4px solid ${bCol}"><div class="flex-between" style="align-items:flex-start;"><div><b style="color:${bCol}; font-size:1.1rem;">Data: ${formattaData(h.data)}</b><br><span style="color:var(--info); font-size:0.9rem; font-weight:bold;">🏍️ ${htmlEsc(h.marca||'')} ${htmlEsc(h.modello||'')} <span class="targa-badge" style="font-size:0.75rem; padding:1px 4px; margin-left:4px;">${htmlEsc(h.targa)}</span> ${h.km ? `| 🏁 KM: ${h.km}` : ''}</span></div><div class="flex-row" style="flex-wrap:wrap; justify-content:flex-end;">${riapriBtn}<button class="btn btn-warning w-auto" style="padding:8px; cursor:pointer;" onclick="${actionEdit}">✏️ Modifica</button><button class="btn w-auto" style="padding:8px; background:white; color:black; cursor:pointer;" onclick="${actionPrint}">🖨️ Stampa</button><button class="btn w-auto" style="padding:8px; background:transparent; color:var(--accent); border:1px solid var(--accent); cursor:pointer;" onclick="deleteSingleHistoryCognome(${h.id}, '${safeKey}')">🗑️ Elimina</button></div></div>${previewHtml}</div>`;
+                return `<div style="padding:15px; background:${bgCol}; border-radius:10px; margin-bottom:15px; border-left:4px solid ${bCol}"><div class="flex-between" style="align-items:flex-start;"><div><b style="color:${bCol}; font-size:1.1rem;">Data: ${formattaData(h.data)}</b><br><span style="color:var(--info); font-size:0.9rem; font-weight:bold;">🏍️ ${htmlEsc(h.marca||'')} ${htmlEsc(h.modello||'')} <span class="targa-badge" style="font-size:0.75rem; padding:1px 4px; margin-left:4px;">${htmlEsc(h.targa)}</span> <span class="km-storico">${_kmStoricoHtml(h)}</span></span></div><div class="flex-row" style="flex-wrap:wrap; justify-content:flex-end;">${riapriBtn}<button class="btn btn-warning w-auto" style="padding:8px; cursor:pointer;" onclick="${actionEdit}">✏️ Modifica</button><button class="btn w-auto" style="padding:8px; background:white; color:black; cursor:pointer;" onclick="${actionPrint}">🖨️ Stampa</button><button class="btn w-auto" style="padding:8px; background:transparent; color:var(--accent); border:1px solid var(--accent); cursor:pointer;" onclick="deleteSingleHistoryCognome(${h.id}, '${safeKey}')">🗑️ Elimina</button></div></div>${previewHtml}</div>`;
             }).join('') || "Nessun intervento."; 
             const _tutti = getJobsByClientId(clientId);
             const _ord = _ordiniDelCliente(clientId, _fj.cognome, _fj.nome, _tutti.map(j => j.targa), _tutti.map(j => j.id)).filter(o => o.stato !== 'consegnato');
