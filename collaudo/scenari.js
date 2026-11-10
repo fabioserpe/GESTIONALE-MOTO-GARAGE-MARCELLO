@@ -2850,28 +2850,44 @@
 
   await passo('Schede tecniche', async () => {
     const oggi = getOggiLocale();
-    const JJ = (k, id, targa, stato, anno, conto) => ({ ['db/' + k]: { id, cognome: 'TECNICA', nome: k, marca: 'SUZUKI', modello: 'BURGMAN 400', targa, stato, data: oggi, anno, conto: conto || [], acconti: [], clientId: 'c-st' + id } });
-    fb.scritturaRemota(Object.assign({},
-      JJ('st1', 8601, 'ST001AA', 'archived', '2014', [{ desc: 'FILTRO OLIO HF147', price: 12, qty: 1, iva: 22 }, { desc: 'MANODOPERA', price: 40, qty: 1, iva: 22 }]),
-      JJ('st2', 8602, 'ST002AA', 'archived', '2018', [{ desc: 'FILTRO OLIO HF147', price: 12, qty: 1, iva: 22 }, { desc: 'CANDELA NGK CR7E', price: 9, qty: 1, iva: 22 }]),
-      JJ('st3', 8603, 'ST003AA', 'todo', '2018'), JJ('st4', 8604, 'ST004AA', 'todo', '2014')), false);
+    const JJ = (k, id, targa, stato, anno) => ({ ['db/' + k]: { id, cognome: 'TECNICA', nome: k, marca: 'SUZUKI', modello: 'BURGMAN 400', targa, stato, data: oggi, anno, conto: [], acconti: [], clientId: 'c-st' + id } });
+    fb.scritturaRemota(Object.assign({}, JJ('st1', 8601, 'ST001AA', 'archived', '2014'), JJ('st2', 8602, 'ST002AA', 'archived', '2018'),
+      JJ('st3', 8603, 'ST003AA', 'todo', '2018'), JJ('st4', 8604, 'ST004AA', 'todo', '2014'),
+      { 'schede_tecniche/vecchia': { id: 'vecchia', marca: 'HONDA', modello: 'SH 125', filtro_olio: 'HF113', candela: 'CPR7EA', olio: '10W30' } }), false);
     await attendi(50);
     switchView('schede');
     const el = document.getElementById('st-elenco');
     ok(el.textContent.includes('SUZUKI BURGMAN 400') && el.textContent.includes('SENZA SCHEDA'), 'Schede: tra i modelli frequenti senza scheda c\'è SUZUKI BURGMAN 400');
     nuovaSchedaPer(safeEncode('SUZUKI'), safeEncode('BURGMAN 400'));
+    const righe = () => [...document.querySelectorAll('#st-codici-righe .st-riga-codice')];
     ok(!document.getElementById('modal-scheda-tecnica').classList.contains('hidden') && document.getElementById('st_marca').value === 'SUZUKI' && document.getElementById('st_modello').value === 'BURGMAN 400', 'Schede: "➕" apre una scheda nuova con marca e modello già scritti');
-    ok(document.getElementById('st-ricambi-usati').textContent.includes('FILTRO OLIO HF147') && !document.getElementById('st-ricambi-usati').textContent.includes('MANODOPERA'), 'Schede: propone i ricambi usati sul modello (senza manodopera)');
-    copiaRicambioInScheda(safeEncode('FILTRO OLIO HF147'));
-    copiaRicambioInScheda(safeEncode('CANDELA NGK CR7E'));
-    ok(document.getElementById('st_filtro_olio').value === 'FILTRO OLIO HF147' && document.getElementById('st_candela').value === 'CANDELA NGK CR7E', 'Schede: un clic copia il ricambio nel campo giusto (filtro olio, candela)');
+    ok(righe().length === 8 && righe()[0].querySelector('.stc-nome').value === 'Filtro olio' && !document.getElementById('st-ricambi-usati'), 'Schede: la scheda nuova ha già le righe dei ricambi comuni da completare con i codici');
+    righe()[0].querySelector('.stc-codice').value = 'hf147';
+    righe()[0].querySelector('.stc-alt').value = 'MAHLE OC 575';
+    righe()[2].querySelector('.stc-codice').value = 'CR7E';
+    aggiungiRigaCodice();
+    righe()[8].querySelector('.stc-nome').value = 'Kit frizione'; righe()[8].querySelector('.stc-codice').value = 'FR-400';
     campo('st_olio', '10W40 · 1,7 L'); campo('st_note', 'Togliere il pannello <centrale>');
     salvaSchedaTecnica();
     const sc1 = Object.values(fb.nodo('schede_tecniche') || {}).find(x => x.modello === 'BURGMAN 400' && !x.anno_da);
-    ok(sc1 && sc1.olio === '10W40 · 1,7 L' && sc1.filtro_olio === 'FILTRO OLIO HF147' && sc1.marca === 'SUZUKI', 'Schede: salvata sul cloud');
-    ok(document.getElementById('st-vista').textContent.includes('10W40 · 1,7 L') && document.getElementById('st-vista').innerHTML.includes('&lt;centrale&gt;'), 'Schede: dopo il salvataggio si vede la scheda (testi protetti)');
+    const ric = sc1 ? Object.values(sc1.ricambi || {}) : [];
+    ok(sc1 && ric.length === 3 && ric[0].nome === 'Filtro olio' && ric[0].codice === 'HF147' && ric[0].alternativo === 'MAHLE OC 575' && ric[2].nome === 'Kit frizione' && sc1.olio === '10W40 · 1,7 L', 'Schede: salvati solo i ricambi con il codice (anche quelli aggiunti), con codice alternativo');
+    const vista = document.getElementById('st-vista');
+    ok(vista.textContent.includes('CODICI RICAMBI') && vista.textContent.includes('HF147') && vista.textContent.includes('FR-400') && !vista.textContent.includes('USATI') && vista.innerHTML.includes('&lt;centrale&gt;'), 'Schede: la scheda mostra la tabella dei codici, senza i ricambi dei conti');
+    inventarioMag.push({ codice: 'HF-147', nome: 'FILTRO OLIO', giacenza: 4 });
+    apriSchedaTecnica(sc1.id);
+    ok(document.getElementById('st-vista').textContent.includes('4 in magazzino'), 'Schede: se il codice c\'è in Magazzino mostra quanti pezzi ci sono');
+    inventarioMag.pop();
     refreshSchedeTecniche();
-    ok(el.textContent.includes('SUZUKI BURGMAN 400') && el.textContent.includes('2 moto in archivio') || el.textContent.includes('4 moto in archivio'), 'Schede: nell\'elenco con il numero di moto in archivio');
+    ok(el.textContent.includes('SUZUKI BURGMAN 400') && el.textContent.includes('Filtro olio HF147'), 'Schede: nell\'elenco con i primi codici');
+    campo('st-cerca', 'cr7e'); refreshSchedeTecniche();
+    ok(el.textContent.includes('BURGMAN 400') && !el.textContent.includes('SH 125'), 'Schede: si cerca anche per codice ricambio');
+    campo('st-cerca', ''); refreshSchedeTecniche();
+    apriSchedaTecnica('vecchia');
+    ok(document.getElementById('st-vista').textContent.includes('HF113') && document.getElementById('st-vista').textContent.includes('CPR7EA'), 'Schede: le schede della prima versione mostrano i codici scritti nei vecchi campi');
+    apriSchedaTecnica('vecchia', true);
+    ok(righe().length === 2 && righe()[0].querySelector('.stc-codice').value === 'HF113', 'Schede: modificandole i vecchi codici passano nella tabella');
+    closeModal('modal-scheda-tecnica');
     apriSchedaTecnica(null, true);
     campo('st_marca', 'suzuki'); campo('st_modello', 'BURGMAN 400'); campo('st_olio', 'ALTRO');
     salvaSchedaTecnica();
@@ -2889,11 +2905,8 @@
     ok(document.getElementById('st-vista').textContent.includes('5W40'), 'Schede: il 🔧 apre la scheda giusta per quella moto (2018)');
     closeModal('modal-scheda-tecnica');
     openClosingModal(8604);
-    ok(document.getElementById('conto-scheda-tecnica').textContent.includes('10W40 · 1,7 L'), 'Schede: nel conto il riquadro con i dati principali');
-    closeModal('modal-conto');
-    openClosingModal(1001);
-    const box = document.getElementById('conto-scheda-tecnica');
-    ok(box.style.display === 'none' || box.textContent.includes('Crea scheda tecnica'), 'Schede: nel conto di un modello senza scheda c\'è "➕ Crea scheda tecnica"');
+    const cs = document.getElementById('conto-scheda-tecnica').textContent;
+    ok(cs.includes('HF147') && cs.includes('10W40 · 1,7 L'), 'Schede: nel conto il riquadro con codici e dati principali');
     closeModal('modal-conto');
     const sc2 = _schedaTecnicaPer('SUZUKI', 'BURGMAN 400', '2018');
     apriSchedaTecnica(sc2.id, true);

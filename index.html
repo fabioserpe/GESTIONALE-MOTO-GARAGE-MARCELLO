@@ -302,6 +302,9 @@
             .prev-moto-griglia { grid-template-columns: 1fr 1fr !important; }
             .st-griglia-moto { grid-template-columns: 1fr 1fr !important; }
             .st-dato { grid-template-columns: 1fr !important; gap: 2px !important; }
+            .st-riga-codice { grid-template-columns: 1fr 1fr 34px !important; padding-bottom:6px; border-bottom:1px dashed #334155; }
+            .st-riga-codice .stc-nome { grid-column: 1 / -1; }
+            .st-codici-testa { display: none !important; }
 
             /* ---- ARCHIVIO CLIENTI: card multi-col → verticale ---- */
             .archive-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -2332,8 +2335,11 @@
                     <div><label>Al (anno)</label><input id="st_anno_a" type="number" inputmode="numeric" min="1950" max="2100" placeholder="opz." style="margin:0;"></div>
                 </div>
                 <div style="color:var(--muted); font-size:0.78rem; margin:6px 0 12px;">Gli anni servono solo se lo stesso modello ha pezzi diversi negli anni: lasciali vuoti per una scheda unica.</div>
+                <div style="color:#fdba74; font-size:0.8rem; font-weight:800; letter-spacing:0.5px; margin:4px 0 6px;">🔩 CODICI RICAMBI <span style="color:var(--muted); font-weight:600; letter-spacing:0;">· le righe senza codice non si salvano</span></div>
+                <div class="st-codici-testa" style="display:grid; grid-template-columns:1.2fr 1fr 1fr 34px; gap:6px; color:var(--muted); font-size:0.72rem; font-weight:800; margin-bottom:4px;"><span>RICAMBIO</span><span>CODICE</span><span>ALTERNATIVO</span><span></span></div>
+                <div id="st-codici-righe"></div>
+                <button type="button" class="btn btn-dark w-auto" style="margin:0 0 14px; padding:6px 12px;" onclick="aggiungiRigaCodice(true)">+ Ricambio</button>
                 <div id="st-campi"></div>
-                <div id="st-ricambi-usati"></div>
                 <div class="flex-row mt-15" style="flex-wrap:wrap;">
                     <button type="button" class="btn btn-dark" style="flex:1;" onclick="annullaModuloScheda()">Annulla</button>
                     <button type="button" id="st-btn-elimina" class="btn w-auto hidden" style="background:transparent; color:var(--accent); border:1px solid var(--accent);" onclick="eliminaSchedaTecnica()">🗑️ Elimina</button>
@@ -3894,20 +3900,26 @@
             _renderPuliziaMoto();
         }
 
-        // ── Schede tecniche dei modelli (v215) ──
-        // /schede_tecniche/{id} = { id, marca, modello, anno_da?, anno_a?, olio, filtro_olio, filtro_aria, candela, gomme, freni, coppie, trasmissione, note, aggiornato }
+        // ── Schede tecniche dei modelli (v215, v216: codici ricambi in tabella) ──
+        // /schede_tecniche/{id} = { id, marca, modello, anno_da?, anno_a?, ricambi: [{ nome, codice, alternativo? }], olio, liquidi, gomme, coppie, regolazioni, note, aggiornato }
         let schedeTecniche = {};
         const ST_CAMPI = [
             ['olio', '🛢️ Olio motore', 'Es. 10W40 sintetico · 2,7 L con filtro'],
-            ['filtro_olio', '🔩 Filtro olio', 'Es. HF204'],
-            ['filtro_aria', '🌬️ Filtro aria', ''],
-            ['candela', '⚡ Candela', 'Es. NGK CR7E'],
+            ['liquidi', '💧 Altri liquidi', 'Es. freni DOT 4 · refrigerante 1,2 L · olio forcella 10W'],
             ['gomme', '🛞 Gomme e pressioni', 'Es. 120/70-15 · 160/60-15 · 2,25 / 2,50 bar'],
-            ['freni', '🛑 Freni', 'Es. pastiglie ant. … · liquido DOT 4'],
             ['coppie', '🔧 Coppie di serraggio', 'Es. tappo olio 43 Nm · ruota post. 120 Nm'],
-            ['trasmissione', '⚙️ Trasmissione', 'Es. cinghia … · rulli … · catena …'],
+            ['regolazioni', '📐 Regolazioni', 'Es. gioco valvole asp. 0,10–0,15 · minimo 1500 giri'],
             ['note', '📝 Note', 'Es. per il filtro aria togliere il fianchetto sinistro']
         ];
+        // Righe già pronte in una scheda nuova: basta scrivere i codici (quelle lasciate senza codice non si salvano)
+        const ST_RICAMBI_BASE = ['Filtro olio', 'Filtro aria', 'Candela', 'Pastiglie anteriori', 'Pastiglie posteriori', 'Cinghia trasmissione', 'Rulli variatore', 'Batteria'];
+        // Schede salvate con la prima versione (v215): filtro_olio, filtro_aria, candela, freni, trasmissione come testo
+        const ST_VECCHI = [['filtro_olio', 'Filtro olio'], ['filtro_aria', 'Filtro aria'], ['candela', 'Candela'], ['freni', 'Freni'], ['trasmissione', 'Trasmissione']];
+        function _ricambiScheda(sc) {
+            const r = sc && sc.ricambi ? Object.values(sc.ricambi).filter(x => x && String(x.codice || '').trim()) : [];
+            ST_VECCHI.forEach(([k, nome]) => { if (sc && String(sc[k] || '').trim()) r.push({ nome, codice: String(sc[k]).trim() }); });
+            return r;
+        }
         const _listaSchede = () => Object.values(schedeTecniche || {}).filter(x => x && x.id != null && x.modello);
         const _stessoModello = (sc, marca, modello) => _gruppoMarca(sc.marca) === _gruppoMarca(marca) && _modelliUguali(_maiusc(sc.modello), _maiusc(modello));
         const _anniScheda = sc => (sc.anno_da || sc.anno_a) ? `${sc.anno_da || '…'}–${sc.anno_a || '…'}` : '';
@@ -3920,42 +3932,31 @@
             return (a && c.find(sc => (sc.anno_da || sc.anno_a) && inRange(sc))) || c.find(sc => !sc.anno_da && !sc.anno_a) || c[0];
         }
         function _schedeMotoDiModello(sc) { return db.filter(j => j.stato !== 'preventivo' && _stessoModello(sc, j.marca, j.modello) && (!(sc.anno_da || sc.anno_a) || !j.anno || ((!sc.anno_da || +j.anno >= +sc.anno_da) && (!sc.anno_a || +j.anno <= +sc.anno_a)))); }
-        // Ricambi dei conti passati di quel modello (senza manodopera), i più usati prima
-        function _ricambiUsatiModello(marca, modello, sc) {
-            const jobs = sc ? _schedeMotoDiModello(sc) : db.filter(j => j.stato !== 'preventivo' && _gruppoMarca(j.marca) === _gruppoMarca(marca) && _modelliUguali(_maiusc(j.modello), _maiusc(modello)));
-            const c = {};
-            jobs.forEach(j => _listaJob(j.conto).forEach(v => {
-                const d = _maiusc(v && v.desc).replace(/\s×[\d,.]+$/, '');
-                if (!d || /MANODOPERA|LAVAGGIO|SMALTIMENTO|DIRITTI|SCONTO/.test(d)) return;
-                const k = (v.mag_codice ? 'M:' + v.mag_codice : 'D:' + d);
-                c[k] = c[k] || { desc: d, codice: v.mag_codice || '', n: 0 };
-                c[k].n++;
-            }));
-            return Object.values(c).sort((a, b) => b.n - a.n || a.desc.localeCompare(b.desc)).slice(0, 12);
+        // Il codice c'è in Magazzino? (stesso codice, senza badare a spazi e trattini)
+        function _magPerCodice(codice) {
+            const k = _chiaveNome(codice);
+            return k ? (inventarioMag || []).find(i => i && _chiaveNome(i.codice) === k) || null : null;
         }
-        function _campoPerRicambio(d) {
-            if (/FILTRO\W*(DELL'?\W*)?OLIO/.test(d)) return 'filtro_olio';
-            if (/FILTRO\W*(DELL'?\W*)?ARIA/.test(d)) return 'filtro_aria';
-            if (/CANDEL/.test(d)) return 'candela';
-            if (/OLIO/.test(d)) return 'olio';
-            if (/PASTIGL|FRENO|FRENI|DISCO|DOT/.test(d)) return 'freni';
-            if (/CINGHIA|RULLI|CATENA|CORONA|PIGNONE|FRIZION|TRASMISS/.test(d)) return 'trasmissione';
-            if (/GOMM|PNEUM/.test(d)) return 'gomme';
-            return 'note';
+        function _codiciHtml(sc, compatto) {
+            const r = _ricambiScheda(sc);
+            if (!r.length) return '';
+            const mag = x => { const m = _magPerCodice(x.codice) || (x.alternativo ? _magPerCodice(x.alternativo) : null); return m ? ` <span title="In Magazzino" style="font-size:0.72rem; color:${(m.giacenza || 0) > 0 ? '#14b8a6' : 'var(--accent)'}; white-space:nowrap;">📦 ${(m.giacenza || 0) > 0 ? m.giacenza + ' in magazzino' : 'esaurito'}</span>` : ''; };
+            if (compatto) return `<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:4px 16px; font-size:0.86rem;">${r.map(x => `<div><span style="color:var(--muted);">${htmlEsc(x.nome || 'Ricambio')}:</span> <b style="color:var(--text);">${htmlEsc(x.codice)}</b>${x.alternativo ? ` <span style="color:var(--muted);">/ ${htmlEsc(x.alternativo)}</span>` : ''}${mag(x)}</div>`).join('')}</div>`;
+            return `<table class="st-codici" style="width:100%; border-collapse:collapse; font-size:0.88rem;"><thead><tr style="color:var(--muted); font-size:0.72rem; letter-spacing:0.5px; text-align:left;"><th style="padding:4px 6px;">RICAMBIO</th><th style="padding:4px 6px;">CODICE</th><th style="padding:4px 6px;">ALTERNATIVO</th></tr></thead><tbody>${r.map(x => `<tr style="border-top:1px solid #334155;"><td style="padding:6px; color:var(--muted); font-weight:700;">${htmlEsc(x.nome || 'Ricambio')}</td><td style="padding:6px; color:white; font-weight:800;">${htmlEsc(x.codice)}${mag(x)}</td><td style="padding:6px; color:var(--text);">${htmlEsc(x.alternativo || '')}</td></tr>`).join('')}</tbody></table>`;
         }
         function refreshSchedeTecniche() {
             const el = $('st-elenco');
             if (!el) return;
             const q = _maiusc(($('st-cerca') || {}).value).split(/\s+/).filter(Boolean);
-            const lista = _listaSchede().filter(sc => q.every(t => `${_maiusc(sc.marca)} ${_maiusc(sc.modello)}`.includes(t)))
+            const lista = _listaSchede().filter(sc => q.every(t => `${_maiusc(sc.marca)} ${_maiusc(sc.modello)} ${_ricambiScheda(sc).map(x => _maiusc(x.codice) + ' ' + _maiusc(x.alternativo)).join(' ')}`.includes(t)))
                 .sort((a, b) => `${_maiusc(a.marca)} ${_maiusc(a.modello)}`.localeCompare(`${_maiusc(b.marca)} ${_maiusc(b.modello)}`) || (+a.anno_da || 0) - (+b.anno_da || 0));
             const righe = lista.map(sc => {
                 const n = new Set(_schedeMotoDiModello(sc).map(j => chiaveTarga(j.targa)).filter(Boolean)).size;
-                const pill = [sc.olio && '🛢️ ' + sc.olio, sc.filtro_olio && '🔩 ' + sc.filtro_olio, sc.candela && '⚡ ' + sc.candela].filter(Boolean);
+                const pill = [sc.olio && '🛢️ ' + sc.olio, ..._ricambiScheda(sc).slice(0, 3).map(x => `${x.nome || 'Ricambio'} ${x.codice}`)].filter(Boolean);
                 return `<div class="st-riga" role="button" tabindex="0" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}')" style="cursor:pointer; background:var(--card); border:1px solid #334155; border-left:4px solid #f97316; border-radius:10px; padding:10px 14px; margin-bottom:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                     <div style="flex:1 1 220px; min-width:0;"><b style="color:white;">${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}</b>${_anniScheda(sc) ? ` <span style="color:var(--muted); font-size:0.82rem; font-weight:700;">${_anniScheda(sc)}</span>` : ''}
                         <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">${pill.map(x => `<span style="font-size:0.75rem; color:var(--text); background:#1e293b; border-radius:6px; padding:1px 7px;">${htmlEsc(x)}</span>`).join('') || '<span style="font-size:0.75rem; color:var(--muted);">Scheda ancora vuota</span>'}</div></div>
-                    <span style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">🏍️ ${n} ${n === 1 ? 'moto' : 'moto'} in archivio</span>
+                    <span style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">🏍️ ${n} moto in archivio</span>
                 </div>`;
             }).join('');
             // Modelli più frequenti senza scheda: da dove cominciare
@@ -3972,14 +3973,12 @@
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">${senza.map(x => `<button type="button" class="btn btn-dark w-auto" style="margin:0; padding:6px 10px; font-size:0.82rem;" onclick="nuovaSchedaPer('${safeEncode(x.marca)}','${safeEncode(x.modello)}')">➕ ${htmlEsc(x.marca)} ${htmlEsc(x.modello)} <small style="color:var(--muted);">${x.targhe.size} moto</small></button>`).join('')}</div></div>`;
             el.innerHTML = (righe || `<p style="color:var(--muted); text-align:center; padding:24px 0; margin:0;">${q.length ? 'Nessuna scheda trovata.' : 'Nessuna scheda ancora. Premi <b>➕ Nuova scheda</b> o parti da uno dei modelli qui sotto.'}</p>`) + consigli;
         }
-        let _schedaAperta = null;   // id della scheda mostrata; _nuovaScheda: marca/modello proposti per una scheda nuova
         function apriSchedaTecnica(id, modifica, proposta) {
             const sc = id != null ? _listaSchede().find(x => String(x.id) === String(id)) : null;
-            _schedaAperta = sc ? sc.id : null;
             if (!sc || modifica) _moduloScheda(sc, proposta); else _vistaScheda(sc);
             $('modal-scheda-tecnica').classList.remove('hidden');
         }
-        function nuovaSchedaPer(encMarca, encModello, anno) { apriSchedaTecnica(null, true, { marca: safeDecode(encMarca), modello: safeDecode(encModello), anno: anno || '' }); }
+        function nuovaSchedaPer(encMarca, encModello) { apriSchedaTecnica(null, true, { marca: safeDecode(encMarca), modello: safeDecode(encModello) }); }
         function apriSchedaTecnicaJob(jobId) {
             const j = db.find(x => String(x.id) === String(jobId));
             if (!j) return;
@@ -3990,13 +3989,31 @@
             $('st-modulo').classList.add('hidden');
             const v = $('st-vista');
             v.classList.remove('hidden');
+            const codici = _codiciHtml(sc, false);
             const righe = ST_CAMPI.filter(([k]) => String(sc[k] || '').trim()).map(([k, lbl]) => `<div class="st-dato" style="display:grid; grid-template-columns:minmax(120px, 190px) 1fr; gap:10px; padding:8px 0; border-top:1px solid #334155;"><span style="color:var(--muted); font-weight:700; font-size:0.86rem;">${lbl}</span><span style="color:white; white-space:pre-wrap;">${htmlEsc(sc[k])}</span></div>`).join('');
-            const ric = _ricambiUsatiModello(sc.marca, sc.modello, sc);
             v.innerHTML = `<h2 style="color:#f97316; margin-bottom:2px;">🔧 ${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}${_anniScheda(sc) ? ` <span style="color:var(--muted); font-size:1rem;">${_anniScheda(sc)}</span>` : ''}</h2>
                 <div style="color:var(--muted); font-size:0.78rem; margin-bottom:10px;">${sc.aggiornato ? 'Aggiornata il ' + formattaData(sc.aggiornato) : ''}</div>
-                ${righe || '<p style="color:var(--muted); margin:10px 0;">Scheda ancora vuota: premi ✏️ Modifica per compilarla.</p>'}
-                ${ric.length ? `<div style="margin-top:14px;"><div style="color:var(--muted); font-size:0.78rem; font-weight:800; letter-spacing:0.5px; margin-bottom:6px;">RICAMBI USATI SU QUESTO MODELLO (DAI CONTI)</div>${ric.map(r => `<div style="font-size:0.85rem; padding:3px 0;">${htmlEsc(r.desc)}${r.codice ? ` <span style="color:#14b8a6; font-size:0.75rem;">📦 ${htmlEsc(r.codice)}</span>` : ''} <small style="color:var(--muted);">· ${r.n} ${r.n === 1 ? 'volta' : 'volte'}</small></div>`).join('')}</div>` : ''}
+                ${codici ? `<div style="color:#fdba74; font-size:0.78rem; font-weight:800; letter-spacing:0.5px; margin:4px 0 2px;">🔩 CODICI RICAMBI</div>${codici}` : ''}
+                ${righe ? `<div style="margin-top:${codici ? '12px' : '0'};">${righe}</div>` : ''}
+                ${!codici && !righe ? '<p style="color:var(--muted); margin:10px 0;">Scheda ancora vuota: premi ✏️ Modifica per compilarla.</p>' : ''}
                 <div class="flex-row mt-15"><button type="button" class="btn btn-dark" style="flex:1;" onclick="closeModal('modal-scheda-tecnica')">Chiudi</button><button type="button" class="btn w-auto" style="flex:1; background:#f97316; color:#1c1917;" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}', true)">✏️ Modifica</button></div>`;
+        }
+        function _rigaCodice(r) {
+            const d = document.createElement('div');
+            d.className = 'st-riga-codice';
+            d.style.cssText = 'display:grid; grid-template-columns:1.2fr 1fr 1fr 34px; gap:6px; margin-bottom:6px; align-items:center;';
+            d.innerHTML = `<input class="stc-nome" value="${htmlEsc(r.nome || '')}" placeholder="Ricambio" aria-label="Ricambio" style="margin:0;">
+                <input class="stc-codice" value="${htmlEsc(r.codice || '')}" placeholder="Codice" aria-label="Codice" style="margin:0;">
+                <input class="stc-alt" value="${htmlEsc(r.alternativo || '')}" placeholder="Alternativo (opz.)" aria-label="Codice alternativo" style="margin:0;">
+                <button type="button" title="Togli la riga" onclick="this.parentElement.remove()" style="color:#ef4444; background:transparent; border:1px solid #ef4444; border-radius:6px; cursor:pointer; font-weight:bold; height:34px;">✕</button>`;
+            return d;
+        }
+        function aggiungiRigaCodice(focus) {
+            const box = $('st-codici-righe');
+            if (!box) return;
+            const d = _rigaCodice({});
+            box.appendChild(d);
+            if (focus) d.querySelector('.stc-nome').focus();
         }
         function _moduloScheda(sc, proposta) {
             $('st-vista').classList.add('hidden');
@@ -4009,23 +4026,14 @@
             $('st_anno_a').value = sc ? (sc.anno_a || '') : '';
             $('st-titolo-modulo').textContent = sc ? '✏️ Modifica scheda tecnica' : '➕ Nuova scheda tecnica';
             $('st-btn-elimina').classList.toggle('hidden', !sc);
+            const box = $('st-codici-righe');
+            box.innerHTML = '';
+            const righe = sc ? _ricambiScheda(sc) : [];
+            // In una scheda nuova (o senza codici) le righe dei ricambi più comuni, da completare
+            (righe.length ? righe : ST_RICAMBI_BASE.map(nome => ({ nome }))).forEach(r => box.appendChild(_rigaCodice(r)));
             $('st-campi').innerHTML = ST_CAMPI.map(([k, lbl, ph]) => `<div style="margin-bottom:8px;"><label for="st_${k}">${lbl}</label>${k === 'note'
                 ? `<textarea id="st_${k}" rows="3" placeholder="${htmlEsc(ph)}" style="margin:0;">${htmlEsc(sc ? sc[k] || '' : '')}</textarea>`
                 : `<input id="st_${k}" value="${htmlEsc(sc ? sc[k] || '' : '')}" placeholder="${htmlEsc(ph)}" style="margin:0;">`}</div>`).join('');
-            _renderRicambiModulo();
-        }
-        function _renderRicambiModulo() {
-            const box = $('st-ricambi-usati');
-            if (!box) return;
-            const ric = _ricambiUsatiModello($('st_marca').value, $('st_modello').value, null);
-            box.innerHTML = !ric.length ? '' : `<div style="margin-top:10px; border:1px dashed #475569; border-radius:10px; padding:10px 12px;"><div style="color:var(--muted); font-size:0.78rem; font-weight:800; letter-spacing:0.5px; margin-bottom:6px;">RICAMBI USATI SU QUESTO MODELLO · un clic lo copia nel campo giusto</div>
-                ${ric.map(r => `<div style="display:flex; gap:8px; align-items:center; padding:3px 0; font-size:0.85rem;"><span style="flex:1;">${htmlEsc(r.desc)}${r.codice ? ` <span style="color:#14b8a6; font-size:0.75rem;">📦 ${htmlEsc(r.codice)}</span>` : ''} <small style="color:var(--muted);">· ${r.n} ${r.n === 1 ? 'volta' : 'volte'}</small></span><button type="button" class="btn btn-dark w-auto" style="margin:0; padding:3px 9px; font-size:0.78rem;" onclick="copiaRicambioInScheda('${safeEncode(r.desc + (r.codice && !r.desc.includes(r.codice) ? ' (' + r.codice + ')' : ''))}')">➕ ${htmlEsc((ST_CAMPI.find(c => c[0] === _campoPerRicambio(r.desc)) || [, ''])[1].replace(/^\S+\s/, ''))}</button></div>`).join('')}</div>`;
-        }
-        function copiaRicambioInScheda(enc) {
-            const t = safeDecode(enc), campo = $('st_' + _campoPerRicambio(_maiusc(t)));
-            if (!campo) return;
-            if (!_maiusc(campo.value).includes(_maiusc(t))) campo.value = campo.value.trim() ? campo.value.trim() + ' · ' + t : t;
-            campo.focus();
         }
         function annullaModuloScheda() {
             const sc = _listaSchede().find(x => String(x.id) === String($('st_id').value));
@@ -4043,11 +4051,14 @@
             const rec = { id, marca, modello, aggiornato: getOggiLocale() };
             if (da) rec.anno_da = da;
             if (a) rec.anno_a = a;
+            const ricambi = [...document.querySelectorAll('#st-codici-righe .st-riga-codice')].map(r => ({
+                nome: r.querySelector('.stc-nome').value.trim(), codice: _maiusc(r.querySelector('.stc-codice').value), alternativo: _maiusc(r.querySelector('.stc-alt').value)
+            })).filter(r => r.codice || r.alternativo).map(r => { const o = { nome: r.nome || 'Ricambio', codice: r.codice || r.alternativo }; if (r.codice && r.alternativo) o.alternativo = r.alternativo; return o; });
+            if (ricambi.length) rec.ricambi = ricambi;
             ST_CAMPI.forEach(([k]) => { const v = ($('st_' + k).value || '').trim(); if (v) rec[k] = v; });
             schedeTecniche = { ...schedeTecniche, [id]: rec };
             database.ref('/').update({ ['schede_tecniche/' + id]: rec }).then(showCloudCheck).catch(_onSaveError);
             mostraToast(`🔧 Scheda di ${marca} ${modello} salvata`);
-            _schedaAperta = id;
             _vistaScheda(rec);
             if (currentView === 'schede') refreshSchedeTecniche();
             if (!$('modal-conto').classList.contains('hidden')) { const j = db.find(x => String(x.id) === String(currentJobId)); if (j) _renderSchedaConto(j); }
@@ -4062,7 +4073,7 @@
             closeModal('modal-scheda-tecnica');
             if (currentView === 'schede') refreshSchedeTecniche();
         }
-        // Nel conto: i dati principali della scheda (richiudibile), oppure "➕ Crea scheda tecnica"
+        // Nel conto: codici e dati principali della scheda (richiudibile), oppure "➕ Crea scheda tecnica"
         function _renderSchedaConto(j) {
             const box = $('conto-scheda-tecnica');
             if (!box) return;
@@ -4074,13 +4085,15 @@
                 return;
             }
             const dati = ST_CAMPI.filter(([k]) => String(sc[k] || '').trim());
+            const codici = _codiciHtml(sc, true);
             box.innerHTML = `<details open style="border:1px solid rgba(249,115,22,0.5); background:rgba(249,115,22,0.06); border-radius:10px; padding:8px 12px;">
                 <summary style="cursor:pointer; color:#fdba74; font-weight:800;">🔧 Scheda tecnica · ${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}${_anniScheda(sc) ? ' ' + _anniScheda(sc) : ''}</summary>
-                <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:4px 16px; margin-top:8px; font-size:0.86rem;">${dati.map(([k, lbl]) => `<div><span style="color:var(--muted);">${lbl}:</span> <span style="color:var(--text); white-space:pre-wrap;">${htmlEsc(sc[k])}</span></div>`).join('') || '<span style="color:var(--muted);">Scheda ancora vuota.</span>'}</div>
+                ${codici ? `<div style="margin-top:8px;">${codici}</div>` : ''}
+                ${dati.length ? `<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:4px 16px; margin-top:8px; font-size:0.86rem;">${dati.map(([k, lbl]) => `<div><span style="color:var(--muted);">${lbl}:</span> <span style="color:var(--text); white-space:pre-wrap;">${htmlEsc(sc[k])}</span></div>`).join('')}</div>` : ''}
+                ${!codici && !dati.length ? '<div style="color:var(--muted); margin-top:6px;">Scheda ancora vuota.</div>' : ''}
                 <div style="margin-top:6px;"><button type="button" class="btn btn-dark w-auto" style="margin:0; padding:4px 10px; font-size:0.8rem;" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}')">Apri la scheda</button></div>
             </details>`;
         }
-        document.addEventListener('change', e => { if (e.target && (e.target.id === 'st_marca' || e.target.id === 'st_modello')) _renderRicambiModulo(); });
 
         // Anno della moto (v207): j.anno sulla scheda; per una targa già vista si riprende dall'ultima scheda che lo ha
         function _annoDiTarga(targa, escludiId) {
