@@ -305,6 +305,7 @@
             .st-riga-codice { grid-template-columns: 1fr 1fr 34px !important; padding-bottom:6px; border-bottom:1px dashed #334155; }
             .st-riga-codice .stc-nome { grid-column: 1 / -1; }
             .st-codici-testa { display: none !important; }
+            .st-gomme { grid-template-columns: 78px 1fr 72px !important; }
 
             /* ---- ARCHIVIO CLIENTI: card multi-col → verticale ---- */
             .archive-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -3901,12 +3902,12 @@
         }
 
         // ── Schede tecniche dei modelli (v215, v216: codici ricambi in tabella) ──
-        // /schede_tecniche/{id} = { id, marca, modello, anno_da?, anno_a?, ricambi: [{ nome, codice, alternativo? }], olio, liquidi, gomme, coppie, regolazioni, note, aggiornato }
+        // /schede_tecniche/{id} = { id, marca, modello, anno_da?, anno_a?, ricambi: [{ nome, codice, alternativo? }], gomma_ant, press_ant, gomma_post, press_post, olio, liquidi, coppie, regolazioni, note, aggiornato }
+        // (v217: gomme e pressioni divise tra anteriore e posteriore; le schede con il vecchio campo unico "gomme" lo mostrano finché non vengono modificate)
         let schedeTecniche = {};
         const ST_CAMPI = [
             ['olio', '🛢️ Olio motore', 'Es. 10W40 sintetico · 2,7 L con filtro'],
             ['liquidi', '💧 Altri liquidi', 'Es. freni DOT 4 · refrigerante 1,2 L · olio forcella 10W'],
-            ['gomme', '🛞 Gomme e pressioni', 'Es. 120/70-15 · 160/60-15 · 2,25 / 2,50 bar'],
             ['coppie', '🔧 Coppie di serraggio', 'Es. tappo olio 43 Nm · ruota post. 120 Nm'],
             ['regolazioni', '📐 Regolazioni', 'Es. gioco valvole asp. 0,10–0,15 · minimo 1500 giri'],
             ['note', '📝 Note', 'Es. per il filtro aria togliere il fianchetto sinistro']
@@ -3918,6 +3919,14 @@
         function _ricambiScheda(sc) {
             const r = sc && sc.ricambi ? Object.values(sc.ricambi).filter(x => x && String(x.codice || '').trim()) : [];
             ST_VECCHI.forEach(([k, nome]) => { if (sc && String(sc[k] || '').trim()) r.push({ nome, codice: String(sc[k]).trim() }); });
+            return r;
+        }
+        const ST_GOMME = [['ant', 'Anteriore', '120/70-15', '2,25'], ['post', 'Posteriore', '160/60-15', '2,50']];
+        const _bar = v => { const t = String(v || '').trim(); return t && /^[\d.,\s–-]+$/.test(t) ? t + ' bar' : t; };
+        // [etichetta, testo] delle gomme da mostrare
+        function _gommeRighe(sc) {
+            const r = ST_GOMME.map(([k, lbl]) => [`🛞 Gomma ${lbl.toLowerCase()}`, [sc['gomma_' + k], _bar(sc['press_' + k])].filter(x => String(x || '').trim()).join(' · ')]).filter(x => x[1]);
+            if (!r.length && String(sc.gomme || '').trim()) r.push(['🛞 Gomme e pressioni', sc.gomme]);
             return r;
         }
         const _listaSchede = () => Object.values(schedeTecniche || {}).filter(x => x && x.id != null && x.modello);
@@ -3990,7 +3999,8 @@
             const v = $('st-vista');
             v.classList.remove('hidden');
             const codici = _codiciHtml(sc, false);
-            const righe = ST_CAMPI.filter(([k]) => String(sc[k] || '').trim()).map(([k, lbl]) => `<div class="st-dato" style="display:grid; grid-template-columns:minmax(120px, 190px) 1fr; gap:10px; padding:8px 0; border-top:1px solid #334155;"><span style="color:var(--muted); font-weight:700; font-size:0.86rem;">${lbl}</span><span style="color:white; white-space:pre-wrap;">${htmlEsc(sc[k])}</span></div>`).join('');
+            const voci = [..._gommeRighe(sc), ...ST_CAMPI.filter(([k]) => String(sc[k] || '').trim()).map(([k, lbl]) => [lbl, sc[k]])];
+            const righe = voci.map(([lbl, t]) => `<div class="st-dato" style="display:grid; grid-template-columns:minmax(120px, 190px) 1fr; gap:10px; padding:8px 0; border-top:1px solid #334155;"><span style="color:var(--muted); font-weight:700; font-size:0.86rem;">${lbl}</span><span style="color:white; white-space:pre-wrap;">${htmlEsc(t)}</span></div>`).join('');
             v.innerHTML = `<h2 style="color:#f97316; margin-bottom:2px;">🔧 ${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}${_anniScheda(sc) ? ` <span style="color:var(--muted); font-size:1rem;">${_anniScheda(sc)}</span>` : ''}</h2>
                 <div style="color:var(--muted); font-size:0.78rem; margin-bottom:10px;">${sc.aggiornato ? 'Aggiornata il ' + formattaData(sc.aggiornato) : ''}</div>
                 ${codici ? `<div style="color:#fdba74; font-size:0.78rem; font-weight:800; letter-spacing:0.5px; margin:4px 0 2px;">🔩 CODICI RICAMBI</div>${codici}` : ''}
@@ -4031,7 +4041,13 @@
             const righe = sc ? _ricambiScheda(sc) : [];
             // In una scheda nuova (o senza codici) le righe dei ricambi più comuni, da completare
             (righe.length ? righe : ST_RICAMBI_BASE.map(nome => ({ nome }))).forEach(r => box.appendChild(_rigaCodice(r)));
-            $('st-campi').innerHTML = ST_CAMPI.map(([k, lbl, ph]) => `<div style="margin-bottom:8px;"><label for="st_${k}">${lbl}</label>${k === 'note'
+            const vecchieGomme = sc && String(sc.gomme || '').trim() && !ST_GOMME.some(([k]) => sc['gomma_' + k] || sc['press_' + k]) ? String(sc.gomme).trim() : '';
+            const gomme = `<div style="margin-bottom:10px;"><label>🛞 Gomme e pressioni</label>
+                <div class="st-gomme" style="display:grid; grid-template-columns:100px 1fr 140px; gap:6px; align-items:center;">
+                    <span></span><span style="color:var(--muted); font-size:0.72rem; font-weight:800;">MISURA</span><span style="color:var(--muted); font-size:0.72rem; font-weight:800;">PRESSIONE (BAR)</span>
+                    ${ST_GOMME.map(([k, lbl, phM, phP]) => `<span style="color:var(--text); font-weight:700; font-size:0.88rem;">${lbl}</span><input id="st_gomma_${k}" value="${htmlEsc(sc ? sc['gomma_' + k] || '' : '')}" placeholder="Es. ${phM}" aria-label="Misura gomma ${lbl.toLowerCase()}" style="margin:0;"><input id="st_press_${k}" value="${htmlEsc(sc ? sc['press_' + k] || '' : '')}" placeholder="Es. ${phP}" inputmode="decimal" aria-label="Pressione gomma ${lbl.toLowerCase()}" style="margin:0;">`).join('')}
+                </div>${vecchieGomme ? `<div style="color:var(--warning); font-size:0.78rem; margin-top:4px;">Prima era scritto: «${htmlEsc(vecchieGomme)}» — dividilo qui sopra (se lasci vuoto resta così).</div>` : ''}</div>`;
+            $('st-campi').innerHTML = gomme + ST_CAMPI.map(([k, lbl, ph]) => `<div style="margin-bottom:8px;"><label for="st_${k}">${lbl}</label>${k === 'note'
                 ? `<textarea id="st_${k}" rows="3" placeholder="${htmlEsc(ph)}" style="margin:0;">${htmlEsc(sc ? sc[k] || '' : '')}</textarea>`
                 : `<input id="st_${k}" value="${htmlEsc(sc ? sc[k] || '' : '')}" placeholder="${htmlEsc(ph)}" style="margin:0;">`}</div>`).join('');
         }
@@ -4056,6 +4072,9 @@
             })).filter(r => r.codice || r.alternativo).map(r => { const o = { nome: r.nome || 'Ricambio', codice: r.codice || r.alternativo }; if (r.codice && r.alternativo) o.alternativo = r.alternativo; return o; });
             if (ricambi.length) rec.ricambi = ricambi;
             ST_CAMPI.forEach(([k]) => { const v = ($('st_' + k).value || '').trim(); if (v) rec[k] = v; });
+            ST_GOMME.forEach(([k]) => { ['gomma_', 'press_'].forEach(pr => { const v = _maiusc($('st_' + pr + k).value); if (v) rec[pr + k] = v; }); });
+            const prima = _listaSchede().find(x => String(x.id) === id);
+            if (prima && String(prima.gomme || '').trim() && !ST_GOMME.some(([k]) => rec['gomma_' + k] || rec['press_' + k])) rec.gomme = prima.gomme;   // vecchio campo unico, finché non viene diviso
             schedeTecniche = { ...schedeTecniche, [id]: rec };
             database.ref('/').update({ ['schede_tecniche/' + id]: rec }).then(showCloudCheck).catch(_onSaveError);
             mostraToast(`🔧 Scheda di ${marca} ${modello} salvata`);
@@ -4084,12 +4103,12 @@
                 box.innerHTML = `<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px dashed rgba(249,115,22,0.5); border-radius:10px; padding:8px 12px; color:var(--muted); font-size:0.88rem;"><span style="flex:1;">🔧 Nessuna scheda tecnica per <b style="color:var(--text);">${htmlEsc(_gruppoMarca(j.marca))} ${htmlEsc(_maiusc(j.modello))}</b></span><button type="button" class="btn w-auto" style="margin:0; padding:5px 12px; background:transparent; color:#fdba74; border:1px solid rgba(249,115,22,0.6);" onclick="apriSchedaTecnicaJob('${j.id}')">➕ Crea scheda tecnica</button></div>`;
                 return;
             }
-            const dati = ST_CAMPI.filter(([k]) => String(sc[k] || '').trim());
+            const dati = [..._gommeRighe(sc), ...ST_CAMPI.filter(([k]) => String(sc[k] || '').trim()).map(([k, lbl]) => [lbl, sc[k]])];
             const codici = _codiciHtml(sc, true);
             box.innerHTML = `<details open style="border:1px solid rgba(249,115,22,0.5); background:rgba(249,115,22,0.06); border-radius:10px; padding:8px 12px;">
                 <summary style="cursor:pointer; color:#fdba74; font-weight:800;">🔧 Scheda tecnica · ${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}${_anniScheda(sc) ? ' ' + _anniScheda(sc) : ''}</summary>
                 ${codici ? `<div style="margin-top:8px;">${codici}</div>` : ''}
-                ${dati.length ? `<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:4px 16px; margin-top:8px; font-size:0.86rem;">${dati.map(([k, lbl]) => `<div><span style="color:var(--muted);">${lbl}:</span> <span style="color:var(--text); white-space:pre-wrap;">${htmlEsc(sc[k])}</span></div>`).join('')}</div>` : ''}
+                ${dati.length ? `<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:4px 16px; margin-top:8px; font-size:0.86rem;">${dati.map(([lbl, t]) => `<div><span style="color:var(--muted);">${lbl}:</span> <span style="color:var(--text); white-space:pre-wrap;">${htmlEsc(t)}</span></div>`).join('')}</div>` : ''}
                 ${!codici && !dati.length ? '<div style="color:var(--muted); margin-top:6px;">Scheda ancora vuota.</div>' : ''}
                 <div style="margin-top:6px;"><button type="button" class="btn btn-dark w-auto" style="margin:0; padding:4px 10px; font-size:0.8rem;" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}')">Apri la scheda</button></div>
             </details>`;
