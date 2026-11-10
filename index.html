@@ -300,6 +300,8 @@
             #view-nuovo-cliente .form-panel { padding: 20px !important; }
             #view-nuovo-cliente div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
             .prev-moto-griglia { grid-template-columns: 1fr 1fr !important; }
+            .st-griglia-moto { grid-template-columns: 1fr 1fr !important; }
+            .st-dato { grid-template-columns: 1fr !important; gap: 2px !important; }
 
             /* ---- ARCHIVIO CLIENTI: card multi-col → verticale ---- */
             .archive-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -375,7 +377,7 @@
             #view-ledger > .flex-between:first-child > h2, #view-specials > .flex-between:first-child > h2, #view-incidentate > div:first-child > div:first-child > h2,
             #view-preventivi > div:first-child > div:first-child > h2, #view-stats > .flex-between:first-child > h2, #view-magazzino > div:first-child > .flex-between:first-child > h2,
             #view-tagliandi > div:first-child > .flex-between:first-child > h2, #view-scadenze > .flex-between:first-child > h2, #view-lista-attesa > .flex-between:first-child > h2,
-            #view-garanzie > .flex-between:first-child > h2, #vend-elenco > .flex-between:first-child > h2, #view-usate > .flex-between:first-child > h2 { display: none !important; }
+            #view-garanzie > .flex-between:first-child > h2, #vend-elenco > .flex-between:first-child > h2, #view-usate > .flex-between:first-child > h2, #view-schede > .flex-between:first-child > h2 { display: none !important; }
 
             /* ---- VENDITE: Salva sempre a portata nel foglio ---- */
             #vd-btn-salva-mob { display: flex; position: fixed; right: 14px; bottom: calc(74px + env(safe-area-inset-bottom, 0px)); z-index: 901; width: auto; margin: 0; padding: 12px 18px !important; border-radius: 30px; font-weight: 800; font-size: 0.95rem !important; box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
@@ -688,6 +690,7 @@
         <button class="nav-link" data-nav-id="ledger" style="color:#34d399;" onclick="switchView('ledger', this)">💸 Prima Nota</button>
         <button class="nav-link" data-nav-id="scadenze" style="color:#f43f5e;" onclick="switchView('scadenze', this)">📅 Scadenzario <span id="scadenze-badge" style="display:none;background:#f43f5e;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="magazzino" style="color:#14b8a6;" onclick="switchView('magazzino', this)">📦 Magazzino</button>
+        <button class="nav-link" data-nav-id="schede" style="color:#f97316;" onclick="switchView('schede', this)">🔧 Schede tecniche</button>
         <button class="nav-link" data-nav-id="lista-attesa" style="color:#a78bfa;" onclick="switchView('lista-attesa', this)">🏍️ Lista Attesa Moto <span id="attesa-badge" style="display:none;background:#a78bfa;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="usate" style="color:#f59e0b;" onclick="switchView('usate', this)">🏷️ Moto Usate</button>
         <button class="nav-link" data-nav-id="vendite" style="color:#f87171;" onclick="switchView('vendite', this)">📄 Vendite</button>
@@ -1722,6 +1725,17 @@
             <div id="attesa-list" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
         </div>
 
+        <div id="view-schede" class="view hidden">
+            <div class="flex-between mb-15" style="flex-shrink:0; flex-wrap:wrap; gap:10px;">
+                <h2 style="color:#f97316; margin:0;">🔧 Schede tecniche</h2>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; flex:1; justify-content:flex-end;">
+                    <input type="search" id="st-cerca" placeholder="🔍 Cerca marca o modello..." oninput="refreshSchedeTecniche()" aria-label="Cerca nelle schede tecniche" style="max-width:320px; margin:0;">
+                    <button type="button" class="btn btn-success w-auto" style="margin:0;" onclick="apriSchedaTecnica(null, true)">➕ Nuova scheda</button>
+                </div>
+            </div>
+            <div id="st-elenco" style="overflow-y:auto; flex-grow:1; padding-bottom:20px;"></div>
+        </div>
+
         <div id="view-garanzie" class="view hidden">
             <div class="flex-between mb-15" style="flex-shrink:0; flex-wrap:wrap; gap:10px;">
                 <h2 style="color:#34d399; margin:0;">🛡️ Garanzie</h2>
@@ -2092,6 +2106,9 @@
             <!-- Lavori consigliati le volte precedenti su questa moto -->
             <div id="conto-consigli-prima" class="mb-20" style="display:none;"></div>
 
+            <!-- Scheda tecnica del modello -->
+            <div id="conto-scheda-tecnica" class="mb-20" style="display:none;"></div>
+
             <!-- Voci Riparazione - full width per avere spazio ai campi IVA -->
             <div class="section-dark border-accent mb-20">
                 <h3 style="color:var(--accent);" class="mb-15">Voci Riparazione / Ricambi</h3>
@@ -2299,6 +2316,30 @@
             <p style="color:var(--muted); font-size:0.88rem; margin:0 0 14px;">Per ogni gruppo controlla la scrittura proposta (puoi correggerla nel riquadro) e premi <b>✓ Unifica</b>: cambia in tutte le schede di quelle moto, negli appuntamenti e nei passaporti. Se due nomi sono davvero moto diverse premi <b>Lascia così</b>.</p>
             <div id="pulizia-moto-corpo"></div>
             <div class="flex-row mt-15"><button class="btn btn-dark" onclick="closeModal('modal-pulizia-moto')">Chiudi</button></div>
+        </div>
+    </div>
+
+    <div id="modal-scheda-tecnica" class="modal hidden no-print">
+        <div class="modal-content" style="max-width:720px;">
+            <div id="st-vista"></div>
+            <div id="st-modulo" class="hidden">
+                <h2 id="st-titolo-modulo" style="color:#f97316; margin-bottom:12px;">🔧 Scheda tecnica</h2>
+                <input type="hidden" id="st_id">
+                <div style="display:grid; grid-template-columns:1fr 1fr 90px 90px; gap:10px;" class="st-griglia-moto">
+                    <div><label>Marca *</label><input id="st_marca" style="margin:0;"></div>
+                    <div><label>Modello *</label><input id="st_modello" style="margin:0;"></div>
+                    <div><label>Dal (anno)</label><input id="st_anno_da" type="number" inputmode="numeric" min="1950" max="2100" placeholder="opz." style="margin:0;"></div>
+                    <div><label>Al (anno)</label><input id="st_anno_a" type="number" inputmode="numeric" min="1950" max="2100" placeholder="opz." style="margin:0;"></div>
+                </div>
+                <div style="color:var(--muted); font-size:0.78rem; margin:6px 0 12px;">Gli anni servono solo se lo stesso modello ha pezzi diversi negli anni: lasciali vuoti per una scheda unica.</div>
+                <div id="st-campi"></div>
+                <div id="st-ricambi-usati"></div>
+                <div class="flex-row mt-15" style="flex-wrap:wrap;">
+                    <button type="button" class="btn btn-dark" style="flex:1;" onclick="annullaModuloScheda()">Annulla</button>
+                    <button type="button" id="st-btn-elimina" class="btn w-auto hidden" style="background:transparent; color:var(--accent); border:1px solid var(--accent);" onclick="eliminaSchedaTecnica()">🗑️ Elimina</button>
+                    <button type="button" class="btn btn-success" style="flex:1.5;" onclick="salvaSchedaTecnica()">💾 Salva scheda</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2858,6 +2899,13 @@
                 if (currentView === 'vendite') refreshVendite();
             });
 
+            database.ref('/schede_tecniche').on('value', (snap) => {
+                _segnaCaricato('schede_tecniche');
+                schedeTecniche = snap.val() || {};
+                if (currentView === 'schede') refreshSchedeTecniche();
+                else if (currentView === 'board') _dRefreshBoard();
+            });
+
             database.ref('/marche_extra').on('value', (snap) => {
                 _segnaCaricato('marche_extra');
                 marcheExtra = snap.val() || {};
@@ -3241,7 +3289,7 @@
             });
         }
 
-        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Statistiche', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lavori Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto', garanzie:'🛡️ Garanzie', vendite:'📄 Vendite', 'nuova-app':'📅 Appuntamento', 'crea-prev':'📝 Preventivo', 'nuovo-cliente':'👤 Nuovo Cliente', usate:'🏷️ Moto Usate' };
+        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Statistiche', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lavori Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto', garanzie:'🛡️ Garanzie', vendite:'📄 Vendite', 'nuova-app':'📅 Appuntamento', 'crea-prev':'📝 Preventivo', 'nuovo-cliente':'👤 Nuovo Cliente', usate:'🏷️ Moto Usate', schede:'🔧 Schede tecniche' };
         function switchView(viewId, el) {
             if (viewId !== 'nuova') _pendingSpecialCat = null;
             if (typeof _chiudiSuggerimentoMoto === 'function') { _chiudiSuggerimentoMoto(); _chiudiTendinaMoto(); }
@@ -3256,7 +3304,7 @@
                 refreshOrdiniAbb();
             }
             chiudiTuttiMenuBoard();
-            ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-incidentate', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa', 'view-usate', 'view-garanzie', 'view-vendite'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
+            ['view-board', 'view-nuova', 'view-archivio', 'view-nuovo-cliente', 'view-stats', 'view-preventivi', 'view-crea-prev', 'view-agenda', 'view-ledger', 'view-ordini', 'view-rubrica', 'view-specials', 'view-incidentate', 'view-magazzino', 'view-nuova-app', 'view-tagliandi', 'view-scadenze', 'view-lista-attesa', 'view-usate', 'view-garanzie', 'view-vendite', 'view-schede'].forEach(v => { const d = $(v); if(d) d.classList.add('hidden'); });
             Array.from($$('.nav-link')).forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.topbar-qbtn').forEach(b => b.classList.toggle('tq-active', b.dataset.view === viewId));
             _aggiornaTabbar(viewId);
@@ -3269,7 +3317,7 @@
             if(viewId === 'nuova') _renderLavoriFrequenti();
             if(viewId === 'nuovo-cliente') _resetNuovoClienteForm();
             if(viewId !== 'nuova' && viewId !== 'crea-prev') isEditing = false;
-            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') { statsSettOffset = 0; refreshStats(); } if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'incidentate') refreshIncidentate(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); } if(viewId === 'usate') { refreshUsate(); } if(viewId === 'garanzie') { currentGarTab = _garTabIniziale(); refreshGaranzie(); } if(viewId === 'vendite') refreshVendite();
+            if(viewId === 'board') refreshBoard(); if(viewId === 'archivio') refreshArchive(); if(viewId === 'stats') { statsSettOffset = 0; refreshStats(); } if(viewId === 'preventivi') refreshPreventivi(); if(viewId === 'agenda') refreshAgenda(); if(viewId === 'ledger') refreshLedger(); if(viewId === 'ordini') refreshOrdini(); if(viewId === 'rubrica') refreshRubrica(); if(viewId === 'specials') refreshSpecials(); if(viewId === 'incidentate') refreshIncidentate(); if(viewId === 'tagliandi') refreshTagliandi(); if(viewId === 'schede') refreshSchedeTecniche(); if(viewId === 'scadenze') refreshScadenze(); if(viewId === 'lista-attesa') { _attesaFilter = 'tutti'; refreshAttesa(); } if(viewId === 'usate') { refreshUsate(); } if(viewId === 'garanzie') { currentGarTab = _garTabIniziale(); refreshGaranzie(); } if(viewId === 'vendite') refreshVendite();
         }
 
         function clearForm() { Array.from($$('#view-nuova input, #view-nuova textarea')).forEach(i => { if(i.id !== 'f_data') i.value = ''; }); if($('acconti-container')) $('acconti-container').innerHTML = ''; if($('f_id')) $('f_id').value = ''; if($('f_client_id')) $('f_client_id').value = ''; if($('f_data')) $('f_data').value = getOggiLocale(); const _r=$('nuova-cliente-results'); if(_r) _r.style.display='none'; const _i=$('nuova-cliente-info'); if(_i) _i.style.display='none'; const _sc=$('f_search_cliente'); if(_sc) _sc.value=''; refreshMiniAgenda(); }
@@ -3553,7 +3601,7 @@
         // Modelli famosi scritti per sbaglio nel campo Marca (oltre a quelli che l'archivio conosce già come modelli di una marca)
         const MODELLI_NOTI = { AFRICATWIN: 'HONDA', TRANSALP: 'HONDA', HORNET: 'HONDA', FORZA: 'HONDA', INTEGRA: 'HONDA', DEAUVILLE: 'HONDA', GOLDWING: 'HONDA', TMAX: 'YAMAHA', XMAX: 'YAMAHA', NMAX: 'YAMAHA', TENERE: 'YAMAHA', TRACER: 'YAMAHA', MAJESTY: 'YAMAHA', AEROX: 'YAMAHA', BEVERLY: 'PIAGGIO', LIBERTY: 'PIAGGIO', MEDLEY: 'PIAGGIO', MONSTER: 'DUCATI', MULTISTRADA: 'DUCATI', PANIGALE: 'DUCATI', HYPERMOTARD: 'DUCATI', DIAVEL: 'DUCATI', BURGMAN: 'SUZUKI', VSTROM: 'SUZUKI', HAYABUSA: 'SUZUKI', NINJA: 'KAWASAKI', VERSYS: 'KAWASAKI', VULCAN: 'KAWASAKI', AGILITY: 'KYMCO', XCITING: 'KYMCO', DOWNTOWN: 'KYMCO', TUONO: 'APRILIA', SPORTCITY: 'APRILIA', SRGT: 'APRILIA', DUKE: 'KTM', BONNEVILLE: 'TRIUMPH', STREETTRIPLE: 'TRIUMPH', SPORTSTER: 'HARLEY-DAVIDSON', SOFTAIL: 'HARLEY-DAVIDSON', BRUTALE: 'MV AGUSTA', SYMPHONY: 'SYM', JOYMAX: 'SYM' };
         // Coppie [marca, modello] dei moduli; in Anagrafica → Modifica cliente le classi .edit_v_marca / .edit_v_modello
-        const CAMPI_MOTO = [['f_marca','f_modello'],['app_marca','app_modello'],['m_app_marca','m_app_modello'],['p_marca','p_modello'],['nc-marca','nc-modello'],['g_marca','g_modello'],['usata-marca','usata-modello'],['vd-marca','vd-modello'],['attesa-marca','attesa-modello']];
+        const CAMPI_MOTO = [['f_marca','f_modello'],['app_marca','app_modello'],['m_app_marca','m_app_modello'],['p_marca','p_modello'],['nc-marca','nc-modello'],['g_marca','g_modello'],['usata-marca','usata-modello'],['vd-marca','vd-modello'],['attesa-marca','attesa-modello'],['st_marca','st_modello']];
         const _maiusc = v => String(v || '').toUpperCase().trim();
         const _chiaveNome = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
         // Lettere da cambiare per passare da a a b; due lettere vicine invertite contano 1 (HODNA → HONDA)
@@ -3846,6 +3894,194 @@
             _renderPuliziaMoto();
         }
 
+        // ── Schede tecniche dei modelli (v215) ──
+        // /schede_tecniche/{id} = { id, marca, modello, anno_da?, anno_a?, olio, filtro_olio, filtro_aria, candela, gomme, freni, coppie, trasmissione, note, aggiornato }
+        let schedeTecniche = {};
+        const ST_CAMPI = [
+            ['olio', '🛢️ Olio motore', 'Es. 10W40 sintetico · 2,7 L con filtro'],
+            ['filtro_olio', '🔩 Filtro olio', 'Es. HF204'],
+            ['filtro_aria', '🌬️ Filtro aria', ''],
+            ['candela', '⚡ Candela', 'Es. NGK CR7E'],
+            ['gomme', '🛞 Gomme e pressioni', 'Es. 120/70-15 · 160/60-15 · 2,25 / 2,50 bar'],
+            ['freni', '🛑 Freni', 'Es. pastiglie ant. … · liquido DOT 4'],
+            ['coppie', '🔧 Coppie di serraggio', 'Es. tappo olio 43 Nm · ruota post. 120 Nm'],
+            ['trasmissione', '⚙️ Trasmissione', 'Es. cinghia … · rulli … · catena …'],
+            ['note', '📝 Note', 'Es. per il filtro aria togliere il fianchetto sinistro']
+        ];
+        const _listaSchede = () => Object.values(schedeTecniche || {}).filter(x => x && x.id != null && x.modello);
+        const _stessoModello = (sc, marca, modello) => _gruppoMarca(sc.marca) === _gruppoMarca(marca) && _modelliUguali(_maiusc(sc.modello), _maiusc(modello));
+        const _anniScheda = sc => (sc.anno_da || sc.anno_a) ? `${sc.anno_da || '…'}–${sc.anno_a || '…'}` : '';
+        function _schedaTecnicaPer(marca, modello, anno) {
+            if (!_maiusc(modello)) return null;
+            const c = _listaSchede().filter(sc => _stessoModello(sc, marca, modello));
+            if (c.length <= 1) return c[0] || null;
+            const a = parseInt(anno, 10);
+            const inRange = sc => (!sc.anno_da || a >= +sc.anno_da) && (!sc.anno_a || a <= +sc.anno_a);
+            return (a && c.find(sc => (sc.anno_da || sc.anno_a) && inRange(sc))) || c.find(sc => !sc.anno_da && !sc.anno_a) || c[0];
+        }
+        function _schedeMotoDiModello(sc) { return db.filter(j => j.stato !== 'preventivo' && _stessoModello(sc, j.marca, j.modello) && (!(sc.anno_da || sc.anno_a) || !j.anno || ((!sc.anno_da || +j.anno >= +sc.anno_da) && (!sc.anno_a || +j.anno <= +sc.anno_a)))); }
+        // Ricambi dei conti passati di quel modello (senza manodopera), i più usati prima
+        function _ricambiUsatiModello(marca, modello, sc) {
+            const jobs = sc ? _schedeMotoDiModello(sc) : db.filter(j => j.stato !== 'preventivo' && _gruppoMarca(j.marca) === _gruppoMarca(marca) && _modelliUguali(_maiusc(j.modello), _maiusc(modello)));
+            const c = {};
+            jobs.forEach(j => _listaJob(j.conto).forEach(v => {
+                const d = _maiusc(v && v.desc).replace(/\s×[\d,.]+$/, '');
+                if (!d || /MANODOPERA|LAVAGGIO|SMALTIMENTO|DIRITTI|SCONTO/.test(d)) return;
+                const k = (v.mag_codice ? 'M:' + v.mag_codice : 'D:' + d);
+                c[k] = c[k] || { desc: d, codice: v.mag_codice || '', n: 0 };
+                c[k].n++;
+            }));
+            return Object.values(c).sort((a, b) => b.n - a.n || a.desc.localeCompare(b.desc)).slice(0, 12);
+        }
+        function _campoPerRicambio(d) {
+            if (/FILTRO\W*(DELL'?\W*)?OLIO/.test(d)) return 'filtro_olio';
+            if (/FILTRO\W*(DELL'?\W*)?ARIA/.test(d)) return 'filtro_aria';
+            if (/CANDEL/.test(d)) return 'candela';
+            if (/OLIO/.test(d)) return 'olio';
+            if (/PASTIGL|FRENO|FRENI|DISCO|DOT/.test(d)) return 'freni';
+            if (/CINGHIA|RULLI|CATENA|CORONA|PIGNONE|FRIZION|TRASMISS/.test(d)) return 'trasmissione';
+            if (/GOMM|PNEUM/.test(d)) return 'gomme';
+            return 'note';
+        }
+        function refreshSchedeTecniche() {
+            const el = $('st-elenco');
+            if (!el) return;
+            const q = _maiusc(($('st-cerca') || {}).value).split(/\s+/).filter(Boolean);
+            const lista = _listaSchede().filter(sc => q.every(t => `${_maiusc(sc.marca)} ${_maiusc(sc.modello)}`.includes(t)))
+                .sort((a, b) => `${_maiusc(a.marca)} ${_maiusc(a.modello)}`.localeCompare(`${_maiusc(b.marca)} ${_maiusc(b.modello)}`) || (+a.anno_da || 0) - (+b.anno_da || 0));
+            const righe = lista.map(sc => {
+                const n = new Set(_schedeMotoDiModello(sc).map(j => chiaveTarga(j.targa)).filter(Boolean)).size;
+                const pill = [sc.olio && '🛢️ ' + sc.olio, sc.filtro_olio && '🔩 ' + sc.filtro_olio, sc.candela && '⚡ ' + sc.candela].filter(Boolean);
+                return `<div class="st-riga" role="button" tabindex="0" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}')" style="cursor:pointer; background:var(--card); border:1px solid #334155; border-left:4px solid #f97316; border-radius:10px; padding:10px 14px; margin-bottom:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                    <div style="flex:1 1 220px; min-width:0;"><b style="color:white;">${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}</b>${_anniScheda(sc) ? ` <span style="color:var(--muted); font-size:0.82rem; font-weight:700;">${_anniScheda(sc)}</span>` : ''}
+                        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">${pill.map(x => `<span style="font-size:0.75rem; color:var(--text); background:#1e293b; border-radius:6px; padding:1px 7px;">${htmlEsc(x)}</span>`).join('') || '<span style="font-size:0.75rem; color:var(--muted);">Scheda ancora vuota</span>'}</div></div>
+                    <span style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">🏍️ ${n} ${n === 1 ? 'moto' : 'moto'} in archivio</span>
+                </div>`;
+            }).join('');
+            // Modelli più frequenti senza scheda: da dove cominciare
+            const conta = _contaMarche(), freq = {};
+            db.forEach(j => {
+                const mo = _maiusc(j.modello), ma = _gruppoMarca(j.marca, conta), k = chiaveTarga(j.targa);
+                if (!mo || !ma || !k || j.stato === 'preventivo' || _schedaTecnicaPer(ma, mo, j.anno)) return;
+                const key = ma + '|' + _chiaveNome(mo);
+                freq[key] = freq[key] || { marca: ma, modello: mo, targhe: new Set() };
+                freq[key].targhe.add(k);
+            });
+            const senza = Object.values(freq).filter(x => x.targhe.size >= 2).sort((a, b) => b.targhe.size - a.targhe.size).slice(0, 10);
+            const consigli = !senza.length || q.length ? '' : `<div style="margin-top:16px;"><div style="color:var(--muted); font-size:0.78rem; font-weight:800; letter-spacing:0.5px; margin-bottom:6px;">MODELLI CHE VEDI SPESSO, SENZA SCHEDA</div>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">${senza.map(x => `<button type="button" class="btn btn-dark w-auto" style="margin:0; padding:6px 10px; font-size:0.82rem;" onclick="nuovaSchedaPer('${safeEncode(x.marca)}','${safeEncode(x.modello)}')">➕ ${htmlEsc(x.marca)} ${htmlEsc(x.modello)} <small style="color:var(--muted);">${x.targhe.size} moto</small></button>`).join('')}</div></div>`;
+            el.innerHTML = (righe || `<p style="color:var(--muted); text-align:center; padding:24px 0; margin:0;">${q.length ? 'Nessuna scheda trovata.' : 'Nessuna scheda ancora. Premi <b>➕ Nuova scheda</b> o parti da uno dei modelli qui sotto.'}</p>`) + consigli;
+        }
+        let _schedaAperta = null;   // id della scheda mostrata; _nuovaScheda: marca/modello proposti per una scheda nuova
+        function apriSchedaTecnica(id, modifica, proposta) {
+            const sc = id != null ? _listaSchede().find(x => String(x.id) === String(id)) : null;
+            _schedaAperta = sc ? sc.id : null;
+            if (!sc || modifica) _moduloScheda(sc, proposta); else _vistaScheda(sc);
+            $('modal-scheda-tecnica').classList.remove('hidden');
+        }
+        function nuovaSchedaPer(encMarca, encModello, anno) { apriSchedaTecnica(null, true, { marca: safeDecode(encMarca), modello: safeDecode(encModello), anno: anno || '' }); }
+        function apriSchedaTecnicaJob(jobId) {
+            const j = db.find(x => String(x.id) === String(jobId));
+            if (!j) return;
+            const sc = _schedaTecnicaPer(j.marca, j.modello, j.anno);
+            if (sc) apriSchedaTecnica(sc.id); else nuovaSchedaPer(safeEncode(_gruppoMarca(j.marca)), safeEncode(_maiusc(j.modello)));
+        }
+        function _vistaScheda(sc) {
+            $('st-modulo').classList.add('hidden');
+            const v = $('st-vista');
+            v.classList.remove('hidden');
+            const righe = ST_CAMPI.filter(([k]) => String(sc[k] || '').trim()).map(([k, lbl]) => `<div class="st-dato" style="display:grid; grid-template-columns:minmax(120px, 190px) 1fr; gap:10px; padding:8px 0; border-top:1px solid #334155;"><span style="color:var(--muted); font-weight:700; font-size:0.86rem;">${lbl}</span><span style="color:white; white-space:pre-wrap;">${htmlEsc(sc[k])}</span></div>`).join('');
+            const ric = _ricambiUsatiModello(sc.marca, sc.modello, sc);
+            v.innerHTML = `<h2 style="color:#f97316; margin-bottom:2px;">🔧 ${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}${_anniScheda(sc) ? ` <span style="color:var(--muted); font-size:1rem;">${_anniScheda(sc)}</span>` : ''}</h2>
+                <div style="color:var(--muted); font-size:0.78rem; margin-bottom:10px;">${sc.aggiornato ? 'Aggiornata il ' + formattaData(sc.aggiornato) : ''}</div>
+                ${righe || '<p style="color:var(--muted); margin:10px 0;">Scheda ancora vuota: premi ✏️ Modifica per compilarla.</p>'}
+                ${ric.length ? `<div style="margin-top:14px;"><div style="color:var(--muted); font-size:0.78rem; font-weight:800; letter-spacing:0.5px; margin-bottom:6px;">RICAMBI USATI SU QUESTO MODELLO (DAI CONTI)</div>${ric.map(r => `<div style="font-size:0.85rem; padding:3px 0;">${htmlEsc(r.desc)}${r.codice ? ` <span style="color:#14b8a6; font-size:0.75rem;">📦 ${htmlEsc(r.codice)}</span>` : ''} <small style="color:var(--muted);">· ${r.n} ${r.n === 1 ? 'volta' : 'volte'}</small></div>`).join('')}</div>` : ''}
+                <div class="flex-row mt-15"><button type="button" class="btn btn-dark" style="flex:1;" onclick="closeModal('modal-scheda-tecnica')">Chiudi</button><button type="button" class="btn w-auto" style="flex:1; background:#f97316; color:#1c1917;" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}', true)">✏️ Modifica</button></div>`;
+        }
+        function _moduloScheda(sc, proposta) {
+            $('st-vista').classList.add('hidden');
+            $('st-modulo').classList.remove('hidden');
+            const p = sc || proposta || {};
+            $('st_id').value = sc ? String(sc.id) : '';
+            $('st_marca').value = _maiusc(p.marca);
+            $('st_modello').value = _maiusc(p.modello);
+            $('st_anno_da').value = sc ? (sc.anno_da || '') : '';
+            $('st_anno_a').value = sc ? (sc.anno_a || '') : '';
+            $('st-titolo-modulo').textContent = sc ? '✏️ Modifica scheda tecnica' : '➕ Nuova scheda tecnica';
+            $('st-btn-elimina').classList.toggle('hidden', !sc);
+            $('st-campi').innerHTML = ST_CAMPI.map(([k, lbl, ph]) => `<div style="margin-bottom:8px;"><label for="st_${k}">${lbl}</label>${k === 'note'
+                ? `<textarea id="st_${k}" rows="3" placeholder="${htmlEsc(ph)}" style="margin:0;">${htmlEsc(sc ? sc[k] || '' : '')}</textarea>`
+                : `<input id="st_${k}" value="${htmlEsc(sc ? sc[k] || '' : '')}" placeholder="${htmlEsc(ph)}" style="margin:0;">`}</div>`).join('');
+            _renderRicambiModulo();
+        }
+        function _renderRicambiModulo() {
+            const box = $('st-ricambi-usati');
+            if (!box) return;
+            const ric = _ricambiUsatiModello($('st_marca').value, $('st_modello').value, null);
+            box.innerHTML = !ric.length ? '' : `<div style="margin-top:10px; border:1px dashed #475569; border-radius:10px; padding:10px 12px;"><div style="color:var(--muted); font-size:0.78rem; font-weight:800; letter-spacing:0.5px; margin-bottom:6px;">RICAMBI USATI SU QUESTO MODELLO · un clic lo copia nel campo giusto</div>
+                ${ric.map(r => `<div style="display:flex; gap:8px; align-items:center; padding:3px 0; font-size:0.85rem;"><span style="flex:1;">${htmlEsc(r.desc)}${r.codice ? ` <span style="color:#14b8a6; font-size:0.75rem;">📦 ${htmlEsc(r.codice)}</span>` : ''} <small style="color:var(--muted);">· ${r.n} ${r.n === 1 ? 'volta' : 'volte'}</small></span><button type="button" class="btn btn-dark w-auto" style="margin:0; padding:3px 9px; font-size:0.78rem;" onclick="copiaRicambioInScheda('${safeEncode(r.desc + (r.codice && !r.desc.includes(r.codice) ? ' (' + r.codice + ')' : ''))}')">➕ ${htmlEsc((ST_CAMPI.find(c => c[0] === _campoPerRicambio(r.desc)) || [, ''])[1].replace(/^\S+\s/, ''))}</button></div>`).join('')}</div>`;
+        }
+        function copiaRicambioInScheda(enc) {
+            const t = safeDecode(enc), campo = $('st_' + _campoPerRicambio(_maiusc(t)));
+            if (!campo) return;
+            if (!_maiusc(campo.value).includes(_maiusc(t))) campo.value = campo.value.trim() ? campo.value.trim() + ' · ' + t : t;
+            campo.focus();
+        }
+        function annullaModuloScheda() {
+            const sc = _listaSchede().find(x => String(x.id) === String($('st_id').value));
+            if (sc) _vistaScheda(sc); else closeModal('modal-scheda-tecnica');
+        }
+        function salvaSchedaTecnica() {
+            const marca = _maiusc($('st_marca').value), modello = _maiusc($('st_modello').value);
+            if (!marca || !modello) return mostraErrore('Scrivi marca e modello.');
+            const da = _annoValido($('st_anno_da').value), a = _annoValido($('st_anno_a').value);
+            if (da && a && +da > +a) return mostraErrore('L\'anno "dal" è dopo l\'anno "al".');
+            const id = $('st_id').value || String(genId());
+            const doppia = _listaSchede().find(sc => String(sc.id) !== id && _stessoModello(sc, marca, modello) && String(sc.anno_da || '') === da && String(sc.anno_a || '') === a);
+            if (doppia) return mostraErrore(`Esiste già una scheda per ${marca} ${modello}${da || a ? ' ' + (da || '…') + '–' + (a || '…') : ''}: aprila dall'elenco.`);
+            if (!_puoSalvare('schede_tecniche')) return;
+            const rec = { id, marca, modello, aggiornato: getOggiLocale() };
+            if (da) rec.anno_da = da;
+            if (a) rec.anno_a = a;
+            ST_CAMPI.forEach(([k]) => { const v = ($('st_' + k).value || '').trim(); if (v) rec[k] = v; });
+            schedeTecniche = { ...schedeTecniche, [id]: rec };
+            database.ref('/').update({ ['schede_tecniche/' + id]: rec }).then(showCloudCheck).catch(_onSaveError);
+            mostraToast(`🔧 Scheda di ${marca} ${modello} salvata`);
+            _schedaAperta = id;
+            _vistaScheda(rec);
+            if (currentView === 'schede') refreshSchedeTecniche();
+            if (!$('modal-conto').classList.contains('hidden')) { const j = db.find(x => String(x.id) === String(currentJobId)); if (j) _renderSchedaConto(j); }
+        }
+        function eliminaSchedaTecnica() {
+            const id = $('st_id').value;
+            const sc = _listaSchede().find(x => String(x.id) === String(id));
+            if (!sc || !confirm(`Eliminare la scheda tecnica di ${_maiusc(sc.marca)} ${_maiusc(sc.modello)}?`)) return;
+            if (!_puoSalvare('schede_tecniche')) return;
+            const n = { ...schedeTecniche }; delete n[id]; schedeTecniche = n;
+            database.ref('/').update({ ['schede_tecniche/' + id]: null }).then(showCloudCheck).catch(_onSaveError);
+            closeModal('modal-scheda-tecnica');
+            if (currentView === 'schede') refreshSchedeTecniche();
+        }
+        // Nel conto: i dati principali della scheda (richiudibile), oppure "➕ Crea scheda tecnica"
+        function _renderSchedaConto(j) {
+            const box = $('conto-scheda-tecnica');
+            if (!box) return;
+            if (!j || !_maiusc(j.modello)) { box.style.display = 'none'; box.innerHTML = ''; return; }
+            const sc = _schedaTecnicaPer(j.marca, j.modello, j.anno);
+            box.style.display = '';
+            if (!sc) {
+                box.innerHTML = `<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px dashed rgba(249,115,22,0.5); border-radius:10px; padding:8px 12px; color:var(--muted); font-size:0.88rem;"><span style="flex:1;">🔧 Nessuna scheda tecnica per <b style="color:var(--text);">${htmlEsc(_gruppoMarca(j.marca))} ${htmlEsc(_maiusc(j.modello))}</b></span><button type="button" class="btn w-auto" style="margin:0; padding:5px 12px; background:transparent; color:#fdba74; border:1px solid rgba(249,115,22,0.6);" onclick="apriSchedaTecnicaJob('${j.id}')">➕ Crea scheda tecnica</button></div>`;
+                return;
+            }
+            const dati = ST_CAMPI.filter(([k]) => String(sc[k] || '').trim());
+            box.innerHTML = `<details open style="border:1px solid rgba(249,115,22,0.5); background:rgba(249,115,22,0.06); border-radius:10px; padding:8px 12px;">
+                <summary style="cursor:pointer; color:#fdba74; font-weight:800;">🔧 Scheda tecnica · ${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}${_anniScheda(sc) ? ' ' + _anniScheda(sc) : ''}</summary>
+                <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:4px 16px; margin-top:8px; font-size:0.86rem;">${dati.map(([k, lbl]) => `<div><span style="color:var(--muted);">${lbl}:</span> <span style="color:var(--text); white-space:pre-wrap;">${htmlEsc(sc[k])}</span></div>`).join('') || '<span style="color:var(--muted);">Scheda ancora vuota.</span>'}</div>
+                <div style="margin-top:6px;"><button type="button" class="btn btn-dark w-auto" style="margin:0; padding:4px 10px; font-size:0.8rem;" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}')">Apri la scheda</button></div>
+            </details>`;
+        }
+        document.addEventListener('change', e => { if (e.target && (e.target.id === 'st_marca' || e.target.id === 'st_modello')) _renderRicambiModulo(); });
+
         // Anno della moto (v207): j.anno sulla scheda; per una targa già vista si riprende dall'ultima scheda che lo ha
         function _annoDiTarga(targa, escludiId) {
             const k = chiaveTarga(targa);
@@ -3954,7 +4190,7 @@
         // =====================================================================
         // Backup manuale: le sezioni principali (come prima, così i vecchi file restano ripristinabili)
         // più tutte le altre lette dal cloud così come sono. Restano fuori solo i file dei libretti (pesanti).
-        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse', 'passaporti_idx', 'passaporti', 'marche_extra'];
+        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse', 'passaporti_idx', 'passaporti', 'marche_extra', 'schede_tecniche'];
         const BACKUP_NOMI = { db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Prima Nota', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse', passaporti_idx: 'Passaporti delle moto', passaporti: 'Pagine online dei passaporti' };
         function _contaBackup(v) {
             if (v == null || typeof v !== 'object') return '';
@@ -6581,7 +6817,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     </div>
                     <div class="flex-between" style="align-items:center; margin-top:5px;">
     <div style="line-height:1.2;">
-        <b style="color:white; font-size:0.95rem;">${htmlEsc(j.marca||'')} ${htmlEsc(j.modello||'')}</b>${j.anno ? ` <span class="anno-moto" title="Anno della moto" style="color:var(--muted); font-size:0.8rem; font-weight:700;">${htmlEsc(j.anno)}</span>` : ''}
+        <b style="color:white; font-size:0.95rem;">${htmlEsc(j.marca||'')} ${htmlEsc(j.modello||'')}</b>${j.anno ? ` <span class="anno-moto" title="Anno della moto" style="color:var(--muted); font-size:0.8rem; font-weight:700;">${htmlEsc(j.anno)}</span>` : ''}${_schedaTecnicaPer(j.marca, j.modello, j.anno) ? ` <span class="st-chip" role="button" tabindex="0" title="Scheda tecnica del modello" onclick="event.stopPropagation(); apriSchedaTecnicaJob('${j.id}')" style="cursor:pointer; font-size:0.78rem; background:rgba(249,115,22,0.15); border:1px solid rgba(249,115,22,0.45); color:#fdba74; border-radius:6px; padding:0 5px; margin-left:3px;">🔧</span>` : ''}
         <span class="customer-info">${htmlEsc((j.cognome||'').toUpperCase())} ${htmlEsc(j.nome||'')}</span>
     </div>
     ${j.tel ? `<a href="tel:${htmlEsc(j.tel)}" onclick="event.stopPropagation();" class="tel-link" style="display:inline-flex; align-items:center; gap:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.35); color:#93c5fd; font-size:0.88rem; font-weight:700; padding:3px 9px; border-radius:20px; margin-left:6px; text-decoration:none; letter-spacing:0.3px; flex-shrink:0;">📞 ${htmlEsc(j.tel)}</a>` : ''}
@@ -7385,6 +7621,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             $('conto-consigli').innerHTML = '';
             _consigliDi(j).forEach(c => addConsiglioConto(c.testo, Number(c.mesi) || 0, false, c.id));
             _renderConsigliPrima();
+            _renderSchedaConto(j);
             $('modal-conto').classList.remove('hidden');
         }
 
