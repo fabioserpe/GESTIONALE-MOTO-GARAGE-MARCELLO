@@ -306,6 +306,7 @@
             .st-riga-codice .stc-nome { grid-column: 1 / -1; }
             .st-codici-testa { display: none !important; }
             .st-gomme { grid-template-columns: 78px 1fr 72px !important; }
+            .st-olio { grid-template-columns: 1fr 110px !important; }
 
             /* ---- ARCHIVIO CLIENTI: card multi-col → verticale ---- */
             .archive-card-row { grid-template-columns: 1fr !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -3902,11 +3903,10 @@
         }
 
         // ── Schede tecniche dei modelli (v215, v216: codici ricambi in tabella) ──
-        // /schede_tecniche/{id} = { id, marca, modello, anno_da?, anno_a?, ricambi: [{ nome, codice, alternativo? }], gomma_ant, press_ant, gomma_post, press_post, olio, liquidi, coppie, regolazioni, note, aggiornato }
-        // (v217: gomme e pressioni divise tra anteriore e posteriore; le schede con il vecchio campo unico "gomme" lo mostrano finché non vengono modificate)
+        // /schede_tecniche/{id} = { id, marca, modello, anno_da?, anno_a?, ricambi: [{ nome, codice, alternativo? }], gomma_ant, press_ant, gomma_post, press_post, olio_tipo, olio_qta, liquidi, coppie, regolazioni, note, aggiornato }
+        // (v217: gomme e pressioni divise tra anteriore e posteriore; v218: olio diviso in tipo e quantità; i vecchi campi unici "gomme" e "olio" restano finché non vengono divisi)
         let schedeTecniche = {};
         const ST_CAMPI = [
-            ['olio', '🛢️ Olio motore', 'Es. 10W40 sintetico · 2,7 L con filtro'],
             ['liquidi', '💧 Altri liquidi', 'Es. freni DOT 4 · refrigerante 1,2 L · olio forcella 10W'],
             ['coppie', '🔧 Coppie di serraggio', 'Es. tappo olio 43 Nm · ruota post. 120 Nm'],
             ['regolazioni', '📐 Regolazioni', 'Es. gioco valvole asp. 0,10–0,15 · minimo 1500 giri'],
@@ -3923,6 +3923,8 @@
         }
         const ST_GOMME = [['ant', 'Anteriore', '120/70-15', '2,25'], ['post', 'Posteriore', '160/60-15', '2,50']];
         const _bar = v => { const t = String(v || '').trim(); return t && /^[\d.,\s–-]+$/.test(t) ? t + ' bar' : t; };
+        const _litri = v => { const t = String(v || '').trim(); return /^\d/.test(t) && !/\bL\b|LITR/i.test(t) ? t.replace(/^([\d.,]+(\s*[–-]\s*[\d.,]+)?)/, '$1 L') : t; };   // "2,7 con filtro" → "2,7 L con filtro"
+        function _olioTesto(sc) { return [sc.olio_tipo, _litri(sc.olio_qta)].filter(x => String(x || '').trim()).join(' · ') || String(sc.olio || '').trim(); }
         // [etichetta, testo] delle gomme da mostrare
         function _gommeRighe(sc) {
             const r = ST_GOMME.map(([k, lbl]) => [`🛞 Gomma ${lbl.toLowerCase()}`, [sc['gomma_' + k], _bar(sc['press_' + k])].filter(x => String(x || '').trim()).join(' · ')]).filter(x => x[1]);
@@ -3961,7 +3963,7 @@
                 .sort((a, b) => `${_maiusc(a.marca)} ${_maiusc(a.modello)}`.localeCompare(`${_maiusc(b.marca)} ${_maiusc(b.modello)}`) || (+a.anno_da || 0) - (+b.anno_da || 0));
             const righe = lista.map(sc => {
                 const n = new Set(_schedeMotoDiModello(sc).map(j => chiaveTarga(j.targa)).filter(Boolean)).size;
-                const pill = [sc.olio && '🛢️ ' + sc.olio, ..._ricambiScheda(sc).slice(0, 3).map(x => `${x.nome || 'Ricambio'} ${x.codice}`)].filter(Boolean);
+                const pill = [_olioTesto(sc) && '🛢️ ' + _olioTesto(sc), ..._ricambiScheda(sc).slice(0, 3).map(x => `${x.nome || 'Ricambio'} ${x.codice}`)].filter(Boolean);
                 return `<div class="st-riga" role="button" tabindex="0" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}')" style="cursor:pointer; background:var(--card); border:1px solid #334155; border-left:4px solid #f97316; border-radius:10px; padding:10px 14px; margin-bottom:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                     <div style="flex:1 1 220px; min-width:0;"><b style="color:white;">${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}</b>${_anniScheda(sc) ? ` <span style="color:var(--muted); font-size:0.82rem; font-weight:700;">${_anniScheda(sc)}</span>` : ''}
                         <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">${pill.map(x => `<span style="font-size:0.75rem; color:var(--text); background:#1e293b; border-radius:6px; padding:1px 7px;">${htmlEsc(x)}</span>`).join('') || '<span style="font-size:0.75rem; color:var(--muted);">Scheda ancora vuota</span>'}</div></div>
@@ -3999,7 +4001,7 @@
             const v = $('st-vista');
             v.classList.remove('hidden');
             const codici = _codiciHtml(sc, false);
-            const voci = [..._gommeRighe(sc), ...ST_CAMPI.filter(([k]) => String(sc[k] || '').trim()).map(([k, lbl]) => [lbl, sc[k]])];
+            const voci = [...(_olioTesto(sc) ? [['🛢️ Olio motore', _olioTesto(sc)]] : []), ..._gommeRighe(sc), ...ST_CAMPI.filter(([k]) => String(sc[k] || '').trim()).map(([k, lbl]) => [lbl, sc[k]])];
             const righe = voci.map(([lbl, t]) => `<div class="st-dato" style="display:grid; grid-template-columns:minmax(120px, 190px) 1fr; gap:10px; padding:8px 0; border-top:1px solid #334155;"><span style="color:var(--muted); font-weight:700; font-size:0.86rem;">${lbl}</span><span style="color:white; white-space:pre-wrap;">${htmlEsc(t)}</span></div>`).join('');
             v.innerHTML = `<h2 style="color:#f97316; margin-bottom:2px;">🔧 ${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}${_anniScheda(sc) ? ` <span style="color:var(--muted); font-size:1rem;">${_anniScheda(sc)}</span>` : ''}</h2>
                 <div style="color:var(--muted); font-size:0.78rem; margin-bottom:10px;">${sc.aggiornato ? 'Aggiornata il ' + formattaData(sc.aggiornato) : ''}</div>
@@ -4047,7 +4049,14 @@
                     <span></span><span style="color:var(--muted); font-size:0.72rem; font-weight:800;">MISURA</span><span style="color:var(--muted); font-size:0.72rem; font-weight:800;">PRESSIONE (BAR)</span>
                     ${ST_GOMME.map(([k, lbl, phM, phP]) => `<span style="color:var(--text); font-weight:700; font-size:0.88rem;">${lbl}</span><input id="st_gomma_${k}" value="${htmlEsc(sc ? sc['gomma_' + k] || '' : '')}" placeholder="Es. ${phM}" aria-label="Misura gomma ${lbl.toLowerCase()}" style="margin:0;"><input id="st_press_${k}" value="${htmlEsc(sc ? sc['press_' + k] || '' : '')}" placeholder="Es. ${phP}" inputmode="decimal" aria-label="Pressione gomma ${lbl.toLowerCase()}" style="margin:0;">`).join('')}
                 </div>${vecchieGomme ? `<div style="color:var(--warning); font-size:0.78rem; margin-top:4px;">Prima era scritto: «${htmlEsc(vecchieGomme)}» — dividilo qui sopra (se lasci vuoto resta così).</div>` : ''}</div>`;
-            $('st-campi').innerHTML = gomme + ST_CAMPI.map(([k, lbl, ph]) => `<div style="margin-bottom:8px;"><label for="st_${k}">${lbl}</label>${k === 'note'
+            const vecchioOlio = sc && String(sc.olio || '').trim() && !sc.olio_tipo && !sc.olio_qta ? String(sc.olio).trim() : '';
+            const olio = `<div style="margin-bottom:10px;"><label>🛢️ Olio motore</label>
+                <div class="st-olio" style="display:grid; grid-template-columns:1fr 160px; gap:6px;">
+                    <span style="color:var(--muted); font-size:0.72rem; font-weight:800;">TIPO</span><span style="color:var(--muted); font-size:0.72rem; font-weight:800;">QUANTITÀ (LITRI)</span>
+                    <input id="st_olio_tipo" value="${htmlEsc(sc ? sc.olio_tipo || '' : '')}" placeholder="Es. 10W40 sintetico" aria-label="Tipo di olio motore" style="margin:0;">
+                    <input id="st_olio_qta" value="${htmlEsc(sc ? sc.olio_qta || '' : '')}" placeholder="Es. 2,7 con filtro" aria-label="Quantità di olio motore" style="margin:0;">
+                </div>${vecchioOlio ? `<div style="color:var(--warning); font-size:0.78rem; margin-top:4px;">Prima era scritto: «${htmlEsc(vecchioOlio)}» — dividilo qui sopra (se lasci vuoto resta così).</div>` : ''}</div>`;
+            $('st-campi').innerHTML = olio + gomme + ST_CAMPI.map(([k, lbl, ph]) => `<div style="margin-bottom:8px;"><label for="st_${k}">${lbl}</label>${k === 'note'
                 ? `<textarea id="st_${k}" rows="3" placeholder="${htmlEsc(ph)}" style="margin:0;">${htmlEsc(sc ? sc[k] || '' : '')}</textarea>`
                 : `<input id="st_${k}" value="${htmlEsc(sc ? sc[k] || '' : '')}" placeholder="${htmlEsc(ph)}" style="margin:0;">`}</div>`).join('');
         }
@@ -4073,8 +4082,10 @@
             if (ricambi.length) rec.ricambi = ricambi;
             ST_CAMPI.forEach(([k]) => { const v = ($('st_' + k).value || '').trim(); if (v) rec[k] = v; });
             ST_GOMME.forEach(([k]) => { ['gomma_', 'press_'].forEach(pr => { const v = _maiusc($('st_' + pr + k).value); if (v) rec[pr + k] = v; }); });
+            ['olio_tipo', 'olio_qta'].forEach(k => { const v = ($('st_' + k).value || '').trim(); if (v) rec[k] = v; });
             const prima = _listaSchede().find(x => String(x.id) === id);
             if (prima && String(prima.gomme || '').trim() && !ST_GOMME.some(([k]) => rec['gomma_' + k] || rec['press_' + k])) rec.gomme = prima.gomme;   // vecchio campo unico, finché non viene diviso
+            if (prima && String(prima.olio || '').trim() && !rec.olio_tipo && !rec.olio_qta) rec.olio = prima.olio;
             schedeTecniche = { ...schedeTecniche, [id]: rec };
             database.ref('/').update({ ['schede_tecniche/' + id]: rec }).then(showCloudCheck).catch(_onSaveError);
             mostraToast(`🔧 Scheda di ${marca} ${modello} salvata`);
@@ -4103,7 +4114,7 @@
                 box.innerHTML = `<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px dashed rgba(249,115,22,0.5); border-radius:10px; padding:8px 12px; color:var(--muted); font-size:0.88rem;"><span style="flex:1;">🔧 Nessuna scheda tecnica per <b style="color:var(--text);">${htmlEsc(_gruppoMarca(j.marca))} ${htmlEsc(_maiusc(j.modello))}</b></span><button type="button" class="btn w-auto" style="margin:0; padding:5px 12px; background:transparent; color:#fdba74; border:1px solid rgba(249,115,22,0.6);" onclick="apriSchedaTecnicaJob('${j.id}')">➕ Crea scheda tecnica</button></div>`;
                 return;
             }
-            const dati = [..._gommeRighe(sc), ...ST_CAMPI.filter(([k]) => String(sc[k] || '').trim()).map(([k, lbl]) => [lbl, sc[k]])];
+            const dati = [...(_olioTesto(sc) ? [['🛢️ Olio motore', _olioTesto(sc)]] : []), ..._gommeRighe(sc), ...ST_CAMPI.filter(([k]) => String(sc[k] || '').trim()).map(([k, lbl]) => [lbl, sc[k]])];
             const codici = _codiciHtml(sc, true);
             box.innerHTML = `<details open style="border:1px solid rgba(249,115,22,0.5); background:rgba(249,115,22,0.06); border-radius:10px; padding:8px 12px;">
                 <summary style="cursor:pointer; color:#fdba74; font-weight:800;">🔧 Scheda tecnica · ${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}${_anniScheda(sc) ? ' ' + _anniScheda(sc) : ''}</summary>
