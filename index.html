@@ -192,6 +192,7 @@
         .hamburger-btn { display: flex; align-items: center; background: none; border: none; color: var(--text); font-size: 1.4rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; line-height: 1; flex-shrink: 0; transition: background 0.15s; }
         .hamburger-btn:hover { background: rgba(255,255,255,0.07); }
         .sidebar .nav-link.nav-doppione { display: none !important; }
+        #moto-tendina .mt-voce:hover, #moto-tendina .mt-voce.on { background: rgba(56,189,248,0.18); color: white; }
         #mob-tabbar, #board-tabs, #vd-btn-salva-mob { display: none; }
         .sidebar-close-btn { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.07); border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
         .sidebar-close-btn:hover { background: rgba(255,255,255,0.15); color: white; }
@@ -665,8 +666,6 @@
     <div id="app-shell" style="display:none; width:100%; height:100vh; overflow:hidden; flex-direction:row;">
 
     <datalist id="targhe-salvate"></datalist>
-    <datalist id="moto-marche"></datalist>
-    <datalist id="moto-modelli"></datalist>
 
     <div class="sidebar-overlay no-print" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -3181,7 +3180,7 @@
         function toggleDropdown(btn) { var tds = document.querySelectorAll('.dropdown.active'); tds.forEach(function(dd) { if (dd !== btn.parentElement) dd.classList.remove('active'); }); btn.parentElement.classList.toggle('active'); }
         window.onclick = function(event) { if (!event.target.matches('.btn-outline-info') && !event.target.matches('.dropdown *')) { var dds = document.getElementsByClassName("dropdown"); for (var i = 0; i < dds.length; i++) { if (dds[i].classList.contains('active')) dds[i].classList.remove('active'); } } }
         function openModal(id) { const m = $(id); if (m) m.classList.remove('hidden'); }
-        function closeModal(id) { const m = $(id); if (m) m.classList.add('hidden'); if (typeof _chiudiSuggerimentoMoto === 'function') _chiudiSuggerimentoMoto(); }
+        function closeModal(id) { const m = $(id); if (m) m.classList.add('hidden'); if (typeof _chiudiSuggerimentoMoto === 'function') { _chiudiSuggerimentoMoto(); _chiudiTendinaMoto(); } }
 
         // Menu laterale senza doppioni: nasconde le sezioni già nella barra visibile (in alto sul Mac, in basso sul telefono)
         function _aggiornaMenuDoppioni() {
@@ -3245,7 +3244,7 @@
         const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Statistiche', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lavori Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto', garanzie:'🛡️ Garanzie', vendite:'📄 Vendite', 'nuova-app':'📅 Appuntamento', 'crea-prev':'📝 Preventivo', 'nuovo-cliente':'👤 Nuovo Cliente', usate:'🏷️ Moto Usate' };
         function switchView(viewId, el) {
             if (viewId !== 'nuova') _pendingSpecialCat = null;
-            if (typeof _chiudiSuggerimentoMoto === 'function') _chiudiSuggerimentoMoto();
+            if (typeof _chiudiSuggerimentoMoto === 'function') { _chiudiSuggerimentoMoto(); _chiudiTendinaMoto(); }
             closeSidebar();
             const ts = $('topbar-section'); if (ts) ts.textContent = _viewLabels[viewId] || '';
             if (viewId === 'magazzino') {
@@ -3596,19 +3595,6 @@
             db.forEach(j => { const mo = _maiusc(j.modello); if (mo && _gruppoMarca(j.marca, conta) === g) c[mo] = (c[mo] || 0) + 1; });
             return c;
         }
-        function _riempiMarche() {
-            const dl = $('moto-marche');
-            if (!dl) return;
-            dl.innerHTML = [...new Set(_marcheNote())].sort().map(m => `<option value="${htmlEsc(m)}">`).join('');
-        }
-        function _riempiModelli(inputMarca) {
-            const dl = $('moto-modelli');
-            if (!dl) return;
-            const c = _modelliDellaMarca(inputMarca ? inputMarca.value : '', _contaMarche());
-            const scelti = [];
-            Object.keys(c).sort((a, b) => c[b] - c[a] || a.localeCompare(b)).forEach(m => { if (!scelti.some(x => _chiaveNome(x) === _chiaveNome(m))) scelti.push(m); });
-            dl.innerHTML = scelti.slice(0, 80).map(m => `<option value="${htmlEsc(m)}">`).join('');
-        }
         // "AFRICA TWIN" nel campo Marca → { marca: 'HONDA', modello: 'AFRICA TWIN' }; null se non è un modello conosciuto
         function _marcaDelModello(v, conta) {
             const k = _chiaveNome(v);
@@ -3661,13 +3647,62 @@
             const c = CAMPI_MOTO.find(x => x[1] === el.id);
             return c ? $(c[0]) : null;
         }
-        CAMPI_MOTO.forEach(([a, b]) => { const ea = $(a), eb = $(b); if (ea) ea.setAttribute('list', 'moto-marche'); if (eb) eb.setAttribute('list', 'moto-modelli'); });
-        document.addEventListener('focusin', e => {
-            const el = e.target;
-            if (!el || el.tagName !== 'INPUT') return;
-            if (_eMarcaMoto(el)) _riempiMarche();
-            else if (_eModelloMoto(el)) _riempiModelli(_marcaPerModello(el));
-        });
+        // Tendina dei suggerimenti (v214): solo i nomi che INIZIANO con quello che si scrive, in ordine alfabetico
+        // (la tendina del browser, con la datalist, cercava le lettere in qualsiasi punto: "A" proponeva anche HONDA e YAMAHA)
+        function _listaMarche() { return [...new Set(_marcheNote())].sort((a, b) => a.localeCompare(b)); }
+        function _listaModelli(inputMarca) {
+            const c = _modelliDellaMarca(inputMarca ? inputMarca.value : '', _contaMarche()), scelti = [];
+            Object.keys(c).sort((a, b) => c[b] - c[a] || a.localeCompare(b)).forEach(m => { if (!scelti.some(x => _chiaveNome(x) === _chiaveNome(m))) scelti.push(m); });
+            return scelti.sort((a, b) => a.localeCompare(b));
+        }
+        CAMPI_MOTO.forEach(([a, b]) => [a, b].forEach(id => { const e = $(id); if (e) e.setAttribute('autocomplete', 'off'); }));
+        const _conTendinaMarca = el => _eMarcaMoto(el) || el.dataset.moto === 'marca';
+        const _conTendina = el => !!el && el.tagName === 'INPUT' && (_conTendinaMarca(el) || _eModelloMoto(el));
+        let _tendina = null, _saltaTendina = false;
+        function _chiudiTendinaMoto() { const t = $('moto-tendina'); if (t) t.remove(); _tendina = null; }
+        function _apriTendinaMoto(input) {
+            const tutte = _conTendinaMarca(input) ? _listaMarche() : _listaModelli(_marcaPerModello(input));
+            const q = _maiusc(input.value), kq = _chiaveNome(q);
+            const voci = tutte.filter(v => v !== q && (!q || v.startsWith(q) || (kq && _chiaveNome(v).startsWith(kq)))).slice(0, 60);
+            const r = input.getBoundingClientRect();
+            if (!voci.length || !r.width) return _chiudiTendinaMoto();
+            let t = $('moto-tendina');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'moto-tendina';
+                t.setAttribute('role', 'listbox');
+                t.addEventListener('mousedown', e => { e.preventDefault(); const v = e.target.closest('[data-v]'); if (v) _scegliVoceMoto(v.dataset.v); });
+                document.body.appendChild(t);
+            }
+            const sotto = window.innerHeight - r.bottom, sopra = sotto < 200 && r.top > sotto;
+            t.style.cssText = `position:fixed; left:${Math.max(4, r.left)}px; width:${Math.max(r.width, 180)}px; ${sopra ? `bottom:${window.innerHeight - r.top + 2}px;` : `top:${r.bottom + 2}px;`} max-height:${Math.min(260, (sopra ? r.top : sotto) - 10)}px; overflow-y:auto; z-index:10060; background:var(--card); border:1px solid var(--info); border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.45); padding:4px 0;`;
+            t.innerHTML = voci.map(v => `<div data-v="${htmlEsc(v)}" role="option" class="mt-voce" style="padding:7px 12px; cursor:pointer; font-weight:700; font-size:0.9rem; color:var(--text);">${htmlEsc(v)}</div>`).join('');
+            _tendina = { input, voci, attiva: -1 };
+        }
+        function _scegliVoceMoto(v) {
+            if (!_tendina) return;
+            const input = _tendina.input;
+            input.value = v;
+            _chiudiTendinaMoto();
+            _saltaTendina = true;
+            try { input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); } finally { _saltaTendina = false; }
+        }
+        document.addEventListener('focusin', e => { if (_conTendina(e.target)) _apriTendinaMoto(e.target); else if (_tendina) _chiudiTendinaMoto(); });
+        document.addEventListener('input', e => { if (!_saltaTendina && _conTendina(e.target)) _apriTendinaMoto(e.target); });
+        document.addEventListener('focusout', e => { if (_tendina && e.target === _tendina.input) setTimeout(() => { if (_tendina && document.activeElement !== _tendina.input) _chiudiTendinaMoto(); }, 150); });
+        document.addEventListener('keydown', e => {
+            if (!_tendina || e.target !== _tendina.input) return;
+            const t = $('moto-tendina'), n = _tendina.voci.length;
+            if (!t || !n) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const a = _tendina.attiva;
+                _tendina.attiva = e.key === 'ArrowDown' ? (a + 1) % n : (a <= 0 ? n - 1 : a - 1);
+                [...t.children].forEach((c, i) => c.classList.toggle('on', i === _tendina.attiva));
+                const c = t.children[_tendina.attiva]; if (c && c.scrollIntoView) c.scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter' && _tendina.attiva >= 0) { e.preventDefault(); e.stopPropagation(); _scegliVoceMoto(_tendina.voci[_tendina.attiva]); }
+            else if (e.key === 'Escape' || e.key === 'Tab') _chiudiTendinaMoto();
+        }, true);
         document.addEventListener('change', e => {
             const el = e.target;
             if (!el || el.tagName !== 'INPUT') return;
@@ -3692,7 +3727,7 @@
             if (proposta) _mostraSuggerimentoMoto(el, proposta); else if (_hintMoto && _hintMoto.input === el) _chiudiSuggerimentoMoto();
         });
         document.addEventListener('input', e => { if (_hintMoto && e.target === _hintMoto.input) _chiudiSuggerimentoMoto(); });
-        window.addEventListener('scroll', () => { if (_hintMoto) _chiudiSuggerimentoMoto(); }, true);
+        window.addEventListener('scroll', e => { if (_hintMoto) _chiudiSuggerimentoMoto(); if (_tendina && !(e.target && e.target.id === 'moto-tendina')) _chiudiTendinaMoto(); }, true);
 
         function aggiungiMarcaElenco(nome) {
             const m = _maiusc(nome), k = _chiaveNome(m);
@@ -3754,14 +3789,13 @@
                         ${g.tipo === 'nuova' ? `<div style="font-size:0.82rem; color:var(--text); margin-top:4px;">Se è una marca vera premi <b>➕ È una marca</b>; se è sbagliata scrivi quella giusta nel riquadro e premi Unifica.</div>` : ''}
                         <div style="display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 8px;">${v.map(([n, k]) => `<span style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:2px 8px; font-size:0.85rem;"><b>${htmlEsc(n)}</b> <small style="color:var(--muted);">${k} ${k === 1 ? 'scheda' : 'schede'}</small></span>`).join('')}</div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                            <input id="pm-nome-${i}" value="${htmlEsc(g.proposta)}" ${g.tipo !== 'modello' ? 'list="moto-marche"' : ''} aria-label="Scrittura giusta" style="flex:1 1 200px; margin:0;">
+                            <input id="pm-nome-${i}" value="${htmlEsc(g.proposta)}" ${g.tipo !== 'modello' ? 'data-moto="marca"' : ''} aria-label="Scrittura giusta" style="flex:1 1 200px; margin:0;">
                             ${g.tipo === 'nuova' ? `<button type="button" class="btn btn-info w-auto" style="margin:0; padding:7px 14px;" onclick="marcaNuovaDaPulizia(${i})">➕ È una marca</button>` : ''}
                             <button type="button" class="btn btn-success w-auto" style="margin:0; padding:7px 14px;" onclick="unificaGruppoMoto(${i})">${g.tipo === 'scambio' ? '✓ Sistema' : '✓ Unifica'}</button>
                             <button type="button" class="btn btn-dark w-auto" style="margin:0; padding:7px 14px;" onclick="ignoraGruppoMoto(${i})">Lascia così</button>
                         </div>
                     </div>`;
                 }).join('');
-            if (_gruppiPulizia.some(g => g.tipo !== 'modello')) _riempiMarche();
             _aggiornaBottonePulizia();
         }
         function unificaGruppoMoto(i) {
@@ -8109,7 +8143,7 @@ A presto!`;
                     const tagData = taggliandiDB[v.targa] || {};
                     const _eCI = safeEncode(clientId);
                     const _eT  = safeEncode(v.targa);
-                    vContainer.innerHTML += `<div class="section-dark mb-15 vehicle-edit-row" style="border-left: 3px solid var(--info); padding: 10px;"><input type="hidden" class="edit_v_old_targa" value="${safeEncode(v.targa)}"><label>Targa Veicolo</label><input class="edit_v_targa" placeholder="Targa" value="${(v.targa||'').replace(/"/g, '&quot;')}" style="margin-bottom:10px;"><div class="flex-row"><div style="flex:1"><label>Marca</label><input class="edit_v_marca" list="moto-marche" placeholder="Marca" value="${(v.marca||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:1"><label>Modello</label><input class="edit_v_modello" list="moto-modelli" placeholder="Modello" value="${(v.modello||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:0 0 100px"><label>Anno</label><input class="edit_v_anno" type="number" inputmode="numeric" min="1950" max="2100" step="1" placeholder="Anno" value="${htmlEsc(_annoDiTarga(v.targa))}" style="margin-bottom:0;"></div></div><div style="margin-top:10px; padding-top:10px; border-top:1px dashed #334155;"><label style="color:#fb923c;">🔧 Prossimo Tagliando</label><div class="flex-row"><div style="flex:1"><label style="font-size:0.7rem;">Data scadenza</label><input type="date" class="edit_v_tagliando_data" value="${tagData.data||''}" style="margin-bottom:0;"></div><div style="flex:1"><label style="font-size:0.7rem;">KM scadenza (opz.)</label><input type="number" class="edit_v_tagliando_km" placeholder="es. 15000" value="${tagData.km||''}" style="margin-bottom:0;"></div><div style="flex:1.5"><label style="font-size:0.7rem;">Note (es. tipo olio)</label><input type="text" class="edit_v_tagliando_note" placeholder="es. Olio 10W40, filtri..." value="${(tagData.note||'').replace(/"/g,'&quot;')}" style="margin-bottom:0; text-transform:uppercase;"></div></div></div><div style="display:flex; gap:6px; margin-top:10px; padding-top:8px; border-top:1px dashed #334155;"><button type="button" onclick="scollegaVeicoloCliente('${_eCI}','${_eT}')" style="flex:1; background:rgba(99,102,241,0.12); color:#a78bfa; border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:7px 4px; font-size:0.75rem; cursor:pointer;">🔀 Separa in nuovo cliente</button><button type="button" onclick="eliminaVeicoloCliente('${_eCI}','${_eT}')" style="flex:1; background:rgba(239,68,68,0.1); color:#f87171; border:1px solid rgba(239,68,68,0.28); border-radius:8px; padding:7px 4px; font-size:0.75rem; cursor:pointer;">🗑️ Elimina veicolo</button></div></div>`;
+                    vContainer.innerHTML += `<div class="section-dark mb-15 vehicle-edit-row" style="border-left: 3px solid var(--info); padding: 10px;"><input type="hidden" class="edit_v_old_targa" value="${safeEncode(v.targa)}"><label>Targa Veicolo</label><input class="edit_v_targa" placeholder="Targa" value="${(v.targa||'').replace(/"/g, '&quot;')}" style="margin-bottom:10px;"><div class="flex-row"><div style="flex:1"><label>Marca</label><input class="edit_v_marca" autocomplete="off" placeholder="Marca" value="${(v.marca||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:1"><label>Modello</label><input class="edit_v_modello" autocomplete="off" placeholder="Modello" value="${(v.modello||'').replace(/"/g, '&quot;')}" style="margin-bottom:0;"></div><div style="flex:0 0 100px"><label>Anno</label><input class="edit_v_anno" type="number" inputmode="numeric" min="1950" max="2100" step="1" placeholder="Anno" value="${htmlEsc(_annoDiTarga(v.targa))}" style="margin-bottom:0;"></div></div><div style="margin-top:10px; padding-top:10px; border-top:1px dashed #334155;"><label style="color:#fb923c;">🔧 Prossimo Tagliando</label><div class="flex-row"><div style="flex:1"><label style="font-size:0.7rem;">Data scadenza</label><input type="date" class="edit_v_tagliando_data" value="${tagData.data||''}" style="margin-bottom:0;"></div><div style="flex:1"><label style="font-size:0.7rem;">KM scadenza (opz.)</label><input type="number" class="edit_v_tagliando_km" placeholder="es. 15000" value="${tagData.km||''}" style="margin-bottom:0;"></div><div style="flex:1.5"><label style="font-size:0.7rem;">Note (es. tipo olio)</label><input type="text" class="edit_v_tagliando_note" placeholder="es. Olio 10W40, filtri..." value="${(tagData.note||'').replace(/"/g,'&quot;')}" style="margin-bottom:0; text-transform:uppercase;"></div></div></div><div style="display:flex; gap:6px; margin-top:10px; padding-top:8px; border-top:1px dashed #334155;"><button type="button" onclick="scollegaVeicoloCliente('${_eCI}','${_eT}')" style="flex:1; background:rgba(99,102,241,0.12); color:#a78bfa; border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:7px 4px; font-size:0.75rem; cursor:pointer;">🔀 Separa in nuovo cliente</button><button type="button" onclick="eliminaVeicoloCliente('${_eCI}','${_eT}')" style="flex:1; background:rgba(239,68,68,0.1); color:#f87171; border:1px solid rgba(239,68,68,0.28); border-radius:8px; padding:7px 4px; font-size:0.75rem; cursor:pointer;">🗑️ Elimina veicolo</button></div></div>`;
                 });
                 if (Object.keys(vehiclesMap).length === 0) vContainer.innerHTML += `<p style="color:var(--muted); font-size:0.8rem; font-style:italic;">Nessun veicolo registrato per questo cliente.</p>`;
             }
