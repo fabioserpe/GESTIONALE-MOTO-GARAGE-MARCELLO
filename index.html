@@ -3541,24 +3541,25 @@
 
         function checkCustomerBikes(prefix) { const cEl = $(prefix + '_cognome'), nEl = $(prefix + '_nome'), tEl = $(prefix + '_targa'); if (!cEl || !nEl || !tEl) return; const c = cEl.value.toUpperCase().trim(), n = nEl.value.toUpperCase().trim(); if (!c || tEl.value) return; const rec = db.filter(j => (j.cognome||'').toUpperCase().trim() === c && (j.nome||'').toUpperCase().trim() === n); const uP = [...new Set(rec.map(j => j.targa).filter(Boolean))]; if (uP.length === 1) { tEl.value = uP[0]; if(prefix === 'app') autoFillAgenda(); else if(prefix === 'm_app') autoFillAgenda('m'); else autoFillForm(prefix); } else if (uP.length > 1) { tEl.placeholder = "⚠️ MULTIPLI VEICOLI: SELEZIONA TARGA"; tEl.style.borderColor = "var(--warning)"; } }
         // ── Marche e modelli (v211): suggerimenti mentre scrivi, "Intendevi…?", pulizia dell'archivio ──
-        const MARCHE_MOTO = ['APRILIA','BENELLI','BETA','BIMOTA','BMW','BRIXTON','CAGIVA','CFMOTO','DAELIM','DERBI','DUCATI','FANTIC','GARELLI','GASGAS','GILERA','HARLEY-DAVIDSON','HONDA','HUSQVARNA','HYOSUNG','INDIAN','ITALJET','KAWASAKI','KEEWAY','KTM','KYMCO','LAMBRETTA','MALAGUTI','MASH','MBK','MONDIAL','MOTO GUZZI','MOTO MORINI','MV AGUSTA','NIU','PEUGEOT','PIAGGIO','QJMOTOR','ROYAL ENFIELD','SHERCO','SUZUKI','SWM','SYM','TGB','TRIUMPH','VESPA','VOGE','YAMAHA','ZERO','ZONTES'];
+        const MARCHE_MOTO = ['APRILIA','ASKOLL','BENDA','BENELLI','BETA','BIMOTA','BMW','BRIXTON','CAGIVA','CFMOTO','DAELIM','DERBI','DUCATI','FANTIC','GARELLI','GASGAS','GILERA','HARLEY-DAVIDSON','HONDA','HUSQVARNA','HYOSUNG','INDIAN','ITALJET','KAWASAKI','KEEWAY','KOVE','KTM','KYMCO','LAMBRETTA','LEXMOTO','MALAGUTI','MASH','MBK','MITT','MONDIAL','MOTO GUZZI','MOTO MORINI','MOTRON','MV AGUSTA','NIU','ORCAL','PEUGEOT','PIAGGIO','QJMOTOR','ROYAL ENFIELD','SHERCO','SILENCE','SUPER SOCO','SUZUKI','SWM','SYM','TGB','TRIUMPH','VESPA','VOGE','WOTTAN','YAMAHA','ZERO','ZONTES'];
         const MARCHE_ALIAS = { GUZZI: 'MOTO GUZZI', MORINI: 'MOTO MORINI', MV: 'MV AGUSTA', AGUSTA: 'MV AGUSTA', HARLEY: 'HARLEY-DAVIDSON', HD: 'HARLEY-DAVIDSON', ENFIELD: 'ROYAL ENFIELD', CF: 'CFMOTO', GAS: 'GASGAS', QJ: 'QJMOTOR' };
         // Coppie [marca, modello] dei moduli; in Anagrafica → Modifica cliente le classi .edit_v_marca / .edit_v_modello
         const CAMPI_MOTO = [['f_marca','f_modello'],['app_marca','app_modello'],['m_app_marca','m_app_modello'],['p_marca','p_modello'],['nc-marca','nc-modello'],['g_marca','g_modello'],['usata-marca','usata-modello'],['vd-marca','vd-modello'],['attesa-marca','attesa-modello']];
         const _maiusc = v => String(v || '').toUpperCase().trim();
         const _chiaveNome = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        // Lettere da cambiare per passare da a a b; due lettere vicine invertite contano 1 (HODNA → HONDA)
         function _distanza(a, b) {
             if (Math.abs(a.length - b.length) > 2) return 3;
-            let r = Array.from({ length: b.length + 1 }, (_, i) => i);
-            for (let i = 1; i <= a.length; i++) {
-                const n = [i];
-                for (let k = 1; k <= b.length; k++) n[k] = Math.min(r[k] + 1, n[k - 1] + 1, r[k - 1] + (a[i - 1] === b[k - 1] ? 0 : 1));
-                r = n;
+            const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+            for (let k = 0; k <= b.length; k++) d[0][k] = k;
+            for (let i = 1; i <= a.length; i++) for (let k = 1; k <= b.length; k++) {
+                d[i][k] = Math.min(d[i - 1][k] + 1, d[i][k - 1] + 1, d[i - 1][k - 1] + (a[i - 1] === b[k - 1] ? 0 : 1));
+                if (i > 1 && k > 1 && a[i - 1] === b[k - 2] && a[i - 2] === b[k - 1]) d[i][k] = Math.min(d[i][k], d[i - 2][k - 2] + 1);
             }
-            return r[b.length];
+            return d[a.length][b.length];
         }
         function _contaMarche() { const c = {}; db.forEach(j => { const m = _maiusc(j.marca); if (m) c[m] = (c[m] || 0) + 1; }); return c; }
-        // Marca dell'elenco a cui corrisponde una scrittura (uguale a meno di spazi/trattini, sigla, o una o due lettere sbagliate); '' se nessuna
+        // Marca dell'elenco a cui corrisponde una scrittura (uguale a meno di spazi/trattini, sigla, una lettera sbagliata o due invertite; due sbagliate solo da 7 lettere in su); '' se nessuna
         function _marcaCanonica(v, conta) {
             const k = _chiaveNome(v);
             if (!k) return '';
@@ -3568,7 +3569,7 @@
             const c = conta || {};
             let best = '', d = 3;
             MARCHE_MOTO.forEach(m => { const x = _distanza(k, _chiaveNome(m)); if (x < d || (x === d && best && (c[m] || 0) > (c[best] || 0))) { d = x; best = m; } });
-            return d <= (k.length <= 4 ? 1 : 2) ? best : '';
+            return d <= (k.length >= 7 ? 2 : 1) ? best : '';
         }
         const _gruppoMarca = (v, conta) => _marcaCanonica(v, conta) || _maiusc(v);
         const _lettere = v => String(v).replace(/[^A-Z]/g, ''), _cifre = v => String(v).replace(/[^0-9]/g, '');

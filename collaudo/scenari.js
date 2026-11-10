@@ -2771,6 +2771,14 @@
     ok(fm.value === 'KAWASAKI' && !hint(), 'Marche: "Correggi" scrive KAWASAKI e chiude l\'avviso');
     fm.value = 'Honda'; fm.dispatchEvent(new Event('change', { bubbles: true }));
     ok(!hint(), 'Marche: una marca giusta non dà avvisi');
+    fm.value = 'BENDA'; fm.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(!hint() && marche.includes('BENDA'), 'Marche: BENDA è una marca, non un errore per HONDA');
+    fm.value = 'HODNA'; fm.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(hint() && hint().textContent.includes('Intendevi HONDA?'), 'Marche: lettere invertite (HODNA) propongono HONDA');
+    fm.value = 'KAWAZAKY'; fm.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(hint() && hint().textContent.includes('Intendevi KAWASAKI?'), 'Marche: su un nome lungo anche due lettere sbagliate (KAWAZAKY)');
+    fm.value = 'KIA'; fm.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(!hint(), 'Marche: una marca corta sconosciuta (KIA) non viene "corretta"');
     fm.value = 'YAMAHA'; fmo.value = 't max 530'; fmo.dispatchEvent(new Event('change', { bubbles: true }));
     ok(hint() && hint().textContent.includes('Intendevi TMAX 530?'), 'Modelli: "T MAX 530" propone la scrittura già usata TMAX 530');
     fmo.value = 'XMAX 125'; fmo.dispatchEvent(new Event('change', { bubbles: true }));
