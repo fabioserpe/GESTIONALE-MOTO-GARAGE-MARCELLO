@@ -2744,6 +2744,60 @@
     switchView('board');
   });
 
+  await passo('Marche e modelli', async () => {
+    const J = (k, id, marca, modello, targa) => ({ ['db/' + k]: { id, cognome: 'MARCHE', nome: k, marca, modello, targa, stato: 'archived', data: '2026-01-0' + (id % 9 + 1), clientId: 'c-mm' + id } });
+    fb.scritturaRemota(Object.assign({},
+      J('mm1', 8501, 'KAWASAKY', 'Z 650', 'MM001AA'), J('mm2', 8502, 'KAWASAKI', 'Z 650', 'MM002AA'), J('mm3', 8503, 'Kawasaki', 'Z 650', 'MM003AA'),
+      J('mm4', 8504, 'YAMAHA', 'T-MAX 530', 'MM004AA'), J('mm5', 8505, 'YAMAHA', 'TMAX 530', 'MM005AA'), J('mm6', 8506, 'Yamaha', 'TMAX 530', 'MM006AA'),
+      J('mm7', 8507, 'YAMAHA', 'NMAX 125', 'MM007AA'), J('mm8', 8508, 'YAMAHA', 'XMAX 125', 'MM008AA'), J('mm9', 8509, 'Harley Davidson', 'SPORTSTER', 'MM009AA'),
+      J('mm10', 8510, 'FIAT', 'PANDA', 'MM010AA'),
+      { 'agenda/mm': { id: 8599, tipo: 'officina', jobId: 8504, data: '2026-01-05', ora: '09:00', cliente: 'MARCHE MM4', moto: 'YAMAHA T-MAX 530 - MM004AA', raw_marca: 'YAMAHA', raw_modello: 'T-MAX 530', raw_targa: 'MM004AA' } }), false);
+    await attendi(50);
+    switchView('nuova');
+    clearForm();
+    const fm = document.getElementById('f_marca'), fmo = document.getElementById('f_modello');
+    ok(fm.getAttribute('list') === 'moto-marche' && fmo.getAttribute('list') === 'moto-modelli' && document.getElementById('p_marca').getAttribute('list') === 'moto-marche', 'Marche: i campi Marca e Modello hanno i suggerimenti');
+    fm.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    const marche = [...document.querySelectorAll('#moto-marche option')].map(o => o.value);
+    ok(marche.includes('KAWASAKI') && marche.includes('MOTO GUZZI') && marche.includes('FIAT') && !marche.includes('KAWASAKY') && !marche.includes('HARLEY DAVIDSON'), 'Marche: suggerite le case moto e le altre marche dell\'archivio, non i refusi');
+    fm.value = 'YAMAHA';
+    fmo.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    const modelli = [...document.querySelectorAll('#moto-modelli option')].map(o => o.value);
+    ok(modelli.includes('TMAX 530') && !modelli.includes('T-MAX 530') && modelli.includes('NMAX 125') && modelli.includes('XMAX 125') && !modelli.includes('Z 650'), 'Modelli: solo quelli della marca scelta, una volta sola nella scrittura più usata');
+    const hint = () => document.getElementById('moto-hint');
+    fm.value = 'kawasaky'; fm.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(hint() && hint().textContent.includes('Intendevi KAWASAKI?'), 'Marche: scrivendo KAWASAKY compare "Intendevi KAWASAKI?"');
+    hint().querySelector('.mh-si').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    ok(fm.value === 'KAWASAKI' && !hint(), 'Marche: "Correggi" scrive KAWASAKI e chiude l\'avviso');
+    fm.value = 'Honda'; fm.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(!hint(), 'Marche: una marca giusta non dà avvisi');
+    fm.value = 'YAMAHA'; fmo.value = 't max 530'; fmo.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(hint() && hint().textContent.includes('Intendevi TMAX 530?'), 'Modelli: "T MAX 530" propone la scrittura già usata TMAX 530');
+    fmo.value = 'XMAX 125'; fmo.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(!hint(), 'Modelli: XMAX e NMAX restano due modelli diversi');
+    fmo.value = 'MT 09'; fmo.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(!hint(), 'Modelli: un modello nuovo non dà avvisi');
+    switchView('archivio');
+    refreshArchive();
+    ok(!document.getElementById('btn-pulizia-moto').classList.contains('hidden'), 'Pulizia: in Anagrafica compare "Sistema marche e modelli"');
+    apriPuliziaMoto();
+    const idx = (tipo, proposta) => _gruppiPulizia.findIndex(g => g.tipo === tipo && g.proposta === proposta);
+    ok(idx('marca', 'KAWASAKI') > -1 && idx('marca', 'HARLEY-DAVIDSON') > -1 && idx('modello', 'TMAX 530') > -1, 'Pulizia: trovati KAWASAKY/KAWASAKI, Harley Davidson e T-MAX/TMAX');
+    ok(!_gruppiPulizia.some(g => g.tipo === 'modello' && ('NMAX 125' in g.varianti)), 'Pulizia: NMAX e XMAX non vengono messi insieme');
+    const cf = window.confirm; window.confirm = () => true;
+    try {
+      unificaGruppoMoto(idx('marca', 'KAWASAKI'));
+      ok(['8501', '8502', '8503'].every(id => recordDi('db', +id).marca === 'KAWASAKI'), 'Pulizia: "Unifica" scrive KAWASAKI in tutte le schede (anche quelle in minuscolo)');
+      unificaGruppoMoto(idx('modello', 'TMAX 530'));
+      ok(recordDi('db', 8504).modello === 'TMAX 530' && Object.values(fb.nodo('agenda')).find(a => a.id === 8599).moto === 'YAMAHA TMAX 530 - MM004AA', 'Pulizia: unificato il modello, aggiornato anche l\'appuntamento');
+    } finally { window.confirm = cf; }
+    ignoraGruppoMoto(idx('marca', 'HARLEY-DAVIDSON'));
+    ok(idx('marca', 'HARLEY-DAVIDSON') === -1 && recordDi('db', 8509).marca === 'Harley Davidson', 'Pulizia: "Lascia così" toglie il gruppo senza cambiare niente');
+    try { localStorage.removeItem('mgm_pulizia_moto_ignorati'); } catch (e) {}
+    closeModal('modal-pulizia-moto');
+    switchView('board');
+  });
+
   await passo('Offline', async () => {
     switchView('board');
     fb.setConnesso(false);
