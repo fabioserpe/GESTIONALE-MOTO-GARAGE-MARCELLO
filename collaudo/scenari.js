@@ -17,12 +17,12 @@
   const campo = (id, v) => { const e = document.getElementById(id); if (!e) throw new Error('campo mancante ' + id); e.value = v; };
   async function passo(nome, fn) { try { await fn(); } catch (e) { ok(false, nome + ': eccezione ' + (e && e.message)); } }
 
-  for (let i = 0; i < 300 && fb.inAttesa.length < 20; i++) await attendi(20);
+  for (let i = 0; i < 300 && fb.inAttesa.length < 21; i++) await attendi(20);
   await attendi(50);
 
   await passo('Avvio', async () => {
     ok(document.getElementById('app-shell').style.display === 'flex', 'Avvio: accesso simulato, gestionale visibile');
-    ok(fb.inAttesa.length === 20, 'Avvio: tutte le 20 sezioni in ascolto (' + fb.inAttesa.length + ')');
+    ok(fb.inAttesa.length === 21, 'Avvio: tutte le 21 sezioni in ascolto (' + fb.inAttesa.length + ')');
     ok(ovVisibile() && ovTitolo() === 'Caricamento dati…', 'Avvio: pannello "Caricamento dati…" finché i dati non arrivano');
     const n = nScr(), a = fb.alerts.length;
     db.push({ id: 999, cognome: 'PRIMA DEL CARICAMENTO' });
@@ -209,7 +209,7 @@
 
   await passo('Tutte le schermate', async () => {
     const viste = ['board', 'nuova', 'archivio', 'nuovo-cliente', 'stats', 'preventivi', 'crea-prev', 'agenda', 'ledger', 'ordini', 'rubrica',
-                   'specials', 'incidentate', 'magazzino', 'nuova-app', 'tagliandi', 'scadenze', 'lista-attesa', 'usate', 'garanzie', 'vendite'];
+                   'specials', 'incidentate', 'magazzino', 'nuova-app', 'tagliandi', 'scadenze', 'lista-attesa', 'usate', 'garanzie', 'vendite', 'schede'];
     const conErrori = [];
     for (const v of viste) {
       const e0 = window.__errori.length;
@@ -217,7 +217,7 @@
       await attendi(150);
       if (window.__errori.length > e0) conErrori.push(v + ': ' + window.__errori.slice(e0).join(' | '));
     }
-    ok(conErrori.length === 0, 'Tutte le 21 schermate si aprono senza errori' + (conErrori.length ? ' → ' + conErrori.join(' ; ') : ''));
+    ok(conErrori.length === 0, 'Tutte le 22 schermate si aprono senza errori' + (conErrori.length ? ' → ' + conErrori.join(' ; ') : ''));
     const fuori = [...document.querySelectorAll('[id^="view-"]')].filter(el => !el.parentElement.classList.contains('main-content')).map(el => el.id);
     ok(fuori.length === 0, 'Struttura: tutte le pagine stanno dentro il contenitore principale' + (fuori.length ? ' → fuori: ' + fuori.join(', ') : ''));
     const nere = [];
@@ -2845,6 +2845,61 @@
     ok(idx('marca', 'HARLEY-DAVIDSON') === -1 && recordDi('db', 8509).marca === 'Harley Davidson', 'Pulizia: "Lascia così" toglie il gruppo senza cambiare niente');
     try { localStorage.removeItem('mgm_pulizia_moto_ignorati'); } catch (e) {}
     closeModal('modal-pulizia-moto');
+    switchView('board');
+  });
+
+  await passo('Schede tecniche', async () => {
+    const oggi = getOggiLocale();
+    const JJ = (k, id, targa, stato, anno, conto) => ({ ['db/' + k]: { id, cognome: 'TECNICA', nome: k, marca: 'SUZUKI', modello: 'BURGMAN 400', targa, stato, data: oggi, anno, conto: conto || [], acconti: [], clientId: 'c-st' + id } });
+    fb.scritturaRemota(Object.assign({},
+      JJ('st1', 8601, 'ST001AA', 'archived', '2014', [{ desc: 'FILTRO OLIO HF147', price: 12, qty: 1, iva: 22 }, { desc: 'MANODOPERA', price: 40, qty: 1, iva: 22 }]),
+      JJ('st2', 8602, 'ST002AA', 'archived', '2018', [{ desc: 'FILTRO OLIO HF147', price: 12, qty: 1, iva: 22 }, { desc: 'CANDELA NGK CR7E', price: 9, qty: 1, iva: 22 }]),
+      JJ('st3', 8603, 'ST003AA', 'todo', '2018'), JJ('st4', 8604, 'ST004AA', 'todo', '2014')), false);
+    await attendi(50);
+    switchView('schede');
+    const el = document.getElementById('st-elenco');
+    ok(el.textContent.includes('SUZUKI BURGMAN 400') && el.textContent.includes('SENZA SCHEDA'), 'Schede: tra i modelli frequenti senza scheda c\'è SUZUKI BURGMAN 400');
+    nuovaSchedaPer(safeEncode('SUZUKI'), safeEncode('BURGMAN 400'));
+    ok(!document.getElementById('modal-scheda-tecnica').classList.contains('hidden') && document.getElementById('st_marca').value === 'SUZUKI' && document.getElementById('st_modello').value === 'BURGMAN 400', 'Schede: "➕" apre una scheda nuova con marca e modello già scritti');
+    ok(document.getElementById('st-ricambi-usati').textContent.includes('FILTRO OLIO HF147') && !document.getElementById('st-ricambi-usati').textContent.includes('MANODOPERA'), 'Schede: propone i ricambi usati sul modello (senza manodopera)');
+    copiaRicambioInScheda(safeEncode('FILTRO OLIO HF147'));
+    copiaRicambioInScheda(safeEncode('CANDELA NGK CR7E'));
+    ok(document.getElementById('st_filtro_olio').value === 'FILTRO OLIO HF147' && document.getElementById('st_candela').value === 'CANDELA NGK CR7E', 'Schede: un clic copia il ricambio nel campo giusto (filtro olio, candela)');
+    campo('st_olio', '10W40 · 1,7 L'); campo('st_note', 'Togliere il pannello <centrale>');
+    salvaSchedaTecnica();
+    const sc1 = Object.values(fb.nodo('schede_tecniche') || {}).find(x => x.modello === 'BURGMAN 400' && !x.anno_da);
+    ok(sc1 && sc1.olio === '10W40 · 1,7 L' && sc1.filtro_olio === 'FILTRO OLIO HF147' && sc1.marca === 'SUZUKI', 'Schede: salvata sul cloud');
+    ok(document.getElementById('st-vista').textContent.includes('10W40 · 1,7 L') && document.getElementById('st-vista').innerHTML.includes('&lt;centrale&gt;'), 'Schede: dopo il salvataggio si vede la scheda (testi protetti)');
+    refreshSchedeTecniche();
+    ok(el.textContent.includes('SUZUKI BURGMAN 400') && el.textContent.includes('2 moto in archivio') || el.textContent.includes('4 moto in archivio'), 'Schede: nell\'elenco con il numero di moto in archivio');
+    apriSchedaTecnica(null, true);
+    campo('st_marca', 'suzuki'); campo('st_modello', 'BURGMAN 400'); campo('st_olio', 'ALTRO');
+    salvaSchedaTecnica();
+    ok(Object.values(fb.nodo('schede_tecniche') || {}).filter(x => x.modello === 'BURGMAN 400').length === 1, 'Schede: non si crea una seconda scheda uguale');
+    campo('st_anno_da', '2017'); campo('st_anno_a', '2020'); campo('st_olio', '5W40 · 1,9 L');
+    salvaSchedaTecnica();
+    closeModal('modal-scheda-tecnica');
+    await attendi(30);
+    ok((_schedaTecnicaPer('SUZUKI', 'BURGMAN 400', '2018') || {}).olio === '5W40 · 1,9 L' && (_schedaTecnicaPer('Suzuki', 'burgman 400', '2014') || {}).olio === '10W40 · 1,7 L', 'Schede: con gli anni si sceglie la scheda giusta per l\'anno della moto');
+    switchView('board');
+    refreshBoard();
+    const card = [...document.querySelectorAll('.card-compact')].find(c => c.textContent.includes('ST003AA'));
+    ok(card && card.querySelector('.st-chip'), 'Schede: sulla Bacheca il simbolo 🔧 accanto al modello');
+    apriSchedaTecnicaJob(8603);
+    ok(document.getElementById('st-vista').textContent.includes('5W40'), 'Schede: il 🔧 apre la scheda giusta per quella moto (2018)');
+    closeModal('modal-scheda-tecnica');
+    openClosingModal(8604);
+    ok(document.getElementById('conto-scheda-tecnica').textContent.includes('10W40 · 1,7 L'), 'Schede: nel conto il riquadro con i dati principali');
+    closeModal('modal-conto');
+    openClosingModal(1001);
+    const box = document.getElementById('conto-scheda-tecnica');
+    ok(box.style.display === 'none' || box.textContent.includes('Crea scheda tecnica'), 'Schede: nel conto di un modello senza scheda c\'è "➕ Crea scheda tecnica"');
+    closeModal('modal-conto');
+    const sc2 = _schedaTecnicaPer('SUZUKI', 'BURGMAN 400', '2018');
+    apriSchedaTecnica(sc2.id, true);
+    const cf = window.confirm; window.confirm = () => true;
+    try { eliminaSchedaTecnica(); } finally { window.confirm = cf; }
+    ok(!(fb.nodo('schede_tecniche') || {})[sc2.id], 'Schede: si può eliminare');
     switchView('board');
   });
 
