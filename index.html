@@ -2859,6 +2859,12 @@
                 if (currentView === 'vendite') refreshVendite();
             });
 
+            database.ref('/marche_extra').on('value', (snap) => {
+                _segnaCaricato('marche_extra');
+                marcheExtra = snap.val() || {};
+                if (currentView === 'archivio') _aggiornaBottonePulizia();
+            });
+
             database.ref('/passaporti_idx').on('value', (snap) => {
                 _segnaCaricato('passaporti_idx');
                 passaportiIdx = snap.val() || {};
@@ -3543,6 +3549,10 @@
         // ── Marche e modelli (v211): suggerimenti mentre scrivi, "Intendevi…?", pulizia dell'archivio ──
         const MARCHE_MOTO = ['APRILIA','ASKOLL','BENDA','BENELLI','BETA','BIMOTA','BMW','BRIXTON','CAGIVA','CFMOTO','DAELIM','DERBI','DUCATI','FANTIC','GARELLI','GASGAS','GILERA','HARLEY-DAVIDSON','HONDA','HUSQVARNA','HYOSUNG','INDIAN','ITALJET','KAWASAKI','KEEWAY','KOVE','KTM','KYMCO','LAMBRETTA','LEXMOTO','MALAGUTI','MASH','MBK','MITT','MONDIAL','MOTO GUZZI','MOTO MORINI','MOTRON','MV AGUSTA','NIU','ORCAL','PEUGEOT','PIAGGIO','QJMOTOR','ROYAL ENFIELD','SHERCO','SILENCE','SUPER SOCO','SUZUKI','SWM','SYM','TGB','TRIUMPH','VESPA','VOGE','WOTTAN','YAMAHA','ZERO','ZONTES'];
         const MARCHE_ALIAS = { GUZZI: 'MOTO GUZZI', MORINI: 'MOTO MORINI', MV: 'MV AGUSTA', AGUSTA: 'MV AGUSTA', HARLEY: 'HARLEY-DAVIDSON', HD: 'HARLEY-DAVIDSON', ENFIELD: 'ROYAL ENFIELD', CF: 'CFMOTO', GAS: 'GASGAS', QJ: 'QJMOTOR' };
+        let marcheExtra = {};   // /marche_extra/{CHIAVE} = "NOME": marche aggiunte da Fabio con "➕ Aggiungi all'elenco" (v213)
+        const _marcheNote = () => [...MARCHE_MOTO, ...Object.values(marcheExtra || {}).map(_maiusc).filter(Boolean)];
+        // Modelli famosi scritti per sbaglio nel campo Marca (oltre a quelli che l'archivio conosce già come modelli di una marca)
+        const MODELLI_NOTI = { AFRICATWIN: 'HONDA', TRANSALP: 'HONDA', HORNET: 'HONDA', FORZA: 'HONDA', INTEGRA: 'HONDA', DEAUVILLE: 'HONDA', GOLDWING: 'HONDA', TMAX: 'YAMAHA', XMAX: 'YAMAHA', NMAX: 'YAMAHA', TENERE: 'YAMAHA', TRACER: 'YAMAHA', MAJESTY: 'YAMAHA', AEROX: 'YAMAHA', BEVERLY: 'PIAGGIO', LIBERTY: 'PIAGGIO', MEDLEY: 'PIAGGIO', MONSTER: 'DUCATI', MULTISTRADA: 'DUCATI', PANIGALE: 'DUCATI', HYPERMOTARD: 'DUCATI', DIAVEL: 'DUCATI', BURGMAN: 'SUZUKI', VSTROM: 'SUZUKI', HAYABUSA: 'SUZUKI', NINJA: 'KAWASAKI', VERSYS: 'KAWASAKI', VULCAN: 'KAWASAKI', AGILITY: 'KYMCO', XCITING: 'KYMCO', DOWNTOWN: 'KYMCO', TUONO: 'APRILIA', SPORTCITY: 'APRILIA', SRGT: 'APRILIA', DUKE: 'KTM', BONNEVILLE: 'TRIUMPH', STREETTRIPLE: 'TRIUMPH', SPORTSTER: 'HARLEY-DAVIDSON', SOFTAIL: 'HARLEY-DAVIDSON', BRUTALE: 'MV AGUSTA', SYMPHONY: 'SYM', JOYMAX: 'SYM' };
         // Coppie [marca, modello] dei moduli; in Anagrafica → Modifica cliente le classi .edit_v_marca / .edit_v_modello
         const CAMPI_MOTO = [['f_marca','f_modello'],['app_marca','app_modello'],['m_app_marca','m_app_modello'],['p_marca','p_modello'],['nc-marca','nc-modello'],['g_marca','g_modello'],['usata-marca','usata-modello'],['vd-marca','vd-modello'],['attesa-marca','attesa-modello']];
         const _maiusc = v => String(v || '').toUpperCase().trim();
@@ -3563,12 +3573,13 @@
         function _marcaCanonica(v, conta) {
             const k = _chiaveNome(v);
             if (!k) return '';
-            const esatta = MARCHE_MOTO.find(m => _chiaveNome(m) === k) || MARCHE_ALIAS[k];
+            const note = _marcheNote();
+            const esatta = note.find(m => _chiaveNome(m) === k) || MARCHE_ALIAS[k];
             if (esatta) return esatta;
             if (k.length < 3) return '';
             const c = conta || {};
             let best = '', d = 3;
-            MARCHE_MOTO.forEach(m => { const x = _distanza(k, _chiaveNome(m)); if (x < d || (x === d && best && (c[m] || 0) > (c[best] || 0))) { d = x; best = m; } });
+            note.forEach(m => { const x = _distanza(k, _chiaveNome(m)); if (x < d || (x === d && best && (c[m] || 0) > (c[best] || 0))) { d = x; best = m; } });
             return d <= (k.length >= 7 ? 2 : 1) ? best : '';
         }
         const _gruppoMarca = (v, conta) => _marcaCanonica(v, conta) || _maiusc(v);
@@ -3588,9 +3599,7 @@
         function _riempiMarche() {
             const dl = $('moto-marche');
             if (!dl) return;
-            const conta = _contaMarche();
-            const altre = Object.keys(conta).filter(m => !_marcaCanonica(m, conta));   // marche non in elenco (auto, quad…), ma non i refusi
-            dl.innerHTML = [...new Set([...MARCHE_MOTO, ...altre])].sort().map(m => `<option value="${htmlEsc(m)}">`).join('');
+            dl.innerHTML = [...new Set(_marcheNote())].sort().map(m => `<option value="${htmlEsc(m)}">`).join('');
         }
         function _riempiModelli(inputMarca) {
             const dl = $('moto-modelli');
@@ -3600,9 +3609,23 @@
             Object.keys(c).sort((a, b) => c[b] - c[a] || a.localeCompare(b)).forEach(m => { if (!scelti.some(x => _chiaveNome(x) === _chiaveNome(m))) scelti.push(m); });
             dl.innerHTML = scelti.slice(0, 80).map(m => `<option value="${htmlEsc(m)}">`).join('');
         }
+        // "AFRICA TWIN" nel campo Marca → { marca: 'HONDA', modello: 'AFRICA TWIN' }; null se non è un modello conosciuto
+        function _marcaDelModello(v, conta) {
+            const k = _chiaveNome(v);
+            if (k.length < 3 || _marcaCanonica(v, conta)) return null;
+            const voti = {};
+            db.forEach(j => { const mo = _chiaveNome(j.modello), g = _marcaCanonica(j.marca, conta); if (g && mo && (mo === k || (k.length >= 4 && mo.startsWith(k)))) voti[g] = (voti[g] || 0) + 1; });
+            let marca = Object.keys(voti).sort((a, b) => voti[b] - voti[a])[0];
+            if (!marca) { const n = Object.keys(MODELLI_NOTI).find(x => k === x || (x.length >= 4 && k.startsWith(x))); if (n) marca = MODELLI_NOTI[n]; }
+            return marca ? { marca, modello: _maiusc(v) } : null;
+        }
+        const _unisciModello = (nomeNellaMarca, modello) => { const a = _maiusc(nomeNellaMarca), b = _maiusc(modello); return !b ? a : _chiaveNome(b).includes(_chiaveNome(a)) ? b : (a + ' ' + b).trim(); };
         let _hintMoto = null;
         function _chiudiSuggerimentoMoto() { const b = $('moto-hint'); if (b) b.remove(); _hintMoto = null; }
         function _mostraSuggerimentoMoto(input, proposta) {
+            _mostraAvvisoMoto(input, `Intendevi <b>${htmlEsc(proposta)}</b>?`, 'Correggi', () => { input.value = proposta; input.dispatchEvent(new Event('input', { bubbles: true })); });
+        }
+        function _mostraAvvisoMoto(input, testo, etichetta, azione) {
             _chiudiSuggerimentoMoto();
             const r = input.getBoundingClientRect();
             if (!r.width) return;
@@ -3610,8 +3633,8 @@
             box.id = 'moto-hint';
             box.setAttribute('role', 'status');
             box.style.cssText = `position:fixed; left:${Math.max(8, Math.min(r.left, window.innerWidth - 290))}px; top:${r.bottom + 4}px; z-index:10050; background:#422006; color:#fde68a; border:1px solid #f59e0b; border-radius:8px; padding:6px 8px; font-size:0.85rem; display:flex; gap:8px; align-items:center; box-shadow:0 4px 14px rgba(0,0,0,0.45); max-width:calc(100vw - 16px);`;
-            box.innerHTML = `<span>Intendevi <b>${htmlEsc(proposta)}</b>?</span><button type="button" class="mh-si" style="background:#f59e0b; color:#1c1917; border:none; border-radius:6px; padding:4px 10px; font-weight:800; cursor:pointer;">Correggi</button><button type="button" class="mh-no" title="Va bene così" style="background:transparent; color:#fde68a; border:1px solid #a16207; border-radius:6px; padding:4px 8px; cursor:pointer;">✕</button>`;
-            box.querySelector('.mh-si').addEventListener('mousedown', e => { e.preventDefault(); input.value = proposta; input.dispatchEvent(new Event('input', { bubbles: true })); _chiudiSuggerimentoMoto(); });
+            box.innerHTML = `<span>${testo}</span><button type="button" class="mh-si" style="background:#f59e0b; color:#1c1917; border:none; border-radius:6px; padding:4px 10px; font-weight:800; cursor:pointer; white-space:nowrap;">${htmlEsc(etichetta)}</button><button type="button" class="mh-no" title="Va bene così" style="background:transparent; color:#fde68a; border:1px solid #a16207; border-radius:6px; padding:4px 8px; cursor:pointer;">✕</button>`;
+            box.querySelector('.mh-si').addEventListener('mousedown', e => { e.preventDefault(); _chiudiSuggerimentoMoto(); azione(); });
             box.querySelector('.mh-no').addEventListener('mousedown', e => { e.preventDefault(); _chiudiSuggerimentoMoto(); });
             document.body.appendChild(box);
             _hintMoto = { input, quando: Date.now() };
@@ -3649,13 +3672,36 @@
             const el = e.target;
             if (!el || el.tagName !== 'INPUT') return;
             let proposta = '';
-            if (_eMarcaMoto(el)) proposta = _propostaMarca(el.value);
+            if (_eMarcaMoto(el)) {
+                proposta = _propostaMarca(el.value);
+                const m = _maiusc(el.value), conta = _contaMarche();
+                if (!proposta && m && !_marcaCanonica(m, conta)) {
+                    const mod = _marcaDelModello(m, conta);
+                    const campoModello = el.classList.contains('edit_v_marca') ? (el.closest('.vehicle-edit-row') || document).querySelector('.edit_v_modello') : $((CAMPI_MOTO.find(x => x[0] === el.id) || [])[1]);
+                    if (mod) _mostraAvvisoMoto(el, `${htmlEsc(m)} è un modello: <b>${htmlEsc(mod.marca)} · ${htmlEsc(_unisciModello(m, campoModello ? campoModello.value : ''))}</b>?`, 'Sistema', () => {
+                        if (campoModello) campoModello.value = _unisciModello(m, campoModello.value);
+                        el.value = mod.marca;
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
+                    else _mostraAvvisoMoto(el, `<b>${htmlEsc(m)}</b> non è nell'elenco delle marche`, '➕ Aggiungi all\'elenco', () => aggiungiMarcaElenco(m));
+                    return;
+                }
+            }
             else if (_eModelloMoto(el)) { const m = _marcaPerModello(el); proposta = _propostaModello(m ? m.value : '', el.value); }
             else return;
             if (proposta) _mostraSuggerimentoMoto(el, proposta); else if (_hintMoto && _hintMoto.input === el) _chiudiSuggerimentoMoto();
         });
         document.addEventListener('input', e => { if (_hintMoto && e.target === _hintMoto.input) _chiudiSuggerimentoMoto(); });
         window.addEventListener('scroll', () => { if (_hintMoto) _chiudiSuggerimentoMoto(); }, true);
+
+        function aggiungiMarcaElenco(nome) {
+            const m = _maiusc(nome), k = _chiaveNome(m);
+            if (!k || !_puoSalvare('marche_extra')) return false;
+            marcheExtra = { ...marcheExtra, [k]: m };
+            database.ref('/').update({ ['marche_extra/' + k]: m }).then(showCloudCheck).catch(_onSaveError);
+            mostraToast(`➕ ${m} aggiunta all'elenco delle marche`);
+            return true;
+        }
 
         // Pulizia dell'archivio: gruppi di scritture diverse della stessa marca o dello stesso modello
         let _gruppiPulizia = [];
@@ -3668,7 +3714,10 @@
             Object.entries(conta).forEach(([m, n]) => { const g = _marcaCanonica(m, conta) || m; (perMarca[g] = perMarca[g] || {})[m] = n; });
             Object.keys(perMarca).sort().forEach(g => {
                 const v = perMarca[g], nomi = Object.keys(v);
-                if (nomi.length > 1 || nomi[0] !== g) out.push({ tipo: 'marca', proposta: g, varianti: v });
+                if (_marcaCanonica(g, conta)) { if (nomi.length > 1 || nomi[0] !== g) out.push({ tipo: 'marca', proposta: g, varianti: v }); return; }
+                const mod = _marcaDelModello(g, conta);
+                if (mod) out.push({ tipo: 'scambio', proposta: mod.marca, nomeModello: g, varianti: v });   // AFRICA TWIN nella marca → HONDA, modello AFRICA TWIN…
+                else out.push({ tipo: 'nuova', proposta: g, varianti: v });                                 // marca che il gestionale non conosce
             });
             const modelli = {};
             db.forEach(j => { const mo = _maiusc(j.modello); if (!mo) return; const g = _gruppoMarca(j.marca, conta); const t = (modelli[g] = modelli[g] || {}); t[mo] = (t[mo] || 0) + 1; });
@@ -3700,16 +3749,19 @@
                 : _gruppiPulizia.map((g, i) => {
                     const v = Object.entries(g.varianti).sort((a, b) => b[1] - a[1]);
                     return `<div class="pm-gruppo" style="border:1px solid #334155; border-left:3px solid var(--info); border-radius:10px; padding:10px 12px; margin-bottom:10px;">
-                        <div style="font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px;">${g.tipo === 'marca' ? 'MARCA' : 'MODELLO · ' + htmlEsc(g.marca)}</div>
+                        <div style="font-size:0.72rem; color:var(--muted); font-weight:800; letter-spacing:0.5px;">${g.tipo === 'marca' ? 'MARCA' : g.tipo === 'scambio' ? 'MODELLO SCRITTO NELLA MARCA' : g.tipo === 'nuova' ? 'MARCA CHE NON CONOSCO' : 'MODELLO · ' + htmlEsc(g.marca)}</div>
+                        ${g.tipo === 'scambio' ? `<div style="font-size:0.82rem; color:var(--text); margin-top:4px;">Diventa marca <b>${htmlEsc(g.proposta)}</b> e modello <b>${htmlEsc(g.nomeModello)}</b> (seguito dal modello già scritto, se c'è). Puoi cambiare la marca nel riquadro.</div>` : ''}
+                        ${g.tipo === 'nuova' ? `<div style="font-size:0.82rem; color:var(--text); margin-top:4px;">Se è una marca vera premi <b>➕ È una marca</b>; se è sbagliata scrivi quella giusta nel riquadro e premi Unifica.</div>` : ''}
                         <div style="display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 8px;">${v.map(([n, k]) => `<span style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:2px 8px; font-size:0.85rem;"><b>${htmlEsc(n)}</b> <small style="color:var(--muted);">${k} ${k === 1 ? 'scheda' : 'schede'}</small></span>`).join('')}</div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                            <input id="pm-nome-${i}" value="${htmlEsc(g.proposta)}" ${g.tipo === 'marca' ? 'list="moto-marche"' : ''} aria-label="Scrittura giusta" style="flex:1 1 200px; margin:0;">
-                            <button type="button" class="btn btn-success w-auto" style="margin:0; padding:7px 14px;" onclick="unificaGruppoMoto(${i})">✓ Unifica</button>
+                            <input id="pm-nome-${i}" value="${htmlEsc(g.proposta)}" ${g.tipo !== 'modello' ? 'list="moto-marche"' : ''} aria-label="Scrittura giusta" style="flex:1 1 200px; margin:0;">
+                            ${g.tipo === 'nuova' ? `<button type="button" class="btn btn-info w-auto" style="margin:0; padding:7px 14px;" onclick="marcaNuovaDaPulizia(${i})">➕ È una marca</button>` : ''}
+                            <button type="button" class="btn btn-success w-auto" style="margin:0; padding:7px 14px;" onclick="unificaGruppoMoto(${i})">${g.tipo === 'scambio' ? '✓ Sistema' : '✓ Unifica'}</button>
                             <button type="button" class="btn btn-dark w-auto" style="margin:0; padding:7px 14px;" onclick="ignoraGruppoMoto(${i})">Lascia così</button>
                         </div>
                     </div>`;
                 }).join('');
-            if (_gruppiPulizia.some(g => g.tipo === 'marca')) _riempiMarche();
+            if (_gruppiPulizia.some(g => g.tipo !== 'modello')) _riempiMarche();
             _aggiornaBottonePulizia();
         }
         function unificaGruppoMoto(i) {
@@ -3718,12 +3770,18 @@
             const nuovo = _maiusc(($('pm-nome-' + i) || {}).value);
             if (!nuovo) return mostraErrore('Scrivi il nome giusto prima di unificare.');
             const conta = _contaMarche(), varianti = new Set(Object.keys(g.varianti));
-            const tocca = db.filter(j => g.tipo === 'marca' ? varianti.has(_maiusc(j.marca)) : (varianti.has(_maiusc(j.modello)) && _gruppoMarca(j.marca, conta) === g.marca));
+            const suMarca = g.tipo !== 'modello';
+            const tocca = db.filter(j => suMarca ? varianti.has(_maiusc(j.marca)) : (varianti.has(_maiusc(j.modello)) && _gruppoMarca(j.marca, conta) === g.marca));
             if (!tocca.length) return _renderPuliziaMoto();
-            if (!confirm(`Scrivere "${nuovo}" come ${g.tipo} in ${tocca.length} ${tocca.length === 1 ? 'scheda' : 'schede'}?`)) return;
+            const domanda = g.tipo === 'scambio' ? `Scrivere marca "${nuovo}" e spostare "${g.nomeModello}" nel modello in ${tocca.length} ${tocca.length === 1 ? 'scheda' : 'schede'}?`
+                : `Scrivere "${nuovo}" come ${suMarca ? 'marca' : 'modello'} in ${tocca.length} ${tocca.length === 1 ? 'scheda' : 'schede'}?`;
+            if (!confirm(domanda)) return;
             if (!_puoSalvare('db', 'agenda')) return;
             saveSnapshot();
-            tocca.forEach(j => { if (g.tipo === 'marca') j.marca = nuovo; else j.modello = nuovo; });
+            tocca.forEach(j => {
+                if (g.tipo === 'scambio') { j.modello = _unisciModello(j.marca, j.modello); j.marca = nuovo; }
+                else if (suMarca) j.marca = nuovo; else j.modello = nuovo;
+            });
             const ids = new Set(tocca.map(j => String(j.id)));
             agendaDB.forEach(a => {
                 if (!a.jobId || !ids.has(String(a.jobId))) return;
@@ -3735,6 +3793,15 @@
             mostraToast(`✓ ${nuovo}: ${tocca.length} ${tocca.length === 1 ? 'scheda aggiornata' : 'schede aggiornate'}`);
             _renderPuliziaMoto();
             if (currentView === 'archivio') refreshArchive();
+        }
+        function marcaNuovaDaPulizia(i) {
+            const g = _gruppiPulizia[i];
+            if (!g) return;
+            const nome = _maiusc(($('pm-nome-' + i) || {}).value) || g.proposta;
+            if (!aggiungiMarcaElenco(nome)) return;
+            // Se nel riquadro è stata corretta la scrittura, le schede prendono quella
+            if (Object.keys(g.varianti).some(v => v !== nome)) { _gruppiPulizia[i] = { ...g, tipo: 'marca' }; unificaGruppoMoto(i); }
+            _renderPuliziaMoto();
         }
         function ignoraGruppoMoto(i) {
             const g = _gruppiPulizia[i];
@@ -3853,7 +3920,7 @@
         // =====================================================================
         // Backup manuale: le sezioni principali (come prima, così i vecchi file restano ripristinabili)
         // più tutte le altre lette dal cloud così come sono. Restano fuori solo i file dei libretti (pesanti).
-        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse', 'passaporti_idx', 'passaporti'];
+        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse', 'passaporti_idx', 'passaporti', 'marche_extra'];
         const BACKUP_NOMI = { db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Prima Nota', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse', passaporti_idx: 'Passaporti delle moto', passaporti: 'Pagine online dei passaporti' };
         function _contaBackup(v) {
             if (v == null || typeof v !== 'object') return '';
