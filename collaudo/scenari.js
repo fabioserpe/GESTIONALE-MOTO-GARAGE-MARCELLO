@@ -17,12 +17,12 @@
   const campo = (id, v) => { const e = document.getElementById(id); if (!e) throw new Error('campo mancante ' + id); e.value = v; };
   async function passo(nome, fn) { try { await fn(); } catch (e) { ok(false, nome + ': eccezione ' + (e && e.message)); } }
 
-  for (let i = 0; i < 300 && fb.inAttesa.length < 19; i++) await attendi(20);
+  for (let i = 0; i < 300 && fb.inAttesa.length < 20; i++) await attendi(20);
   await attendi(50);
 
   await passo('Avvio', async () => {
     ok(document.getElementById('app-shell').style.display === 'flex', 'Avvio: accesso simulato, gestionale visibile');
-    ok(fb.inAttesa.length === 19, 'Avvio: tutte le 19 sezioni in ascolto (' + fb.inAttesa.length + ')');
+    ok(fb.inAttesa.length === 20, 'Avvio: tutte le 20 sezioni in ascolto (' + fb.inAttesa.length + ')');
     ok(ovVisibile() && ovTitolo() === 'Caricamento dati…', 'Avvio: pannello "Caricamento dati…" finché i dati non arrivano');
     const n = nScr(), a = fb.alerts.length;
     db.push({ id: 999, cognome: 'PRIMA DEL CARICAMENTO' });
@@ -2750,7 +2750,7 @@
       J('mm1', 8501, 'KAWASAKY', 'Z 650', 'MM001AA'), J('mm2', 8502, 'KAWASAKI', 'Z 650', 'MM002AA'), J('mm3', 8503, 'Kawasaki', 'Z 650', 'MM003AA'),
       J('mm4', 8504, 'YAMAHA', 'T-MAX 530', 'MM004AA'), J('mm5', 8505, 'YAMAHA', 'TMAX 530', 'MM005AA'), J('mm6', 8506, 'Yamaha', 'TMAX 530', 'MM006AA'),
       J('mm7', 8507, 'YAMAHA', 'NMAX 125', 'MM007AA'), J('mm8', 8508, 'YAMAHA', 'XMAX 125', 'MM008AA'), J('mm9', 8509, 'Harley Davidson', 'SPORTSTER', 'MM009AA'),
-      J('mm10', 8510, 'FIAT', 'PANDA', 'MM010AA'),
+      J('mm10', 8510, 'FIAT', 'PANDA', 'MM010AA'), J('mm11', 8511, 'AFRICA TWIN', '', 'MM011AA'), J('mm12', 8512, 'ZXQW', 'BOH', 'MM012AA'),
       { 'agenda/mm': { id: 8599, tipo: 'officina', jobId: 8504, data: '2026-01-05', ora: '09:00', cliente: 'MARCHE MM4', moto: 'YAMAHA T-MAX 530 - MM004AA', raw_marca: 'YAMAHA', raw_modello: 'T-MAX 530', raw_targa: 'MM004AA' } }), false);
     await attendi(50);
     switchView('nuova');
@@ -2759,7 +2759,7 @@
     ok(fm.getAttribute('list') === 'moto-marche' && fmo.getAttribute('list') === 'moto-modelli' && document.getElementById('p_marca').getAttribute('list') === 'moto-marche', 'Marche: i campi Marca e Modello hanno i suggerimenti');
     fm.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     const marche = [...document.querySelectorAll('#moto-marche option')].map(o => o.value);
-    ok(marche.includes('KAWASAKI') && marche.includes('MOTO GUZZI') && marche.includes('FIAT') && !marche.includes('KAWASAKY') && !marche.includes('HARLEY DAVIDSON'), 'Marche: suggerite le case moto e le altre marche dell\'archivio, non i refusi');
+    ok(marche.includes('KAWASAKI') && marche.includes('MOTO GUZZI') && !marche.includes('FIAT') && !marche.includes('KAWASAKY') && !marche.includes('HARLEY DAVIDSON') && !marche.includes('AFRICA TWIN'), 'Marche: suggerite solo le marche vere (non i refusi, non i modelli, non le marche mai aggiunte)');
     fm.value = 'YAMAHA';
     fmo.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     const modelli = [...document.querySelectorAll('#moto-modelli option')].map(o => o.value);
@@ -2778,7 +2778,18 @@
     fm.value = 'KAWAZAKY'; fm.dispatchEvent(new Event('change', { bubbles: true }));
     ok(hint() && hint().textContent.includes('Intendevi KAWASAKI?'), 'Marche: su un nome lungo anche due lettere sbagliate (KAWAZAKY)');
     fm.value = 'KIA'; fm.dispatchEvent(new Event('change', { bubbles: true }));
-    ok(!hint(), 'Marche: una marca corta sconosciuta (KIA) non viene "corretta"');
+    ok(hint() && !hint().textContent.includes('Intendevi') && hint().textContent.includes('non è nell\'elenco'), 'Marche: una marca sconosciuta (KIA) non viene "corretta" ma si può aggiungere');
+    fm.value = 'FIAT'; fm.dispatchEvent(new Event('change', { bubbles: true }));
+    hint().querySelector('.mh-si').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    ok(fb.leggi('marche_extra/FIAT') === 'FIAT' && fm.value === 'FIAT', 'Marche: "➕ Aggiungi all\'elenco" salva la marca per tutti i Mac');
+    fm.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    ok([...document.querySelectorAll('#moto-marche option')].some(o => o.value === 'FIAT'), 'Marche: la marca aggiunta compare nei suggerimenti');
+    fm.value = 'FIAT'; fm.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(!hint(), 'Marche: la marca aggiunta non dà più avvisi');
+    fm.value = 'africa twin'; fmo.value = '1100'; fm.dispatchEvent(new Event('change', { bubbles: true }));
+    ok(hint() && hint().textContent.includes('HONDA · AFRICA TWIN 1100'), 'Marche: AFRICA TWIN nella marca propone HONDA · AFRICA TWIN 1100');
+    hint().querySelector('.mh-si').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    ok(fm.value === 'HONDA' && fmo.value === 'AFRICA TWIN 1100', '"Sistema" scrive HONDA nella marca e sposta AFRICA TWIN nel modello');
     fm.value = 'YAMAHA'; fmo.value = 't max 530'; fmo.dispatchEvent(new Event('change', { bubbles: true }));
     ok(hint() && hint().textContent.includes('Intendevi TMAX 530?'), 'Modelli: "T MAX 530" propone la scrittura già usata TMAX 530');
     fmo.value = 'XMAX 125'; fmo.dispatchEvent(new Event('change', { bubbles: true }));
@@ -2799,6 +2810,15 @@
       unificaGruppoMoto(idx('modello', 'TMAX 530'));
       ok(recordDi('db', 8504).modello === 'TMAX 530' && Object.values(fb.nodo('agenda')).find(a => a.id === 8599).moto === 'YAMAHA TMAX 530 - MM004AA', 'Pulizia: unificato il modello, aggiornato anche l\'appuntamento');
     } finally { window.confirm = cf; }
+    ok(!_gruppiPulizia.some(g => g.proposta === 'FIAT'), 'Pulizia: la marca aggiunta (FIAT) non è più tra quelle da sistemare');
+    const iS = _gruppiPulizia.findIndex(g => g.tipo === 'scambio' && g.nomeModello === 'AFRICA TWIN');
+    const iN = _gruppiPulizia.findIndex(g => g.tipo === 'nuova' && g.proposta === 'ZXQW');
+    ok(iS > -1 && _gruppiPulizia[iS].proposta === 'HONDA' && iN > -1, 'Pulizia: trovati il modello scritto nella marca (AFRICA TWIN → HONDA) e la marca sconosciuta ZXQW');
+    window.confirm = () => true;
+    try { unificaGruppoMoto(iS); } finally { window.confirm = cf; }
+    ok(recordDi('db', 8511).marca === 'HONDA' && recordDi('db', 8511).modello === 'AFRICA TWIN', 'Pulizia: "Sistema" scrive HONDA e sposta AFRICA TWIN nel modello');
+    marcaNuovaDaPulizia(_gruppiPulizia.findIndex(g => g.tipo === 'nuova' && g.proposta === 'ZXQW'));
+    ok(fb.leggi('marche_extra/ZXQW') === 'ZXQW' && !_gruppiPulizia.some(g => g.proposta === 'ZXQW'), 'Pulizia: "➕ È una marca" la aggiunge all\'elenco');
     ignoraGruppoMoto(idx('marca', 'HARLEY-DAVIDSON'));
     ok(idx('marca', 'HARLEY-DAVIDSON') === -1 && recordDi('db', 8509).marca === 'Harley Davidson', 'Pulizia: "Lascia così" toglie il gruppo senza cambiare niente');
     try { localStorage.removeItem('mgm_pulizia_moto_ignorati'); } catch (e) {}
