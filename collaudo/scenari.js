@@ -2853,7 +2853,7 @@
     const JJ = (k, id, targa, stato, anno) => ({ ['db/' + k]: { id, cognome: 'TECNICA', nome: k, marca: 'SUZUKI', modello: 'BURGMAN 400', targa, stato, data: oggi, anno, conto: [], acconti: [], clientId: 'c-st' + id } });
     fb.scritturaRemota(Object.assign({}, JJ('st1', 8601, 'ST001AA', 'archived', '2014'), JJ('st2', 8602, 'ST002AA', 'archived', '2018'),
       JJ('st3', 8603, 'ST003AA', 'todo', '2018'), JJ('st4', 8604, 'ST004AA', 'todo', '2014'),
-      { 'schede_tecniche/vecchia': { id: 'vecchia', marca: 'HONDA', modello: 'SH 125', filtro_olio: 'HF113', candela: 'CPR7EA', olio: '10W30' } }), false);
+      { 'schede_tecniche/vecchia': { id: 'vecchia', marca: 'HONDA', modello: 'SH 125', filtro_olio: 'HF113', candela: 'CPR7EA', olio: '10W30', gomme: '100/80-16 · 120/80-16' } }), false);
     await attendi(50);
     switchView('schede');
     const el = document.getElementById('st-elenco');
@@ -2868,11 +2868,14 @@
     aggiungiRigaCodice();
     righe()[8].querySelector('.stc-nome').value = 'Kit frizione'; righe()[8].querySelector('.stc-codice').value = 'FR-400';
     campo('st_olio', '10W40 · 1,7 L'); campo('st_note', 'Togliere il pannello <centrale>');
+    campo('st_gomma_ant', '120/80-14'); campo('st_press_ant', '2,0'); campo('st_gomma_post', '150/70-13'); campo('st_press_post', '2,25');
     salvaSchedaTecnica();
     const sc1 = Object.values(fb.nodo('schede_tecniche') || {}).find(x => x.modello === 'BURGMAN 400' && !x.anno_da);
     const ric = sc1 ? Object.values(sc1.ricambi || {}) : [];
     ok(sc1 && ric.length === 3 && ric[0].nome === 'Filtro olio' && ric[0].codice === 'HF147' && ric[0].alternativo === 'MAHLE OC 575' && ric[2].nome === 'Kit frizione' && sc1.olio === '10W40 · 1,7 L', 'Schede: salvati solo i ricambi con il codice (anche quelli aggiunti), con codice alternativo');
     const vista = document.getElementById('st-vista');
+    ok(sc1.gomma_ant === '120/80-14' && sc1.press_ant === '2,0' && sc1.gomma_post === '150/70-13' && sc1.press_post === '2,25', 'Schede: misure e pressioni salvate divise tra anteriore e posteriore');
+    ok(vista.textContent.includes('Gomma anteriore120/80-14 · 2,0 bar') && vista.textContent.includes('Gomma posteriore150/70-13 · 2,25 bar'), 'Schede: nella scheda gomma anteriore e posteriore con la pressione in bar');
     ok(vista.textContent.includes('CODICI RICAMBI') && vista.textContent.includes('HF147') && vista.textContent.includes('FR-400') && !vista.textContent.includes('USATI') && vista.innerHTML.includes('&lt;centrale&gt;'), 'Schede: la scheda mostra la tabella dei codici, senza i ricambi dei conti');
     inventarioMag.push({ codice: 'HF-147', nome: 'FILTRO OLIO', giacenza: 4 });
     apriSchedaTecnica(sc1.id);
@@ -2887,6 +2890,7 @@
     ok(document.getElementById('st-vista').textContent.includes('HF113') && document.getElementById('st-vista').textContent.includes('CPR7EA'), 'Schede: le schede della prima versione mostrano i codici scritti nei vecchi campi');
     apriSchedaTecnica('vecchia', true);
     ok(righe().length === 2 && righe()[0].querySelector('.stc-codice').value === 'HF113', 'Schede: modificandole i vecchi codici passano nella tabella');
+    ok(document.getElementById('st-campi').textContent.includes('Prima era scritto: «100/80-16 · 120/80-16»'), 'Schede: il vecchio campo unico delle gomme viene mostrato da dividere');
     closeModal('modal-scheda-tecnica');
     apriSchedaTecnica(null, true);
     campo('st_marca', 'suzuki'); campo('st_modello', 'BURGMAN 400'); campo('st_olio', 'ALTRO');
