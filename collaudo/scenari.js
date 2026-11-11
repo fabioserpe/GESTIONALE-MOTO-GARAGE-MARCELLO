@@ -234,7 +234,9 @@
     const prove = [['saveLedger', 'ledger'], ['saveOrdini', 'ordini'], ['saveRubrica', 'rubrica'], ['saveNote', 'note'], ['saveBilling', 'billing'],
                    ['saveTagliandi', 'tagliandi'], ['saveScadenzeDB', 'scadenze'], ['saveAttesaDB', 'lista_attesa'], ['saveUsateDB', 'moto_usate'], ['saveListaOrdiniMag', 'lista_ordini']];
     const a0 = fb.alerts.length, bloccati = [];
-    for (const [fn, chiave] of prove) { const n = nScr(); window[fn](); if (!chiaviDa(n).includes(chiave)) bloccati.push(fn); }
+    taggliandiDB['PROVA001'] = { data: '2030-01-01', km: '', note: '' };   // i tagliandi si scrivono solo se cambia qualcosa
+    for (const [fn, chiave] of prove) { const n = nScr(); window[fn](); if (!chiaviDa(n).some(k => k === chiave || k.startsWith(chiave + '/'))) bloccati.push(fn); }
+    delete taggliandiDB['PROVA001']; saveTagliandi();
     ok(bloccati.length === 0 && fb.alerts.length === a0, 'Salvataggio consentito in tutte le altre 10 sezioni' + (bloccati.length ? ' → bloccati: ' + bloccati.join(', ') : ''));
   });
 
@@ -2922,25 +2924,67 @@
     switchView('board');
   });
 
-  await passo('Offline', async () => {
+  await passo('Senza internet', async () => {
     switchView('board');
+    const striscia = document.getElementById('rete-striscia');
     fb.setConnesso(false);
-    ok(ovVisibile() && ovTitolo() === 'Connessione assente', 'Offline: pannello "Connessione assente"');
-    const n = nScr();
-    db.find(x => x.id === 1002).note_offline = 'NO';
+    ok(!ovVisibile(), 'Senza internet: con i dati già caricati nessun pannello che blocca il gestionale');
+    ok(!striscia.hidden && striscia.textContent.includes('Senza internet'), 'Senza internet: in basso la striscia "📴 Senza internet"');
+    const j = db.find(x => x.id === 1002);
+    j.note_offline = 'SI';
     saveDB();
-    ok(nScr() === n, 'Offline: salvataggio bloccato, niente messo in coda');
-    ok(ovTesto().includes('NON è stata salvata'), 'Offline: il pannello avvisa che la modifica non è stata salvata');
+    const k1002 = Object.keys(fb.nodo('db')).find(k => fb.nodo('db')[k].id === 1002);
+    ok(fb.leggi('db/' + k1002).note_offline === 'SI' && _locale.coda.length === 1, 'Senza internet: la modifica di una scheda si salva e resta in attesa');
+    ok(striscia.textContent.includes('1 modifica da inviare'), 'Senza internet: la striscia conta le modifiche da inviare');
+    db.push({ id: 1997, stato: 'todo', data: getOggiLocale(), cognome: 'SENZARETE', nome: 'ANNA', targa: 'SR123AA', marca: 'HONDA', modello: 'SH 125', conto: [], acconti: [] });
+    saveDB();
+    db.find(x => x.id === 1997).km = '5000';
+    saveDB();
+    const nuove = Object.values(fb.nodo('db')).filter(x => x.id === 1997);
+    ok(nuove.length === 1 && nuove[0].km === '5000', 'Senza internet: una scheda nuova salvata due volte non si sdoppia');
+    taggliandiDB['SR123AA'] = { data: '2027-01-01', km: '', note: '' };
+    saveTagliandi();
+    ok(fb.leggi('tagliandi/SR123AA').data === '2027-01-01' && fb.scritture.slice(-1)[0].chiavi.join() === 'tagliandi/SR123AA', 'Senza internet: i tagliandi si salvano una targa alla volta');
+    const nAvvisi = fb.alerts.length, nScr0 = nScr();
+    ledgerDB.push({ id: 'senzarete', data: getOggiLocale(), desc: 'PROVA', importo: 1 });
+    saveLedger();
+    ok(nScr() === nScr0 && fb.alerts.length === nAvvisi && _cloud.ricaricaAlRitorno, 'Senza internet: le sezioni non ancora pronte (Prima Nota) restano da consultare, senza scrivere niente');
+    const inCoda = _locale.coda.map(v => Object.keys(v.updates).join('+'));
+    ok(inCoda.length >= 4 && !inCoda.some(k => k.includes('ledger')) && inCoda.some(k => k.includes('tagliandi/SR123AA')), 'Senza internet: in attesa le modifiche di schede e tagliandi, niente Prima Nota (' + inCoda.join(' | ') + ')');
     const timer = [], st = window.setTimeout;
     window.setTimeout = (f, ms) => { timer.push(ms); return 0; };
     try { fb.setConnesso(true); } finally { window.setTimeout = st; }
-    ok(ovVisibile() && ovTitolo() === 'Connessione tornata', 'Offline: al ritorno della rete pannello "Connessione tornata"');
-    ok(timer.includes(1500), 'Offline: ricarica della pagina programmata per riallinearsi');
+    await attendi(30);
+    ok(_locale.coda.length === 0 && fb.inCodaRete.length === 0, 'Ritorno della rete: tutte le modifiche inviate al cloud');
+    ok(timer.includes(1500), 'Ritorno della rete: dopo una modifica non salvata la pagina si ricarica per riallinearsi');
+    _cloud.ricaricaAlRitorno = false;
+    ledgerDB = ledgerDB.filter(x => x.id !== 'senzarete');
+    _aggiornaOverlayCloud();
+    ok(striscia.hidden, 'Ritorno della rete: la striscia sparisce');
+  });
+
+  await passo('Copia sul dispositivo', async () => {
+    _locale.specchio.__prova = [{ id: 1, a: 1 }, { id: 2, a: 2 }];
+    _applicaASpecchio({ '__prova/-Nnuova': { id: 3 }, '__prova/0': null }, false);
+    ok(JSON.stringify(_locale.specchio.__prova) === JSON.stringify({ 1: { id: 2, a: 2 }, '-Nnuova': { id: 3 } }), 'Copia: gli aggiornamenti si applicano alla copia (anche con chiavi nuove e cancellazioni)');
+    delete _locale.specchio.__prova;
+    const snap = _snapLocale('x', { 2: { id: 'b' }, 0: { id: 'a' }, '-Nz': { id: 'c' } });
+    const visti = []; snap.forEach(ch => { visti.push(ch.key + ':' + ch.val().id); });
+    ok(visti.join() === '0:a,2:b,-Nz:c' && snap.val()[0].id === 'a', 'Copia: la fotografia locale si legge come quella di Firebase');
+    const salvo = { dal: _locale.dalServer.has('rubrica'), val: _locale.specchio.rubrica };
+    _locale.dalServer.delete('rubrica');
+    _locale.specchio.rubrica = { r1: { id: 'r1', nome: 'DALLA COPIA', tel1: '333' } };
+    _consegnaDaCopia('rubrica');
+    ok(rubricaDB.some(r => r.nome === 'DALLA COPIA') && _cloud.daCache.has('rubrica'), 'Copia: una sezione non ancora arrivata dal cloud si apre dalla copia del dispositivo');
+    if (salvo.dal) _locale.dalServer.add('rubrica');
+    _locale.specchio.rubrica = salvo.val;
+    fb.scritturaRemota({ 'rubrica/zz': { id: 'zz', nome: 'DAL CLOUD', tel1: '1' } });
+    ok(rubricaDB.some(r => r.nome === 'DAL CLOUD') && !rubricaDB.some(r => r.nome === 'DALLA COPIA'), 'Copia: appena arrivano, i dati del cloud prendono il posto della copia');
   });
 
   const intere = fb.scritture.filter(w => !w.remota && w.chiavi.some(k => k === 'db' || k === 'agenda'));
   ok(intere.length === 0, 'Nessuna riscrittura dell\'intero archivio o dell\'agenda in tutte le prove');
-  ok(fb.scritture.every(w => !w.offline), 'Nessuna scrittura fatta senza connessione');
+  ok(fb.scritture.every(w => w.inviata), 'Tutte le scritture, anche quelle fatte senza connessione, sono arrivate al cloud');
   const idsFin = Object.values(fb.nodo('db')).map(x => x.id);
   ok(new Set(idsFin).size === idsFin.length && Object.values(fb.nodo('db')).every(x => x && typeof x === 'object'), 'Archivio finale: nessuna scheda doppia o vuota');
   ok(window.__errori.length === 0, 'Nessun errore JavaScript' + (window.__errori.length ? ': ' + window.__errori.join(' | ') : ''));

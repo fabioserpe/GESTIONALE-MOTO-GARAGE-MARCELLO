@@ -21,7 +21,7 @@ window.__meteoRisposta = null; window.__meteoChiamate = 0;
 
   const fb = {
     tree: {}, connesso: false, ritardaCaricamento: true, inAttesa: [], listeners: [],
-    scritture: [], alerts: [], n: 0,
+    scritture: [], alerts: [], n: 0, inCodaRete: [],
   };
   window.__fb = fb;
   window.alert = m => { fb.alerts.push(String(m)); };
@@ -114,8 +114,12 @@ window.__meteoRisposta = null; window.__meteoChiamate = 0;
     chiavi.forEach(a => chiavi.forEach(b => { if (a !== b && (b + '/').startsWith(a + '/')) throw new Error('Firebase: percorsi sovrapposti ' + a + ' / ' + b); }));
     chiavi.forEach(k => normalizza(updates[k]));
     chiavi.forEach(k => setAt(k, updates[k]));
-    fb.scritture.push({ tipo, chiavi, remota: !!opzioni.remota, offline: !fb.connesso && !opzioni.remota });
+    const w = { tipo, chiavi, remota: !!opzioni.remota, offline: !fb.connesso && !opzioni.remota, inviata: fb.connesso || !!opzioni.remota };
+    fb.scritture.push(w);
     if (!opzioni.silenziosa) avvisaCambiati();
+    // Come Firebase: senza rete la scrittura vale subito in locale, ma la promessa si chiude solo quando arriva al server
+    if (w.inviata) return Promise.resolve();
+    return new Promise(res => fb.inCodaRete.push(() => { w.inviata = true; res(); }));
   }
   function nuovaChiave() { return '-Ntest' + String(++fb.n).padStart(5, '0'); }
   function ref(path) {
@@ -133,14 +137,13 @@ window.__meteoRisposta = null; window.__meteoChiamate = 0;
       },
       off(ev, cb) { fb.listeners = fb.listeners.filter(l => !(l.path === p && (!cb || l.cb === cb))); },
       once() { return Promise.resolve(snapshot(p)); },
-      set(v) { scrivi({ [p]: v }, 'set'); return Promise.resolve(); },
+      set(v) { return scrivi({ [p]: v }, 'set'); },
       update(obj) {
         const u = {};
         Object.keys(obj).forEach(k => { u[unisci((p ? p + '/' : '') + k)] = obj[k]; });
-        scrivi(u, 'update');
-        return Promise.resolve();
+        return scrivi(u, 'update');
       },
-      remove() { scrivi({ [p]: null }, 'remove'); return Promise.resolve(); },
+      remove() { return scrivi({ [p]: null }, 'remove'); },
       push(v) {
         const k = nuovaChiave();
         const conThen = ref(p + '/' + k), semplice = ref(p + '/' + k);
@@ -155,7 +158,11 @@ window.__meteoRisposta = null; window.__meteoChiamate = 0;
 
   fb.caricaDati = dati => { fb.tree = normalizza(dati) || {}; };
   fb.rilasciaCaricamento = () => { fb.ritardaCaricamento = false; fb.inAttesa.splice(0).forEach(l => { l.inAttesa = false; consegna(l); }); };
-  fb.setConnesso = v => { fb.connesso = v; fb.listeners.filter(l => l.path === '.info/connected').forEach(l => l.cb({ val: () => fb.connesso })); };
+  fb.setConnesso = v => {
+    fb.connesso = v;
+    if (v) fb.inCodaRete.splice(0).forEach(f => f());
+    fb.listeners.filter(l => l.path === '.info/connected').forEach(l => l.cb({ val: () => fb.connesso }));
+  };
   fb.scritturaRemota = (updates, silenziosa) => scrivi(updates, 'remota', { remota: true, silenziosa });
   fb.consegnaTutto = () => avvisaCambiati();
   fb.leggi = path => aJS(getAt(path));

@@ -192,6 +192,11 @@
         .hamburger-btn { display: flex; align-items: center; background: none; border: none; color: var(--text); font-size: 1.4rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; line-height: 1; flex-shrink: 0; transition: background 0.15s; }
         .hamburger-btn:hover { background: rgba(255,255,255,0.07); }
         .sidebar .nav-link.nav-doppione { display: none !important; }
+        #rete-striscia { position: fixed; left: 0; right: 0; margin: 0 auto; width: fit-content; bottom: 14px; z-index: 9990; padding: 7px 14px; border-radius: 20px; font-weight: 800; font-size: 0.85rem; box-shadow: 0 6px 18px rgba(0,0,0,0.45); max-width: calc(100vw - 24px); text-align: center; pointer-events: none; }
+        #rete-striscia[hidden] { display: none; }
+        #rete-striscia.off { background: #7c2d12; color: #fed7aa; border: 1px solid #f97316; }
+        #rete-striscia.invio { background: #1e3a8a; color: #bfdbfe; border: 1px solid #3b82f6; }
+        @media (max-width: 768px) { #rete-striscia { bottom: 74px; font-size: 0.78rem; } }
         #moto-tendina .mt-voce:hover, #moto-tendina .mt-voce.on { background: rgba(56,189,248,0.18); color: white; }
         #mob-tabbar, #board-tabs, #vd-btn-salva-mob { display: none; }
         .sidebar-close-btn { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.07); border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
@@ -661,6 +666,7 @@
     <!-- ============================================================
          APP PRINCIPALE (nascosta finché non si fa login)
     ============================================================ -->
+    <div id="rete-striscia" hidden role="status" aria-live="polite" title="Le modifiche fatte senza internet restano su questo dispositivo e partono da sole al ritorno della connessione"></div>
     <div id="offline-banner" role="alertdialog" aria-modal="true" aria-labelledby="cloud-ov-titolo" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(2,6,23,0.72); align-items:center; justify-content:center; padding:16px; animation:cloudOvIn .2s ease .5s both;">
         <div style="background:#0f172a; border:1px solid #334155; border-radius:14px; padding:22px 24px; max-width:420px; width:100%; text-align:center; color:#f8fafc; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
             <div id="cloud-ov-icona" style="font-size:2rem; line-height:1; margin-bottom:10px;">☁️</div>
@@ -2687,12 +2693,12 @@
                     notesEl._listenerAdded = true;
                 }
                 // Aspetta che il token sia pronto prima di attivare i listener DB
-                user.getIdToken(true).then(() => {
+                (navigator.onLine === false ? Promise.reject(new Error('senza rete')) : user.getIdToken(true)).then(() => {
                     initFirebaseListeners();
                     initConnectionMonitor();
                     checkBackupReminder();
                 }).catch(() => {
-                    setTimeout(() => { initFirebaseListeners(); initConnectionMonitor(); checkBackupReminder(); }, 1500);
+                    setTimeout(() => { initFirebaseListeners(); initConnectionMonitor(); checkBackupReminder(); }, navigator.onLine === false ? 0 : 1500);
                 });
             } else {
                 if (loginScreen) loginScreen.style.display = 'flex';
@@ -2742,12 +2748,13 @@
         function initFirebaseListeners() {
             if (_listenersInit) return;
             _listenersInit = true;
+            _apriArchivioLocale().then(_caricaCopiaLocale);
 
             // Inizializza magazzino in background così inventarioMag è sempre disponibile
             initMagazzino();
 
             let _dbMigrateGuard = false;
-            database.ref('/db').on('value', (snap) => {
+            _ascolta('/db', (snap) => {
                 _segnaCaricato('db');
                 db = _leggiSezione('db', snap);
                 if (_dbMigrateGuard) { _dbMigrateGuard = false; }
@@ -2808,7 +2815,7 @@
                 else _dRefreshBoard();
             });
 
-            database.ref('/agenda').on('value', (snap) => {
+            _ascolta('/agenda', (snap) => {
                 _segnaCaricato('agenda');
                 agendaDB = _leggiSezione('agenda', snap);
                 _agendaCleanDone = false;
@@ -2817,7 +2824,7 @@
                 if (currentView === 'garanzie') refreshGaranzie();
             });
 
-            database.ref('/ledger').on('value', (snap) => {
+            _ascolta('/ledger', (snap) => {
                 _segnaCaricato('ledger');
                 ledgerDB = snap.val() ? (Array.isArray(snap.val()) ? snap.val() : Object.values(snap.val())) : [];
                 if (currentView === 'ledger') {
@@ -2826,7 +2833,7 @@
                 }
             });
 
-            database.ref('/ordini').on('value', (snap) => {
+            _ascolta('/ordini', (snap) => {
                 _segnaCaricato('ordini');
                 ordiniDB = snap.val() ? Object.values(snap.val()) : [];
                 _consegnaOrdiniMotoChiuse();
@@ -2837,31 +2844,31 @@
                 else if (currentView === 'agenda') refreshAgenda();
             });
 
-            database.ref('/lista_ordini').on('value', snap => {
+            _ascolta('/lista_ordini', snap => {
                 _segnaCaricato('lista_ordini');
                 listaOrdiniMag = snap.val() ? Object.values(snap.val()) : [];
                 if (currentView === 'magazzino') refreshListaOrdini();
             });
 
-            database.ref('/rubrica').on('value', (snap) => {
+            _ascolta('/rubrica', (snap) => {
                 _segnaCaricato('rubrica');
                 rubricaDB = snap.val() ? Object.values(snap.val()) : [];
                 if (currentView === 'rubrica') refreshRubrica();
             });
 
-            database.ref('/note').on('value', (snap) => {
+            _ascolta('/note', (snap) => {
                 _segnaCaricato('note');
                 noteDB = snap.val() || '';
                 const notesEl = $('dashboard-notes');
                 if (notesEl && document.activeElement !== notesEl) notesEl.value = noteDB;
             });
 
-            database.ref('/billing').on('value', (snap) => {
+            _ascolta('/billing', (snap) => {
                 _segnaCaricato('billing');
                 billingDB = snap.val() || {};
             });
 
-            database.ref('/scadenze').on('value', (snap) => {
+            _ascolta('/scadenze', (snap) => {
                 _segnaCaricato('scadenze');
                 scadenzeDB = snap.val() || [];
                 if (!Array.isArray(scadenzeDB)) scadenzeDB = Object.values(scadenzeDB);
@@ -2869,28 +2876,28 @@
                 if (currentView === 'scadenze') refreshScadenze();
             });
 
-            database.ref('/tagliandi').on('value', (snap) => {
+            _ascolta('/tagliandi', (snap) => {
                 _segnaCaricato('tagliandi');
-                taggliandiDB = snap.val() || {};
+                taggliandiDB = _leggiMappa('tagliandi', snap.val());
                 if (currentView === 'tagliandi') refreshTagliandi();
                 _dSincPassaporti();
             });
 
-            database.ref('/lista_attesa').on('value', (snap) => {
+            _ascolta('/lista_attesa', (snap) => {
                 _segnaCaricato('lista_attesa');
                 listaAttesaDB = snap.val() ? Object.values(snap.val()) : [];
                 aggiornaAttesaBadge();
                 if (currentView === 'lista-attesa') refreshAttesa();
             });
 
-            database.ref('/moto_usate').on('value', (snap) => {
+            _ascolta('/moto_usate', (snap) => {
                 _segnaCaricato('moto_usate');
                 motoUsateDB = snap.val() ? Object.values(snap.val()) : [];
                 motoUsateDB.forEach(m => { if (m.foto && !Array.isArray(m.foto)) m.foto = Object.values(m.foto); });
                 if (currentView === 'usate') refreshUsate();
             });
 
-            database.ref('/periti').on('value', (snap) => {
+            _ascolta('/periti', (snap) => {
                 _segnaCaricato('periti');
                 const v = snap.val() || {};
                 peritiDB = Object.keys(v).filter(k => v[k] && typeof v[k] === 'object').map(k => Object.assign({}, v[k], { id: v[k].id || k }))
@@ -2900,47 +2907,47 @@
                 if (_invio && $('ip_perito')) { _popolaSelectPeriti('ip_perito', $('ip_perito').value); aggiornaInvioPerito(); }
             });
 
-            database.ref('/vendite').on('value', (snap) => {
+            _ascolta('/vendite', (snap) => {
                 _segnaCaricato('vendite');
                 const v = snap.val() || {};
                 venditeDB = Object.keys(v).filter(k => v[k] && typeof v[k] === 'object').map(k => ({ ...v[k], chiave: v[k].chiave || k }));
                 if (currentView === 'vendite') refreshVendite();
             });
 
-            database.ref('/schede_tecniche').on('value', (snap) => {
+            _ascolta('/schede_tecniche', (snap) => {
                 _segnaCaricato('schede_tecniche');
                 schedeTecniche = snap.val() || {};
                 if (currentView === 'schede') refreshSchedeTecniche();
                 else if (currentView === 'board') _dRefreshBoard();
             });
 
-            database.ref('/marche_extra').on('value', (snap) => {
+            _ascolta('/marche_extra', (snap) => {
                 _segnaCaricato('marche_extra');
                 marcheExtra = snap.val() || {};
                 if (currentView === 'archivio') _aggiornaBottonePulizia();
             });
 
-            database.ref('/passaporti_idx').on('value', (snap) => {
+            _ascolta('/passaporti_idx', (snap) => {
                 _segnaCaricato('passaporti_idx');
                 passaportiIdx = snap.val() || {};
                 _dSincPassaporti();
             });
 
-            database.ref('/garanzie').on('value', (snap) => {
+            _ascolta('/garanzie', (snap) => {
                 _segnaCaricato('garanzie');
                 garanzieDB = Object.values(snap.val() || {}).filter(g => g && typeof g === 'object');
                 aggiornaBadgeGaranzie();
                 if (currentView === 'garanzie') refreshGaranzie();
             });
 
-            database.ref('/ordini_abb').on('value', (snap) => {
+            _ascolta('/ordini_abb', (snap) => {
                 _segnaCaricato('ordini_abb');
                 ordiniAbbDB = _leggiOrdiniAbb(snap.val());
                 aggiornaBadgeOrdiniAbb();
                 if (currentView === 'magazzino') refreshOrdiniAbb();
             });
 
-            database.ref('/libretti_info').on('value', (snap) => {
+            _ascolta('/libretti_info', (snap) => {
                 _segnaCaricato('libretti_info');
                 librettiInfo = snap.val() || {};
                 if (currentView === 'crea-prev') aggiornaLibrettoBox();
@@ -2990,21 +2997,150 @@
         function mostraErrore(msg) { mostraToast(msg, '#ef4444'); }
 
         // =====================================================================
+        // LAVORO SENZA INTERNET (v219)
+        // Sul dispositivo (IndexedDB "mgm-gestionale") restano la copia dei dati ricevuti ("dati") e le modifiche
+        // non ancora confermate dal cloud ("coda"). Senza rete il gestionale si apre dalla copia; le sezioni in
+        // SEZIONI_OFFLINE (salvate voce per voce) si possono modificare e le modifiche partono da sole al ritorno
+        // della rete, anche dopo aver chiuso il browser. Stessa voce cambiata su due dispositivi: vale l'ultima inviata.
+        // =====================================================================
+        const SEZIONI_OFFLINE = new Set(['db', 'agenda', 'tagliandi', 'schede_tecniche', 'marche_extra']);
+        const _locale = { idb: null, pronto: null, specchio: {}, ascolti: {}, dalServer: new Set(), coda: [], inCopia: false, aggiornato: 0, timer: {}, avvisaInvio: false };
+        function _apriArchivioLocale() {
+            if (_locale.pronto) return _locale.pronto;
+            _locale.pronto = new Promise(fine => {
+                try {
+                    const rq = indexedDB.open('mgm-gestionale', 1);
+                    rq.onupgradeneeded = () => { rq.result.createObjectStore('dati'); rq.result.createObjectStore('coda', { keyPath: 'id' }); };
+                    rq.onsuccess = () => { _locale.idb = rq.result; fine(); };
+                    rq.onerror = () => fine();
+                    rq.onblocked = () => fine();
+                } catch (e) { fine(); }
+            });
+            return _locale.pronto;
+        }
+        function _idb(store, fn) { try { if (_locale.idb) fn(_locale.idb.transaction(store, 'readwrite').objectStore(store)); } catch (e) {} }
+        function _idbLeggi(store) {
+            return new Promise(fine => {
+                const out = {};
+                try {
+                    if (!_locale.idb) return fine(out);
+                    const rq = _locale.idb.transaction(store, 'readonly').objectStore(store).openCursor();
+                    rq.onsuccess = () => { const c = rq.result; if (c) { out[c.key] = c.value; c.continue(); } else fine(out); };
+                    rq.onerror = () => fine(out);
+                } catch (e) { fine(out); }
+            });
+        }
+        function _salvaSpecchio(nodo) {
+            clearTimeout(_locale.timer[nodo]);
+            _locale.timer[nodo] = setTimeout(() => _idb('dati', st => st.put(_locale.specchio[nodo] === undefined ? null : _locale.specchio[nodo], nodo)), 700);
+        }
+        // Una "fotografia" dei dati della copia con gli stessi metodi di quella di Firebase usati dagli ascolti
+        const _ordineChiavi = (a, b) => { const ia = /^-?\d+$/.test(a), ib = /^-?\d+$/.test(b); return ia && ib ? a - b : ia ? -1 : ib ? 1 : a < b ? -1 : a > b ? 1 : 0; };
+        function _snapLocale(key, valore) {
+            const v = valore === undefined ? null : valore;
+            return {
+                key,
+                val: () => v === null ? null : JSON.parse(JSON.stringify(v)),
+                exists: () => v !== null,
+                forEach(cb) { if (!v || typeof v !== 'object') return false; return Object.keys(v).sort(_ordineChiavi).some(k => cb(_snapLocale(k, v[k])) === true); }
+            };
+        }
+        function _ascolta(path, cb, errore) {
+            const nodo = path.replace(/^\//, '');
+            _locale.ascolti[nodo] = cb;
+            database.ref(path).on('value', snap => {
+                _locale.dalServer.add(nodo);
+                _locale.specchio[nodo] = snap.val();
+                _salvaSpecchio(nodo);
+                if (_cloud.connesso) { _locale.aggiornato = Date.now(); _idb('dati', st => st.put(_locale.aggiornato, '__aggiornato')); }
+                cb(snap);
+            }, errore);
+            _apriArchivioLocale().then(_caricaCopiaLocale).then(() => _consegnaDaCopia(nodo));
+        }
+        // Se il cloud non ha ancora mandato la sezione (senza rete o rete lenta), si mostra la copia del dispositivo
+        function _consegnaDaCopia(nodo) {
+            if (_locale.dalServer.has(nodo) || !(nodo in _locale.specchio) || !_locale.ascolti[nodo]) return;
+            _locale.inCopia = true;
+            try { _locale.ascolti[nodo](_snapLocale(nodo, _locale.specchio[nodo])); } catch (e) { console.warn('Copia locale ' + nodo, e); } finally { _locale.inCopia = false; }
+        }
+        let _copiaLetta = null;
+        function _caricaCopiaLocale() {
+            if (!_copiaLetta) _copiaLetta = Promise.all([_idbLeggi('dati'), _idbLeggi('coda')]).then(([dati, coda]) => {
+                Object.keys(dati).forEach(k => { if (k === '__aggiornato') _locale.aggiornato = Math.max(_locale.aggiornato, dati[k] || 0); else if (!(k in _locale.specchio)) _locale.specchio[k] = dati[k]; });
+                // Modifiche rimaste in attesa dall'ultima volta: di nuovo sulla copia e di nuovo verso il cloud
+                Object.values(coda).sort((a, b) => a.t - b.t).forEach(v => {
+                    if (!v || !v.updates || _locale.coda.some(x => x.id === v.id)) return;
+                    _locale.coda.push(v);
+                    _locale.avvisaInvio = true;
+                    _applicaASpecchio(v.updates, false);
+                    _inviaVoce(v);
+                });
+                _aggiornaOverlayCloud();
+            });
+            return _copiaLetta;
+        }
+        // Applica un aggiornamento a più percorsi alla copia (null = cancella); con rinfresca ridà i dati agli ascolti
+        // delle sezioni che il cloud non ha ancora mandato, come fa Firebase per le altre
+        function _applicaASpecchio(updates, rinfresca) {
+            const toccati = new Set();
+            Object.keys(updates).forEach(path => {
+                const ps = path.split('/').filter(Boolean);
+                if (!ps.length) return;
+                toccati.add(ps[0]);
+                let padre = _locale.specchio, chiave = ps[0];
+                for (let i = 1; i < ps.length; i++) {
+                    let n = padre[chiave];
+                    n = n && typeof n === 'object' ? (Array.isArray(n) ? Object.assign({}, n) : n) : {};
+                    padre[chiave] = n;
+                    padre = n;
+                    chiave = ps[i];
+                }
+                if (updates[path] === null || updates[path] === undefined) delete padre[chiave]; else padre[chiave] = JSON.parse(JSON.stringify(updates[path]));
+            });
+            toccati.forEach(nodo => { _salvaSpecchio(nodo); if (rinfresca) _consegnaDaCopia(nodo); });
+        }
+        // Ogni scrittura: prima nella coda del dispositivo, poi al cloud (Firebase la tiene in attesa finché non c'è rete)
+        function _scrivi(updates) {
+            const voce = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), t: Date.now(), updates: JSON.parse(JSON.stringify(updates)) };
+            _locale.coda.push(voce);
+            if (!_cloud.connesso) _locale.avvisaInvio = true;
+            _idb('coda', st => st.put(voce));
+            _applicaASpecchio(voce.updates, true);
+            _aggiornaOverlayCloud();
+            return _inviaVoce(voce);
+        }
+        function _inviaVoce(voce) {
+            return database.ref('/').update(voce.updates).then(() => { _togliDaCoda(voce.id); showCloudCheck(); }, e => { _togliDaCoda(voce.id); _onSaveError(e); });
+        }
+        function _togliDaCoda(id) {
+            const prima = _locale.coda.length;
+            _locale.coda = _locale.coda.filter(v => v.id !== id);
+            _idb('coda', st => st.delete(id));
+            if (prima && !_locale.coda.length && _locale.avvisaInvio) { _locale.avvisaInvio = false; mostraToast('✓ Le modifiche fatte senza internet sono state inviate al cloud'); }
+            _aggiornaOverlayCloud();
+        }
+
+        // =====================================================================
         // PROTEZIONE SALVATAGGI: niente scritture prima del caricamento o senza connessione
         // =====================================================================
-        const _cloud = { connesso: false, maiConnesso: false, caricati: new Set(), ricaricaAlRitorno: false, inizio: Date.now() };
+        const _cloud = { connesso: false, maiConnesso: false, caricati: new Set(), daCache: new Set(), ricaricaAlRitorno: false, inizio: Date.now() };
 
         function _segnaCaricato(nome) {
+            if (_locale.inCopia) { _cloud.daCache.add(nome); _aggiornaOverlayCloud(); return; }   // dalla copia sul dispositivo, non dal cloud
             if (_cloud.caricati.has(nome)) return;
             _cloud.caricati.add(nome);
             _aggiornaOverlayCloud();
         }
 
         function _puoSalvare(...nomi) {
+            if (_locale.inCopia) return false;   // mentre si mostra la copia locale niente scritture automatiche
             if (_cloud.connesso && nomi.every(n => _cloud.caricati.has(n))) return true;
-            if (_cloud.maiConnesso && !_cloud.connesso) {
+            // Senza rete: solo le sezioni che si salvano voce per voce (SEZIONI_OFFLINE), con i dati del cloud o della copia locale
+            if (!_cloud.connesso && nomi.every(n => SEZIONI_OFFLINE.has(n) && (_cloud.caricati.has(n) || _cloud.daCache.has(n)))) return true;
+            if (!_cloud.connesso && (_cloud.maiConnesso || _cloud.daCache.size)) {
                 // Lo stato locale può contenere la modifica rifiutata: si riallinea ricaricando al ritorno della rete
                 _cloud.ricaricaAlRitorno = true;
+                mostraToast('📴 Senza internet questa parte si può solo consultare: la modifica NON è stata salvata', '#b91c1c');
                 _aggiornaOverlayCloud();
             } else {
                 alert('Dati non ancora caricati dal cloud: la modifica NON è stata salvata.\nAspetta qualche secondo e riprova.');
@@ -3016,19 +3152,20 @@
             const ov = $('offline-banner');
             if (!ov) return;
             let stato = null;
+            const haDati = _cloud.caricati.has('db') || _cloud.daCache.has('db');
             if (auth.currentUser) {
-                if (!_cloud.connesso) stato = _cloud.maiConnesso ? 'offline' : 'caricamento';
+                if (!_cloud.connesso) stato = haDati ? null : (_cloud.maiConnesso ? 'offline' : 'caricamento');
                 else if (_cloud.ricaricaAlRitorno) stato = 'ricarica';
-                else if (!_cloud.caricati.has('db')) stato = 'caricamento';
+                else if (!haDati) stato = 'caricamento';
             }
+            _aggiornaStrisciaRete();
             if (!stato) { ov.style.display = 'none'; return; }
             const lento = Date.now() - _cloud.inizio > 6000;
             const testi = {
                 caricamento: ['☁️', 'Caricamento dati…', lento
-                    ? 'Il collegamento al cloud sta impiegando più del solito: controlla la connessione Internet.'
+                    ? (!_cloud.connesso ? 'Senza internet e senza una copia dei dati su questo dispositivo: la prima volta serve la connessione. Il gestionale riparte da solo appena torna.' : 'Il collegamento al cloud sta impiegando più del solito: controlla la connessione Internet.')
                     : 'Sto scaricando i dati dal cloud.'],
-                offline: ['📡', 'Connessione assente', 'Il gestionale è in pausa per non perdere dati: riprende da solo appena torna la connessione.'
-                    + (_cloud.ricaricaAlRitorno ? '<br><br><b style="color:#fca5a5;">Una modifica fatta senza connessione NON è stata salvata.</b> Al ritorno della connessione il gestionale si ricaricherà.' : '')],
+                offline: ['📡', 'Connessione assente', 'Su questo dispositivo non c\'è ancora una copia dei dati: il gestionale riparte da solo appena torna la connessione.'],
                 ricarica: ['🔄', 'Connessione tornata', 'Ricarico i dati aggiornati…'],
             };
             const [icona, titolo, testo] = testi[stato];
@@ -3037,6 +3174,23 @@
             $('cloud-ov-testo').innerHTML = testo;
             $('cloud-ov-ricarica').style.display = stato === 'ricarica' ? '' : 'none';
             ov.style.display = 'flex';
+        }
+
+        // Striscia in basso: senza internet, modifiche in attesa di invio, aggiornamento dalla copia locale
+        function _aggiornaStrisciaRete() {
+            const s = $('rete-striscia');
+            if (!s) return;
+            const n = _locale.coda.length, mod = n === 1 ? '1 modifica' : n + ' modifiche';
+            let t = '', cls = '';
+            if (auth.currentUser && !_cloud.connesso && (_cloud.caricati.has('db') || _cloud.daCache.has('db'))) {
+                const q = _locale.aggiornato ? new Date(_locale.aggiornato) : null;
+                t = '📴 Senza internet' + (q ? ` · dati del ${formattaData(formatDateISO(q))} alle ${String(q.getHours()).padStart(2, '0')}:${String(q.getMinutes()).padStart(2, '0')}` : '') + (n ? ` · ⏳ ${mod} da inviare` : '');
+                cls = 'off';
+            } else if (auth.currentUser && _cloud.connesso && n) { t = `⏳ Invio ${mod} al cloud…`; cls = 'invio'; }
+            else if (auth.currentUser && _cloud.connesso && !_cloud.caricati.has('db') && _cloud.daCache.has('db')) { t = '☁️ Aggiorno i dati…'; cls = 'invio'; }
+            s.textContent = t;
+            s.className = cls;
+            s.hidden = !t;
         }
 
         function _ricaricaDopoRiconnessione() {
@@ -3154,11 +3308,28 @@
             Object.keys(base.chiavi).forEach(id => { if (!presenti.has(id)) updates[nome + '/' + base.chiavi[id]] = null; });
         }
 
+        // Sezioni "a chiavi" (tagliandi per targa…): si scrivono solo le voci cambiate rispetto all'ultimo dato ricevuto
+        const _baseMappe = {};
+        // JSON con le chiavi in ordine: Firebase restituisce le chiavi ordinate, gli oggetti creati qui no
+        const _jsonStabile = v => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().reduce((o, c) => { o[c] = x[c]; return o; }, {}) : x);
+        function _leggiMappa(nome, val) {
+            const o = val && typeof val === 'object' && !Array.isArray(val) ? val : {};
+            _baseMappe[nome] = Object.create(null);
+            Object.keys(o).forEach(k => { _baseMappe[nome][k] = _jsonStabile(o[k]); });
+            return o;
+        }
+        function _modificheMappa(nome, obj, updates) {
+            const base = _baseMappe[nome];
+            if (!base) { updates[nome] = obj; return; }
+            Object.keys(obj || {}).forEach(k => { if (obj[k] != null && base[k] !== _jsonStabile(obj[k])) updates[nome + '/' + k] = obj[k]; });
+            Object.keys(base).forEach(k => { if (!obj || obj[k] == null) updates[nome + '/' + k] = null; });
+        }
+
         function _salvaSezioni(sezioni, extra) {
             const updates = Object.assign({}, extra);
             sezioni.forEach(([nome, arr]) => _modificheSezione(nome, arr, updates));
             if (!Object.keys(updates).length) return showCloudCheck();
-            database.ref('/').update(updates).then(showCloudCheck).catch(_onSaveError);
+            _scrivi(updates);
         }
 
         function saveDB()       { if (!_puoSalvare('db')) return; _salvaSezioni([['db', db]]); updateDatalist(); }
@@ -3169,7 +3340,7 @@
         function saveRubrica()  { if (!_puoSalvare('rubrica')) return; database.ref('/').update({ rubrica: rubricaDB }).then(showCloudCheck).catch(_onSaveError); }
         function saveNote()     { if (!_puoSalvare('note')) return; database.ref('/').update({ note: noteDB }).then(showCloudCheck).catch(_onSaveError); }
         function saveBilling()  { if (!_puoSalvare('billing')) return; database.ref('/').update({ billing: billingDB }).then(showCloudCheck).catch(_onSaveError); }
-        function saveTagliandi() { if (!_puoSalvare('tagliandi')) return; database.ref('/tagliandi').set(taggliandiDB).then(showCloudCheck).catch(_onSaveError); }
+        function saveTagliandi() { if (!_puoSalvare('tagliandi')) return; const u = {}; _modificheMappa('tagliandi', taggliandiDB, u); if (Object.keys(u).length) _scrivi(u); else showCloudCheck(); }
 
         function openBillingModal(encodedClientId, encodedNameFallback, clienteLabel) {
             // encodedClientId = clientId (UUID), encodedNameFallback = "COGNOME NOME" vecchia chiave
@@ -3789,7 +3960,7 @@
             const m = _maiusc(nome), k = _chiaveNome(m);
             if (!k || !_puoSalvare('marche_extra')) return false;
             marcheExtra = { ...marcheExtra, [k]: m };
-            database.ref('/').update({ ['marche_extra/' + k]: m }).then(showCloudCheck).catch(_onSaveError);
+            _scrivi({ ['marche_extra/' + k]: m });
             mostraToast(`➕ ${m} aggiunta all'elenco delle marche`);
             return true;
         }
@@ -4087,7 +4258,7 @@
             if (prima && String(prima.gomme || '').trim() && !ST_GOMME.some(([k]) => rec['gomma_' + k] || rec['press_' + k])) rec.gomme = prima.gomme;   // vecchio campo unico, finché non viene diviso
             if (prima && String(prima.olio || '').trim() && !rec.olio_tipo && !rec.olio_qta) rec.olio = prima.olio;
             schedeTecniche = { ...schedeTecniche, [id]: rec };
-            database.ref('/').update({ ['schede_tecniche/' + id]: rec }).then(showCloudCheck).catch(_onSaveError);
+            _scrivi({ ['schede_tecniche/' + id]: rec });
             mostraToast(`🔧 Scheda di ${marca} ${modello} salvata`);
             _vistaScheda(rec);
             if (currentView === 'schede') refreshSchedeTecniche();
@@ -4099,7 +4270,7 @@
             if (!sc || !confirm(`Eliminare la scheda tecnica di ${_maiusc(sc.marca)} ${_maiusc(sc.modello)}?`)) return;
             if (!_puoSalvare('schede_tecniche')) return;
             const n = { ...schedeTecniche }; delete n[id]; schedeTecniche = n;
-            database.ref('/').update({ ['schede_tecniche/' + id]: null }).then(showCloudCheck).catch(_onSaveError);
+            _scrivi({ ['schede_tecniche/' + id]: null });
             closeModal('modal-scheda-tecnica');
             if (currentView === 'schede') refreshSchedeTecniche();
         }
@@ -9969,7 +10140,7 @@ A presto!`;
 
             // Listener real-time: aggiorna inventarioMag ad ogni modifica su Firebase
             const st = $('mag-cloud-status');
-            database.ref('/magazzino').on('value', snap => {
+            _ascolta('/magazzino', snap => {
                 _segnaCaricato('magazzino');
                 inventarioMag = Object.values(snap.val() || {});
                 if (st) { st.innerHTML = '🟢 Cloud'; st.style.color = '#4ade80'; st.title = ''; }
@@ -11239,8 +11410,7 @@ A presto!`;
             const tag = taggliandiDB[targa] || (taggliandiDB[targa] = {});
             if (si) { tag.avvisato = getOggiLocale(); tag.avvisato_per = tag.data || ''; }
             else { delete tag.avvisato; delete tag.avvisato_per; }
-            database.ref('/').update({ ['tagliandi/' + targa + '/avvisato']: tag.avvisato || null, ['tagliandi/' + targa + '/avvisato_per']: si ? tag.avvisato_per : null })
-                .then(showCloudCheck).catch(_onSaveError);
+            _scrivi({ ['tagliandi/' + targa + '/avvisato']: tag.avvisato || null, ['tagliandi/' + targa + '/avvisato_per']: si ? tag.avvisato_per : null });
             if (currentView === 'tagliandi') refreshTagliandi();
         }
         function togliAvvisoTagliando(encodedTarga) {
