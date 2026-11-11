@@ -9,6 +9,8 @@
   const chiaviDa = n => fb.scritture.slice(n).flatMap(w => w.chiavi);
   const ordina = a => a.slice().sort();
   const uguali = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  // Le sezioni si scrivono voce per voce (v220): ordini/-Nx → ordini (archivio, agenda e vendite restano con la chiave)
+  const sezioni = a => [...new Set(a.map(k => /^(db|agenda|vendite)\//.test(k) ? k : k.split('/')[0]))];
   const chiaveDi = (sez, id, campo = 'id') => { const n = fb.nodo(sez) || {}; return Object.keys(n).find(k => String(n[k][campo]) === String(id)); };
   const recordDi = (sez, id) => { const k = chiaveDi(sez, id); return k ? fb.leggi(sez + '/' + k) : null; };
   const ovVisibile = () => document.getElementById('offline-banner').style.display === 'flex';
@@ -235,7 +237,7 @@
                    ['saveTagliandi', 'tagliandi'], ['saveScadenzeDB', 'scadenze'], ['saveAttesaDB', 'lista_attesa'], ['saveUsateDB', 'moto_usate'], ['saveListaOrdiniMag', 'lista_ordini']];
     const a0 = fb.alerts.length, bloccati = [];
     taggliandiDB['PROVA001'] = { data: '2030-01-01', km: '', note: '' };   // i tagliandi si scrivono solo se cambia qualcosa
-    for (const [fn, chiave] of prove) { const n = nScr(); window[fn](); if (!chiaviDa(n).some(k => k === chiave || k.startsWith(chiave + '/'))) bloccati.push(fn); }
+    for (const [fn, chiave] of prove) { const n = nScr(); window[fn](); if (!_puoSalvare(chiave) || chiaviDa(n).some(k => k !== chiave && !k.startsWith(chiave + '/'))) bloccati.push(fn); }
     delete taggliandiDB['PROVA001']; saveTagliandi();
     ok(bloccati.length === 0 && fb.alerts.length === a0, 'Salvataggio consentito in tutte le altre 10 sezioni' + (bloccati.length ? ' → bloccati: ' + bloccati.join(', ') : ''));
   });
@@ -531,7 +533,7 @@
     if (righe[1]) righe[1].querySelector('.riordino-qta').value = '5';
     const n = nScr();
     confermaRiordino();
-    ok(uguali(chiaviDa(n), ['lista_ordini']), 'Conferma: scritta solo la lista da ordinare (' + chiaviDa(n) + ')');
+    ok(uguali(sezioni(chiaviDa(n)), ['lista_ordini']), 'Conferma: scritta solo la lista da ordinare (' + chiaviDa(n) + ')');
     const lista = Object.values(fb.leggi('lista_ordini') || {});
     const fil = lista.find(x => x.codice === 'FIL-02'), pas = lista.find(x => x.codice === 'PAS-01');
     ok(lista.length === 3 && fil && fil.giacenza === 3 && fil.prezzo === 9 && pas && pas.giacenza === 5 && pas.prezzo_pubblico === 40, 'Lista: aggiunti filtro ×3 e pastiglie ×5 (quantità modificata) con i prezzi, catena non duplicata');
@@ -560,7 +562,7 @@
     campo('ord_desc', 'kit catena'); campo('ord_fornitore', 'gipa');
     let n = nScr();
     addOrdine();
-    ok(uguali(chiaviDa(n), ['ordini', 'db/' + chiaveDi('db', 1002)]), 'Salvataggio: scritti l\'ordine e la sola scheda della moto (conto) (' + chiaviDa(n) + ')');
+    ok(uguali(sezioni(chiaviDa(n)), ['ordini', 'db/' + chiaveDi('db', 1002)]), 'Salvataggio: scritti l\'ordine e la sola scheda della moto (conto) (' + chiaviDa(n) + ')');
     let o = ordine('KIT CATENA');
     ok(o && String(o.jobId) === '1002' && o.targa === 'CD67890' && o.moto === 'YAMAHA MT07' && o.stato === 'todo' && o.data === oggi, 'Ordine salvato e collegato alla moto CD67890');
     switchView('ordini'); await attendi(50);
@@ -641,7 +643,7 @@
     let n = nScr();
     addOrdine();
     let o = ordine('PASTIGLIE FRENO');
-    ok(uguali(chiaviDa(n), ['ordini', 'db/-Nconto1']), 'Salvataggio: ordine + conto della moto');
+    ok(uguali(sezioni(chiaviDa(n)), ['ordini', 'db/-Nconto1']), 'Salvataggio: ordine + conto della moto');
     let r = rigaOrd(o);
     ok(r && r.price === 40 && r.qty === 2 && r.mag_codice === '' && conto().length === 2 && recordDi('db', 1601).totale_lordo === 130, 'Nel conto: PASTIGLIE FRENO ×2 a € 40, totale 50 + 80 = 130 €');
     ok(/Aggiunto al conto di CONTI \(AT16010\): 2 × € 40\.00/.test((document.querySelector('.toast-msg') || {}).textContent || ''), 'Avviso "Aggiunto al conto di CONTI"');
@@ -1150,7 +1152,7 @@
     salvaOrdineAbb();
     const o1 = oa()[0];
     ok(oa().length === 1 && o1.fornitore === 'GARI' && o1.stato === 'aperto' && o1.righe.length === 6 && o1.data_prevista === '2099-11-20' && o1.note === 'stagione estiva', 'Salva ordine: GARI con 6 righe (il casco AGV aggiunto da solo anche senza premere "Aggiungi")');
-    ok(uguali(chiaviDa(n0), ['ordini_abb']) && mag().length === nMag, 'Salvataggio: scritto solo l\'ordine, magazzino non toccato');
+    ok(uguali(sezioni(chiaviDa(n0)), ['ordini_abb']) && mag().length === nMag, 'Salvataggio: scritto solo l\'ordine, magazzino non toccato');
     ok(document.getElementById('modal-ordine-abb').classList.contains('hidden') && /14 pz in arrivo/.test(card.textContent) && document.getElementById('oa-badge').textContent === '1', 'Riquadro: ordine GARI con 14 pezzi in arrivo, 1 ordine sul pulsante');
     ok(card.textContent.includes('arrivo previsto 20/11/2099') && !card.textContent.includes('doveva arrivare'), 'Data di arrivo prevista mostrata');
 
@@ -1409,7 +1411,7 @@
     salvaGaranzia();
     const g1 = gar()[0];
     ok(gar().length === 1 && g1.stato === 'richiesta' && g1.cognome === 'ROSSI' && g1.targa === 'AB12345' && g1.data_richiesta === oggi && g1.pratica === '4512', 'Garanzia salvata in "Richieste" con cliente, moto, pratica e data');
-    ok(uguali(chiaviDa(n1), ['garanzie']), 'Salvataggio: scritte solo le garanzie (' + chiaviDa(n1) + ')');
+    ok(uguali(sezioni(chiaviDa(n1)), ['garanzie']), 'Salvataggio: scritte solo le garanzie (' + chiaviDa(n1) + ')');
     ok(document.getElementById('gar-form').style.display === 'none' && txt('gar-lista').includes('ROSSI') && txt('gar-lista').includes('pompa freno') && txt('gar-lista').includes('richiesta oggi'), 'Riga in Richieste: cliente, cosa, "richiesta oggi"');
     toggleDettaglioGaranzia(g1.id);
     ok(document.getElementById('gar-det-' + g1.id).style.display === 'grid' && txt('gar-det-' + g1.id).includes('pratica N° 4512') && txt('gar-det-' + g1.id).includes('Honda Italia'), 'Clic sulla riga: dettaglio con casa e numero di pratica');
@@ -1518,7 +1520,7 @@
     ok(v1 && v1.cognome === 'ROSSI' && v1.marca === 'HONDA' && v1.prezzoVeicolo === '12.500' && v1.totale === 11049.9 && Object.values(v1.vociExtra || {})[0].desc === 'BAULETTO', 'Salvato nel gestionale: dati in maiuscolo, importi come scritti, totale 11.049,90');
     const mov = led().find(m => String(m.id) === String(v1 && v1.acconto_ledger_id));
     ok(mov && mov.importo === 1000 && mov.tipo === 'in' && mov.cat === 'vendita' && mov.collab === 'INTERNO' && mov.desc.includes('ACCONTO ORDINE ' + N1) && mov.desc.includes('ROSSI') && led().length === led0 + 1, 'Acconto di 1.000 € nella Prima Nota (Cassa INTERNA, vendita)');
-    ok(fb.scritture.length === n0 + 1 && uguali(ordina(chiaviDa(n0)), ['ledger', 'vendite/' + K1]), 'Un solo salvataggio: documento + Prima Nota (' + chiaviDa(n0) + ')');
+    ok(fb.scritture.length === n0 + 1 && uguali(ordina(sezioni(chiaviDa(n0))), ['ledger', 'vendite/' + K1]), 'Un solo salvataggio: documento + Prima Nota (' + chiaviDa(n0) + ')');
     imp('vd-acconto', '1.500'); salvaVendita();
     ok(led().length === led0 + 1 && led().find(m => String(m.id) === String(v1.acconto_ledger_id)).importo === 1500, 'Acconto cambiato in 1.500: stesso movimento aggiornato, nessun doppione');
 
@@ -2945,12 +2947,16 @@
     taggliandiDB['SR123AA'] = { data: '2027-01-01', km: '', note: '' };
     saveTagliandi();
     ok(fb.leggi('tagliandi/SR123AA').data === '2027-01-01' && fb.scritture.slice(-1)[0].chiavi.join() === 'tagliandi/SR123AA', 'Senza internet: i tagliandi si salvano una targa alla volta');
-    const nAvvisi = fb.alerts.length, nScr0 = nScr();
-    ledgerDB.push({ id: 'senzarete', data: getOggiLocale(), desc: 'PROVA', importo: 1 });
+    ledgerDB.push({ id: 'senzarete', data: getOggiLocale(), tipo: 'in', cat: 'officina', collab: 'INTERNO', desc: 'PROVA SENZA RETE', importo: 1, qta: 1 });
     saveLedger();
-    ok(nScr() === nScr0 && fb.alerts.length === nAvvisi && _cloud.ricaricaAlRitorno, 'Senza internet: le sezioni non ancora pronte (Prima Nota) restano da consultare, senza scrivere niente');
+    ok(Object.keys(fb.scritture.slice(-1)[0].chiavi).length === 1 && fb.scritture.slice(-1)[0].chiavi[0].startsWith('ledger/'), 'Senza internet: anche la Prima Nota si salva (un movimento alla volta)');
+    ordiniDB[0] && (ordiniDB[0].note_senzarete = 'SI'); saveOrdini();
+    scadenzeDB.push({ id: 99901, desc: 'PROVA', importo: 1, scadenza: getOggiLocale(), stato: 'aperta', categoria: 'ALTRO' }); saveScadenzeDB();
+    ok(fb.scritture.slice(-1)[0].chiavi.join() === 'scadenze/' + Object.keys(fb.nodo('scadenze')).find(k => fb.nodo('scadenze')[k].id === 99901), 'Senza internet: anche le scadenze, una alla volta');
+    const nAvvisi = fb.alerts.length, nScr0 = nScr();
+    ok(!_puoSalvare('passaporti_idx') && nScr() === nScr0 && fb.alerts.length === nAvvisi && _cloud.ricaricaAlRitorno, 'Senza internet: i passaporti (pagina pubblica) restano da modificare con internet, senza scrivere niente');
     const inCoda = _locale.coda.map(v => Object.keys(v.updates).join('+'));
-    ok(inCoda.length >= 4 && !inCoda.some(k => k.includes('ledger')) && inCoda.some(k => k.includes('tagliandi/SR123AA')), 'Senza internet: in attesa le modifiche di schede e tagliandi, niente Prima Nota (' + inCoda.join(' | ') + ')');
+    ok(inCoda.length >= 6 && inCoda.some(k => k.includes('ledger/')) && inCoda.some(k => k.includes('tagliandi/SR123AA')) && !inCoda.some(k => k.includes('passaporti')), 'Senza internet: in attesa schede, tagliandi, Prima Nota e scadenze (' + inCoda.length + ')');
     const timer = [], st = window.setTimeout;
     window.setTimeout = (f, ms) => { timer.push(ms); return 0; };
     try { fb.setConnesso(true); } finally { window.setTimeout = st; }
@@ -2958,9 +2964,22 @@
     ok(_locale.coda.length === 0 && fb.inCodaRete.length === 0, 'Ritorno della rete: tutte le modifiche inviate al cloud');
     ok(timer.includes(1500), 'Ritorno della rete: dopo una modifica non salvata la pagina si ricarica per riallinearsi');
     _cloud.ricaricaAlRitorno = false;
-    ledgerDB = ledgerDB.filter(x => x.id !== 'senzarete');
+    ledgerDB = ledgerDB.filter(x => x.id !== 'senzarete'); saveLedger();
+    scadenzeDB = scadenzeDB.filter(x => x.id !== 99901); saveScadenzeDB();
+    await attendi(20);
     _aggiornaOverlayCloud();
     ok(striscia.hidden, 'Ritorno della rete: la striscia sparisce');
+  });
+
+  await passo('Voci senza id nei dati vecchi', async () => {
+    fb.scritturaRemota({ 'scadenze': [{ desc: 'VECCHIA SENZA ID', importo: 10, scadenza: '2026-12-01', stato: 'aperta' }, { id: 77001, desc: 'CON ID', importo: 5, scadenza: '2026-12-02', stato: 'aperta' }] });
+    await attendi(30);
+    const v = Object.values(fb.nodo('scadenze') || {});
+    ok(v.length === 2 && v.every(x => x.id != null) && _baseCloud.scadenze.affidabile, 'Dati vecchi: alle voci senza id ne viene dato uno (una volta sola), poi si salva voce per voce');
+    fb.setConnesso(false);
+    ok(_puoSalvare('scadenze'), 'Dati vecchi: dopo la sistemazione la sezione si può modificare anche senza rete');
+    fb.setConnesso(true);
+    await attendi(20);
   });
 
   await passo('Copia sul dispositivo', async () => {
