@@ -2826,7 +2826,7 @@
 
             _ascolta('/ledger', (snap) => {
                 _segnaCaricato('ledger');
-                ledgerDB = snap.val() ? (Array.isArray(snap.val()) ? snap.val() : Object.values(snap.val())) : [];
+                ledgerDB = _leggiSezione('ledger', snap); _idMancanti('ledger', ledgerDB);
                 if (currentView === 'ledger') {
                     refreshLedger();
                     if (currentCollabView && !$('modal-collab').classList.contains('hidden')) openCollabDetail(currentCollabView);
@@ -2835,7 +2835,7 @@
 
             _ascolta('/ordini', (snap) => {
                 _segnaCaricato('ordini');
-                ordiniDB = snap.val() ? Object.values(snap.val()) : [];
+                ordiniDB = _leggiSezione('ordini', snap); _idMancanti('ordini', ordiniDB);
                 _consegnaOrdiniMotoChiuse();
                 if (currentView === 'ordini') refreshOrdini();
                 else if (currentView === 'board') _dRefreshBoard();
@@ -2846,13 +2846,13 @@
 
             _ascolta('/lista_ordini', snap => {
                 _segnaCaricato('lista_ordini');
-                listaOrdiniMag = snap.val() ? Object.values(snap.val()) : [];
+                listaOrdiniMag = _leggiSezione('lista_ordini', snap); _idMancanti('lista_ordini', listaOrdiniMag);
                 if (currentView === 'magazzino') refreshListaOrdini();
             });
 
             _ascolta('/rubrica', (snap) => {
                 _segnaCaricato('rubrica');
-                rubricaDB = snap.val() ? Object.values(snap.val()) : [];
+                rubricaDB = _leggiSezione('rubrica', snap); _idMancanti('rubrica', rubricaDB);
                 if (currentView === 'rubrica') refreshRubrica();
             });
 
@@ -2865,13 +2865,12 @@
 
             _ascolta('/billing', (snap) => {
                 _segnaCaricato('billing');
-                billingDB = snap.val() || {};
+                billingDB = _leggiMappa('billing', snap.val());
             });
 
             _ascolta('/scadenze', (snap) => {
                 _segnaCaricato('scadenze');
-                scadenzeDB = snap.val() || [];
-                if (!Array.isArray(scadenzeDB)) scadenzeDB = Object.values(scadenzeDB);
+                scadenzeDB = _leggiSezione('scadenze', snap); _idMancanti('scadenze', scadenzeDB);
                 aggiornaScadenzeBadge();
                 if (currentView === 'scadenze') refreshScadenze();
             });
@@ -2885,14 +2884,14 @@
 
             _ascolta('/lista_attesa', (snap) => {
                 _segnaCaricato('lista_attesa');
-                listaAttesaDB = snap.val() ? Object.values(snap.val()) : [];
+                listaAttesaDB = Object.values(_leggiMappa('lista_attesa', snap.val())).filter(e => e && typeof e === 'object');
                 aggiornaAttesaBadge();
                 if (currentView === 'lista-attesa') refreshAttesa();
             });
 
             _ascolta('/moto_usate', (snap) => {
                 _segnaCaricato('moto_usate');
-                motoUsateDB = snap.val() ? Object.values(snap.val()) : [];
+                motoUsateDB = Object.values(_leggiMappa('moto_usate', snap.val())).filter(e => e && typeof e === 'object');
                 motoUsateDB.forEach(m => { if (m.foto && !Array.isArray(m.foto)) m.foto = Object.values(m.foto); });
                 if (currentView === 'usate') refreshUsate();
             });
@@ -2935,14 +2934,14 @@
 
             _ascolta('/garanzie', (snap) => {
                 _segnaCaricato('garanzie');
-                garanzieDB = Object.values(snap.val() || {}).filter(g => g && typeof g === 'object');
+                garanzieDB = _leggiSezione('garanzie', snap); _idMancanti('garanzie', garanzieDB);
                 aggiornaBadgeGaranzie();
                 if (currentView === 'garanzie') refreshGaranzie();
             });
 
             _ascolta('/ordini_abb', (snap) => {
                 _segnaCaricato('ordini_abb');
-                ordiniAbbDB = _leggiOrdiniAbb(snap.val());
+                ordiniAbbDB = _leggiOrdiniAbb(_leggiSezione('ordini_abb', snap)); _idMancanti('ordini_abb', ordiniAbbDB);
                 aggiornaBadgeOrdiniAbb();
                 if (currentView === 'magazzino') refreshOrdiniAbb();
             });
@@ -3003,7 +3002,8 @@
         // SEZIONI_OFFLINE (salvate voce per voce) si possono modificare e le modifiche partono da sole al ritorno
         // della rete, anche dopo aver chiuso il browser. Stessa voce cambiata su due dispositivi: vale l'ultima inviata.
         // =====================================================================
-        const SEZIONI_OFFLINE = new Set(['db', 'agenda', 'tagliandi', 'schede_tecniche', 'marche_extra']);
+        const SEZIONI_OFFLINE = new Set(['db', 'agenda', 'tagliandi', 'schede_tecniche', 'marche_extra',
+            'ledger', 'ordini', 'lista_ordini', 'rubrica', 'note', 'billing', 'scadenze', 'lista_attesa', 'moto_usate', 'periti', 'vendite', 'garanzie', 'ordini_abb', 'magazzino']);   // v220: passo 3
         const _locale = { idb: null, pronto: null, specchio: {}, ascolti: {}, dalServer: new Set(), coda: [], inCopia: false, aggiornato: 0, timer: {}, avvisaInvio: false };
         function _apriArchivioLocale() {
             if (_locale.pronto) return _locale.pronto;
@@ -3107,7 +3107,8 @@
             _idb('coda', st => st.put(voce));
             _applicaASpecchio(voce.updates, true);
             _aggiornaOverlayCloud();
-            return _inviaVoce(voce);
+            _inviaVoce(voce);
+            return Promise.resolve();   // chi aspetta (es. await magSave) non resta bloccato senza rete
         }
         function _inviaVoce(voce) {
             return database.ref('/').update(voce.updates).then(() => { _togliDaCoda(voce.id); showCloudCheck(); }, e => { _togliDaCoda(voce.id); _onSaveError(e); });
@@ -3136,7 +3137,7 @@
             if (_locale.inCopia) return false;   // mentre si mostra la copia locale niente scritture automatiche
             if (_cloud.connesso && nomi.every(n => _cloud.caricati.has(n))) return true;
             // Senza rete: solo le sezioni che si salvano voce per voce (SEZIONI_OFFLINE), con i dati del cloud o della copia locale
-            if (!_cloud.connesso && nomi.every(n => SEZIONI_OFFLINE.has(n) && (_cloud.caricati.has(n) || _cloud.daCache.has(n)))) return true;
+            if (!_cloud.connesso && nomi.every(n => SEZIONI_OFFLINE.has(n) && (_cloud.caricati.has(n) || _cloud.daCache.has(n)) && (!_baseCloud[n] || _baseCloud[n].affidabile))) return true;
             if (!_cloud.connesso && (_cloud.maiConnesso || _cloud.daCache.size)) {
                 // Lo stato locale può contenere la modifica rifiutata: si riallinea ricaricando al ritorno della rete
                 _cloud.ricaricaAlRitorno = true;
@@ -3325,6 +3326,29 @@
             Object.keys(base).forEach(k => { if (!obj || obj[k] == null) updates[nome + '/' + k] = null; });
         }
 
+        // Voci senza id nei dati vecchi: con internet si dà un id e si riscrive la sezione una volta sola,
+        // così da lì in poi si salva voce per voce (e si può modificare anche senza rete). Gli id doppi si lasciano com'è.
+        function _idMancanti(nome, arr) {
+            const b = _baseCloud[nome];
+            if (!b || b.affidabile || _locale.inCopia || !_cloud.connesso || !_cloud.caricati.has(nome)) return;
+            const senza = arr.filter(v => v.id == null || v.id === '');
+            if (!senza.length) return;
+            senza.forEach(v => { v.id = genId(); });
+            _scrivi({ [nome]: arr });
+        }
+        // Una sezione qualsiasi scritta voce per voce: elenco con id (_leggiSezione) o oggetto a chiavi (_leggiMappa)
+        function _diffSezione(nome, valore, updates) {
+            if (_baseCloud[nome]) _modificheSezione(nome, valore, updates);
+            else if (_baseMappe[nome]) _modificheMappa(nome, valore, updates);
+            else updates[nome] = valore;
+        }
+        function _scriviSezioni(...coppie) {
+            const u = {};
+            coppie.forEach(([n, v]) => _diffSezione(n, v, u));
+            if (Object.keys(u).length) _scrivi(u); else showCloudCheck();
+        }
+        const _perId = arr => { const o = {}; (arr || []).forEach(e => { if (e && e.id != null) o[e.id] = e; }); return o; };
+
         function _salvaSezioni(sezioni, extra) {
             const updates = Object.assign({}, extra);
             sezioni.forEach(([nome, arr]) => _modificheSezione(nome, arr, updates));
@@ -3335,11 +3359,11 @@
         function saveDB()       { if (!_puoSalvare('db')) return; _salvaSezioni([['db', db]]); updateDatalist(); }
         function saveAgenda()   { if (!_puoSalvare('agenda')) return; _salvaSezioni([['agenda', agendaDB]]); }
         function saveDBAgenda() { if (!_puoSalvare('db', 'agenda')) return; _salvaSezioni([['db', db], ['agenda', agendaDB]]); updateDatalist(); }
-        function saveLedger()   { if (!_puoSalvare('ledger')) return; database.ref('/ledger').set(ledgerDB).then(showCloudCheck).catch(_onSaveError); }
-        function saveOrdini()   { if (!_puoSalvare('ordini')) return; database.ref('/').update({ ordini: ordiniDB }).then(showCloudCheck).catch(_onSaveError); }
-        function saveRubrica()  { if (!_puoSalvare('rubrica')) return; database.ref('/').update({ rubrica: rubricaDB }).then(showCloudCheck).catch(_onSaveError); }
-        function saveNote()     { if (!_puoSalvare('note')) return; database.ref('/').update({ note: noteDB }).then(showCloudCheck).catch(_onSaveError); }
-        function saveBilling()  { if (!_puoSalvare('billing')) return; database.ref('/').update({ billing: billingDB }).then(showCloudCheck).catch(_onSaveError); }
+        function saveLedger()   { if (!_puoSalvare('ledger')) return; _scriviSezioni(['ledger', ledgerDB]); }
+        function saveOrdini()   { if (!_puoSalvare('ordini')) return; _scriviSezioni(['ordini', ordiniDB]); }
+        function saveRubrica()  { if (!_puoSalvare('rubrica')) return; _scriviSezioni(['rubrica', rubricaDB]); }
+        function saveNote()     { if (!_puoSalvare('note')) return; _scrivi({ note: noteDB }); }
+        function saveBilling()  { if (!_puoSalvare('billing')) return; _scriviSezioni(['billing', billingDB]); }
         function saveTagliandi() { if (!_puoSalvare('tagliandi')) return; const u = {}; _modificheMappa('tagliandi', taggliandiDB, u); if (Object.keys(u).length) _scrivi(u); else showCloudCheck(); }
 
         function openBillingModal(encodedClientId, encodedNameFallback, clienteLabel) {
@@ -3385,14 +3409,16 @@
         function saveAll() {
             if (!_puoSalvare('db', 'agenda', 'ledger', 'ordini', 'rubrica', 'note')) return;
             // Salva ogni collezione separatamente (evita permission su radice /)
-            _salvaSezioni([['db', db], ['agenda', agendaDB]], { ledger: ledgerDB, ordini: ordiniDB, rubrica: rubricaDB, note: noteDB });
-            updateDatalist();
-            // Salva anche il magazzino se ci sono dati
-            if (inventarioMag && inventarioMag.length > 0) {
+            const extra = { note: noteDB };
+            [['ledger', ledgerDB], ['ordini', ordiniDB], ['rubrica', rubricaDB]].forEach(([n, v]) => _diffSezione(n, v, extra));
+            // Anche il magazzino, articolo per articolo
+            if (inventarioMag && inventarioMag.length > 0 && _baseMappe.magazzino) {
                 const magObj = {};
                 inventarioMag.forEach(i => { if(i.codice) magObj[i.codice] = i; });
-                database.ref('/magazzino').set(magObj).catch(e => console.warn('Mag save error:', e));
+                _modificheMappa('magazzino', magObj, extra);
             }
+            _salvaSezioni([['db', db], ['agenda', agendaDB]], extra);
+            updateDatalist();
         }
 
         // =====================================================================
@@ -4446,6 +4472,7 @@
                     const arr = v => Array.isArray(v) ? v.filter(z => z != null) : Object.values(v || {}).filter(z => z != null);
                     const principali = ['db', 'agenda', 'ledger', 'ordini', 'rubrica', 'note'].filter(k => k in d);
                     const altre = ['lista_ordini', ...BACKUP_ALTRE].filter(k => k in d);
+                    if (!_cloud.connesso) return mostraErrore('Il ripristino da backup sostituisce intere sezioni: fallo con internet.');
                     if (!_puoSalvare(...principali, ...altre.filter(k => k !== 'storico_casse' && k !== 'passaporti'))) return;
                     if (typeof saveSnapshot === 'function') saveSnapshot();
                     if ('db' in d) db = arr(d.db);
@@ -5220,15 +5247,15 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 note.push('acconto tolto dalla Prima Nota');
             }
             doc.acconto_registrato = acc;
-            if (ledgerCambiato) updates.ledger = JSON.parse(JSON.stringify(ledgerDB));
+            if (ledgerCambiato) _diffSezione('ledger', ledgerDB, updates);
             // Moto usata: la conferma d'ordine la rende Riservata
             const u = doc.usata_id ? motoUsateDB.find(m => String(m.id) === String(doc.usata_id)) : null;
             if (u && d.tipoDocumento === 'ordine' && u.stato === 'disponibile') {
                 u.stato = 'riservata';
-                updates.moto_usate = _usateComeOggetto();
+                _diffSezione('moto_usate', _usateComeOggetto(), updates);
                 note.push('moto usata ora Riservata');
             }
-            database.ref('/').update(JSON.parse(JSON.stringify(updates))).then(showCloudCheck).catch(_onSaveError);
+            _scrivi(updates);
             _vend = { chiave, usata_id: doc.usata_id, acconto_ledger_id: doc.acconto_ledger_id, acconto_registrato: doc.acconto_registrato, creato: doc.creato,
                 ordine_chiave: doc.ordine_chiave, ordine_id: doc.ordine_id, da_preventivo: doc.da_preventivo, da_preventivo_id: doc.da_preventivo_id,
                 clientId: doc.clientId, consegnata_il: doc.consegnata_il, consegna_targa: doc.consegna_targa, consegna_km: doc.consegna_km, anagrafica_id: doc.anagrafica_id };
@@ -5249,7 +5276,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const o = v.ordine_chiave ? venditeDB.find(x => x.chiave === v.ordine_chiave && x.da_preventivo === v.chiave) : null;
             if (o) { updates['vendite/' + o.chiave + '/da_preventivo'] = null; updates['vendite/' + o.chiave + '/da_preventivo_id'] = null; }
             const iL = v.acconto_ledger_id ? ledgerDB.findIndex(m => m && String(m.id) === String(v.acconto_ledger_id)) : -1;
-            if (iL > -1 && confirm(`Togliere anche l'acconto di ${_eurIt(ledgerDB[iL].importo)} dalla Prima Nota?`)) { ledgerDB.splice(iL, 1); updates.ledger = JSON.parse(JSON.stringify(ledgerDB)); }
+            if (iL > -1 && confirm(`Togliere anche l'acconto di ${_eurIt(ledgerDB[iL].importo)} dalla Prima Nota?`)) { ledgerDB.splice(iL, 1); _diffSezione('ledger', ledgerDB, updates); }
             const recA = v.anagrafica_id ? db.find(j => String(j.id) === String(v.anagrafica_id) && j.vendita_chiave === v.chiave && j.stato === 'cliente') : null;
             let dbCambiato = false;
             if (recA && confirm(`La moto ${v.consegna_targa || ''} è stata consegnata: togliere anche la sua scheda dall'Anagrafica e il primo tagliando dalle Scadenze?`)) {
@@ -5259,9 +5286,9 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (t && t.origine === 'vendita') { delete taggliandiDB[v.consegna_targa]; updates['tagliandi/' + v.consegna_targa] = null; }
             }
             const u = v.usata_id && v.tipoDocumento !== 'preventivo' ? motoUsateDB.find(m => String(m.id) === String(v.usata_id)) : null;
-            if (u && u.stato === 'riservata' && confirm(`Rimettere la ${u.marca} ${u.modello} come Disponibile tra le Moto Usate?`)) { u.stato = 'disponibile'; updates.moto_usate = _usateComeOggetto(); }
+            if (u && u.stato === 'riservata' && confirm(`Rimettere la ${u.marca} ${u.modello} come Disponibile tra le Moto Usate?`)) { u.stato = 'disponibile'; _diffSezione('moto_usate', _usateComeOggetto(), updates); }
             if (dbCambiato) _salvaSezioni([['db', db]], updates);
-            else database.ref('/').update(updates).then(showCloudCheck).catch(_onSaveError);
+            else _scrivi(updates);
             _vend = null;
             _vendSporco = false;
             _mostraEditorVendita(false);
@@ -5553,7 +5580,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 updates['vendite/' + chiave] = { ...d, chiave, totale: _tondo(_totaliVendita(d).totale), usata_id: '', acconto_ledger_id: '',
                     acconto_registrato: d.tipoDocumento === 'ordine' ? _tondo(_numIt(d.acconto)) : 0, importato: true, creato: ora, modificato: ora };
             });
-            database.ref('/').update(updates).then(showCloudCheck).catch(_onSaveError);
+            _scrivi(updates);
             refreshVendite();
             mostraToast(`⬆️ Importati ${usa.length} documenti dal vecchio programma`);
         }
@@ -5569,7 +5596,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
         const _garAperti = new Set();
         function saveGaranzie() {
             if (!_puoSalvare('garanzie')) return;
-            database.ref('/').update({ garanzie: JSON.parse(JSON.stringify(garanzieDB)) }).then(showCloudCheck).catch(_onSaveError);
+            _scriviSezioni(['garanzie', garanzieDB]);
         }
         function _garanzia(id) { return garanzieDB.find(g => String(g.id) === String(id)); }
         function _appGaranzia(id) { return agendaDB.find(a => a && a.garanzia_id != null && String(a.garanzia_id) === String(id)); }
@@ -9477,7 +9504,7 @@ A presto!`;
             if (!_puoSalvare('periti')) return;
             const nuovo = !$('per_id').value;
             if (nuovo && $('modal-periti').dataset.daForm === '1') _peritoDaSelezionare = id;
-            database.ref('/periti/' + id).set(obj).then(showCloudCheck).catch(_onSaveError);
+            _scrivi({ ['periti/' + id]: obj });
             _resetPeritoForm();
             mostraToast(nuovo ? 'Perito aggiunto alla rubrica' : 'Perito aggiornato');
             if (nuovo && $('modal-periti').dataset.daForm === '1') closeModal('modal-periti');
@@ -9504,7 +9531,7 @@ A presto!`;
             const msg = `Eliminare ${p.nome} dalla rubrica?` + (usati ? `\nÈ indicato in ${usati} preventivi aperti: resteranno senza perito.` : '');
             if (!confirm(msg)) return;
             if (!_puoSalvare('periti')) return;
-            database.ref('/periti/' + id).remove().then(showCloudCheck).catch(_onSaveError);
+            _scrivi({ ['periti/' + id]: null });
         }
 
         function refreshPeritiList() {
@@ -10120,10 +10147,10 @@ A presto!`;
 
         // ---- Realtime Database helpers (stesso DB dell'officina, nessuna quota giornaliera) ----
         function magSave(codice, obj) {
-            return database.ref('/magazzino/' + codice).set(obj);
+            return _scrivi({ ['magazzino/' + codice]: obj });
         }
         function magDelete(codice) {
-            return database.ref('/magazzino/' + codice).remove();
+            return _scrivi({ ['magazzino/' + codice]: null });
         }
         async function setAllMinStockDefault(val) {
             const toUpdate = inventarioMag.filter(i => !i.min_stock || i.min_stock < val);
@@ -10142,7 +10169,7 @@ A presto!`;
             const st = $('mag-cloud-status');
             _ascolta('/magazzino', snap => {
                 _segnaCaricato('magazzino');
-                inventarioMag = Object.values(snap.val() || {});
+                inventarioMag = Object.values(_leggiMappa('magazzino', snap.val())).filter(i => i && typeof i === 'object');
                 if (st) { st.innerHTML = '🟢 Cloud'; st.style.color = '#4ade80'; st.title = ''; }
                 renderAllMag();
             }, e => {
@@ -10288,7 +10315,7 @@ A presto!`;
 
         function saveListaOrdiniMag() {
             if (!_puoSalvare('lista_ordini')) return;
-            database.ref('/lista_ordini').set(listaOrdiniMag).then(showCloudCheck).catch(_onSaveError);
+            _scriviSezioni(['lista_ordini', listaOrdiniMag]);
         }
 
         function toggleListaOrdini() {
@@ -10548,7 +10575,7 @@ A presto!`;
         }
         function saveOrdiniAbb() {
             if (!_puoSalvare('ordini_abb')) return;
-            database.ref('/').update({ ordini_abb: JSON.parse(JSON.stringify(ordiniAbbDB)) }).then(showCloudCheck).catch(_onSaveError);
+            _scriviSezioni(['ordini_abb', ordiniAbbDB]);
         }
         function _ordineAbb(oid) { return ordiniAbbDB.find(x => String(x.id) === String(oid)); }
         function _pezziAbb(righe) { return righe.reduce((s, r) => s + (parseInt(r.qta) || 0), 0); }
@@ -10661,9 +10688,9 @@ A presto!`;
                 r.data_arrivo = oggi;
             });
             if (o.righe.every(r => r.arrivata)) { o.stato = 'arrivato'; o.data_arrivo = oggi; }
-            updates.ordini_abb = ordiniAbbDB;
+            _diffSezione('ordini_abb', ordiniAbbDB, updates);
             refreshOrdiniAbb();
-            await database.ref('/').update(JSON.parse(JSON.stringify(updates))).then(showCloudCheck).catch(_onSaveError);
+            await _scrivi(updates);
             mostraToast(`📥 ${pz} pezzi caricati in magazzino${o.stato === 'arrivato' ? ' — ordine ' + o.fornitore + ' completato' : ''}`);
         }
         function eliminaOrdineAbb(oid) {
@@ -12064,9 +12091,7 @@ if ('serviceWorker' in navigator) {
 
         function saveUsateDB() {
             if (!_puoSalvare('moto_usate')) return;
-            const obj = {};
-            motoUsateDB.forEach(e => { obj[e.id] = e; });
-            database.ref('/moto_usate').set(obj).then(showCloudCheck).catch(_onSaveError);
+            _scriviSezioni(['moto_usate', _perId(motoUsateDB)]);
         }
 
         function editUsata(id) {
@@ -12267,7 +12292,7 @@ if ('serviceWorker' in navigator) {
         }
 
         // ═══════════════ LISTA ATTESA MOTO ═══════════════
-        function saveAttesaDB() { if (!_puoSalvare('lista_attesa')) return; const obj = {}; listaAttesaDB.forEach(e => { obj[e.id] = e; }); database.ref('/lista_attesa').set(obj).then(showCloudCheck).catch(_onSaveError); }
+        function saveAttesaDB() { if (!_puoSalvare('lista_attesa')) return; _scriviSezioni(['lista_attesa', _perId(listaAttesaDB)]); }
 
         function aggiornaAttesaBadge() {
             const badge = $('attesa-badge');
@@ -12415,7 +12440,7 @@ if ('serviceWorker' in navigator) {
             setStatoAttesa(id, 'contattato');
         }
 
-        function saveScadenzeDB() { if (!_puoSalvare('scadenze')) return; database.ref('/scadenze').set(scadenzeDB).then(showCloudCheck).catch(_onSaveError); }
+        function saveScadenzeDB() { if (!_puoSalvare('scadenze')) return; _scriviSezioni(['scadenze', scadenzeDB]); }
 
         function aggiornaScadenzeBadge() {
             const oggi = getOggiLocale();
