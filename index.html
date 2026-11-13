@@ -2104,8 +2104,8 @@
             <div id="mc-mobile-list" style="display:none;"></div>
 
             <div class="flex-row mt-15" style="flex-shrink: 0; gap:8px;">
-                <button class="btn" style="flex:1; background:none; border:1px solid var(--accent); color:var(--accent);" onclick="azzeraCassa()">🗑️ Svuota Scheda</button>
-                <button class="btn" id="btn-archivia-scheda" style="flex:1.2; background:none; border:1px solid var(--success); color:var(--success);" onclick="archiviaSoloScheda()">📥 Archivia Scheda</button>
+                
+                <button class="btn" id="btn-archivia-scheda" style="flex:1.2; background:none; border:1px solid var(--success); color:var(--success);" onclick="archiviaESaldaScheda()" title="Quando avete regolato i conti: la scheda va nell'Archivio come saldata e la cassa riparte da zero">✅ Archivia e salda</button>
                 <button class="btn btn-dark" onclick="closeModal('modal-collab')" style="flex:1; font-size: 1rem; padding: 15px;">Chiudi</button>
                 <button class="btn btn-purple" id="btn-print-collab" style="flex:2; font-size: 1rem; padding: 15px;">🖨️ Stampa Scheda Collaboratore</button>
             </div>
@@ -6193,7 +6193,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             
             if (!giaAperta || encName !== _mcCassa) { _mcCassa = encName; _mcMese = ''; _mcEvidenzia = new Set(); }
             _aggiornaBottoneLinkCassa();
-            const tutti = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase());
+            const tutti = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase() && !_segnapostoCassa(x));
             const mesi = [...new Set(tutti.map(x => String(x.data || '').slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort().reverse();
             if (_mcMese && !mesi.includes(_mcMese)) _mcMese = '';
             const selMese = $('mc-mese');
@@ -6279,7 +6279,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         }
         function _vociCassaCondivisa(nome) {
             const voci = {};
-            ledgerDB.forEach(m => { if (m && typeof m === 'object' && m.id != null && m.id !== '' && _nomeCassa(m.collab) === nome) voci[_chiaveVoceCassa(m.id)] = _voceCassaCondivisa(m); });
+            ledgerDB.forEach(m => { if (m && typeof m === 'object' && m.id != null && m.id !== '' && _nomeCassa(m.collab) === nome && !_segnapostoCassa(m)) voci[_chiaveVoceCassa(m.id)] = _voceCassaCondivisa(m); });
             return voci;
         }
         // Porta nella Prima Nota le modifiche del collaboratore e rende la copia online uguale alla Prima Nota.
@@ -6454,44 +6454,32 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             catch (e) { prompt('Copia il link:', url); }
         }
 
-        function azzeraCassa() {
-            const name = safeDecode(currentCollabView);
-            if(confirm(`Svuotare la scheda di ${name}? Le voci correnti verranno ELIMINATE e la scheda ripartirà da zero.\nSe vuoi conservarle, usa prima "Archivia Scheda"!`)) {
-                const voci = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase());
-                const avere = voci.filter(x=>x.tipo==='in').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
-                const dare  = voci.filter(x=>x.tipo==='out').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
-                ledgerDB = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() !== name.toUpperCase());
-                ledgerDB.push({
-                    id: genId(),
-                    data: getOggiLocale(),
-                    tipo: 'in',
-                    cat: 'officina',
-                    collab: name.toUpperCase(),
-                    desc: "RESET SCHEDA - CONTO RISOLTO",
-                    importo: 0,
-                    qta: 1
-                });
-                saveLedger();
-                closeModal('modal-collab');
-                refreshLedger();
-            }
-        }
-
-        function archiviaSoloScheda() {
-            const name = safeDecode(currentCollabView);
-            const voci = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase());
+        // Righe "segnaposto" senza importo (chiusura della scheda, vecchi "RESET SCHEDA"): servono solo a tenere il
+        // collaboratore nell'elenco delle casse; nella scheda, nella stampa e nella cassa condivisa non si vedono
+        const _segnapostoCassa = m => !!m && (!!m.chiusura_scheda || (/^RESET SCHEDA/.test(String(m.desc || '')) && !(Number(m.importo) || 0)));
+        // Conti regolati con il collaboratore (v222, Fabio): la scheda va nell'Archivio segnata come saldata e il foglio
+        // resta pulito (nessuna riga), in un'unica scrittura (anche senza rete)
+        function archiviaESaldaScheda() {
+            const name = safeDecode(currentCollabView), N = name.toUpperCase();
+            const voci = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === N && !_segnapostoCassa(x));
             if (!voci.length) { mostraToast('⚠️ Nessuna voce da archiviare.'); return; }
             const avere = voci.filter(x=>x.tipo==='in').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
             const dare  = voci.filter(x=>x.tipo==='out').reduce((s,x)=>s+(parseFloat(x.importo)||0)*(parseFloat(x.qta)||1),0);
-            const snapshot = { data: getOggiLocale(), collab: name.toUpperCase(), avere, dare, saldo: avere - dare, voci };
-            const collabKey = name.toUpperCase().replace(/[.#$[\]/]/g,'_');
-            const btn = $('btn-archivia-scheda');
-            database.ref('/storico_casse/' + collabKey).push(snapshot)
-                .then(() => {
-                    mostraToast('✅ Scheda archiviata con successo!');
-                    if (btn) { btn.textContent = '✅ Archiviata!'; btn.style.borderColor='#22c55e'; setTimeout(()=>{ btn.textContent='📥 Archivia Scheda'; }, 2500); }
-                })
-                .catch(e => { mostraErrore('Errore archivio: ' + e.message); });
+            const saldo = Math.round((avere - dare) * 100) / 100, oggi = getOggiLocale();
+            const chi = saldo > 0.004 ? `${name} vi doveva ${_eurIt(saldo)}` : saldo < -0.004 ? `Dovevate a ${name} ${_eurIt(-saldo)}` : 'Il saldo era già in pari';
+            if (!confirm(`Archiviare la scheda di ${name} come SALDATA?\n\n${chi}.\n\nLe ${voci.length} voci vanno nell'Archivio della cassa e il foglio resta pulito.`)) return;
+            if (!_puoSalvare('ledger')) return;
+            const collabKey = N.replace(/[.#$[\]/]/g,'_');
+            const chiave = database.ref('/storico_casse/' + collabKey).push().key;
+            const snapshot = { data: oggi, collab: N, avere, dare, saldo, voci: JSON.parse(JSON.stringify(voci)), saldata: true, data_saldo: oggi };
+            ledgerDB = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() !== N);
+            ledgerDB.push({ id: genId(), data: oggi, tipo: 'in', cat: 'officina', collab: N, desc: 'SCHEDA SALDATA E ARCHIVIATA IL ' + formattaData(oggi), importo: 0, qta: 1, chiusura_scheda: true });   // segnaposto invisibile
+            const u = { ['storico_casse/' + collabKey + '/' + chiave]: snapshot };
+            _diffSezione('ledger', ledgerDB, u);
+            _scrivi(u);
+            mostraToast(`✅ Scheda di ${name} saldata e archiviata: il foglio è pulito`);
+            refreshLedger();
+            openCollabDetail(currentCollabView);
         }
 
         function showCollabTab(tab) {
@@ -6538,7 +6526,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                         <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'; this.querySelector('.arch-arrow').style.transform=this.nextElementSibling.style.display===''?'rotate(0deg)':'rotate(-90deg)';"
                             style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:rgba(139,92,246,0.15); cursor:pointer;">
                             <div>
-                                <span style="font-weight:700; color:white;">📅 Scheda del ${s.data}</span>
+                                <span style="font-weight:700; color:white;">📅 Scheda del ${s.data}</span>${s.saldata ? ` <span style="margin-left:8px; font-size:0.75rem; font-weight:800; color:#4ade80; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.4); border-radius:10px; padding:1px 8px;">✅ Saldata</span>` : ''}
                                 <span style="margin-left:12px; font-size:0.8rem; color:var(--muted);">${(s.voci||[]).length} voci</span>
                             </div>
                             <div style="display:flex; gap:16px; align-items:center;">
@@ -10201,7 +10189,7 @@ A presto!`;
         function printInvoice(id) { const j = db.find(x => String(x.id) === String(id)); if(!j) return; const tA = (j.acconti||[]).reduce((a,b)=>a+(parseFloat(b.val)||0),0); const l = parseFloat(j.totale_lordo)||0; const dP = l - tA; let sH = dP > 0.01 ? `<h2 style="display:flex; justify-content:space-between; margin-top:10px;"><span>DA PAGARE:</span> <span>${dP.toFixed(2)} €</span></h2>` : `<h2 style="display:flex; justify-content:space-between; margin-top:10px; color:green;"><span>SALDATO:</span> <span>${l.toFixed(2)} €</span></h2>`; const pA = $('print-area'); if(pA) { pA.innerHTML = renderPrintHeader("RICEVUTA INTERVENTO / MEMORANDUM", formattaData(j.data || getOggiLocale())) + `<div class="p-grid"><div class="p-box"><h4>Intestatario</h4><p><b>${htmlEsc((j.cognome||'').toUpperCase())} ${htmlEsc(j.nome||'')}</b></p></div><div class="p-box"><h4>Riferimento Veicolo</h4><p>Moto: <b>${htmlEsc(j.marca||'')} ${htmlEsc(j.modello||'')}</b></p><p>Targa: <b>${htmlEsc(j.targa||'N/D')}</b></p><p>KM: <b>${j.km||'N/D'}</b></p></div></div><table class="p-table"><thead><tr><th>Descrizione Voci</th><th style="text-align:right; width:150px;">Importo</th></tr></thead><tbody>${(j.conto||[]).map(c=>`<tr><td>${htmlEsc(c.desc)}${(parseFloat(c.qty)||1) > 1 ? ` <span style="opacity:.65; font-weight:400;">×${parseFloat(c.qty)}</span>` : ''}</td><td style="text-align:right;">${_totaleRiga(j, c).toFixed(2)} €</td></tr>`).join('')}</tbody></table><div class="p-totals"><p style="display:flex; justify-content:space-between;"><span>Intervento Lordo:</span> <span>${l.toFixed(2)} €</span></p>${(j.acconti||[]).map(a=>`<p style="display:flex; justify-content:space-between;"><span>Acconto (${formattaData(a.date)}):</span> <span>- ${(parseFloat(a.val)||0).toFixed(2)} €</span></p>`).join('')}${sH}</div><div style="text-align:center; margin-top:50px; font-size:9pt; color:#666;">I lavori eseguiti sono garantiti a norma di legge.</div>`; setTimeout(()=>window.print(), 100); } }
 
         function printGlobalLedger() {
-            const sorted = [...ledgerDB].sort((a,b) => { const cA = a.collab || 'INTERNO', cB = b.collab || 'INTERNO'; if(cA !== cB) return cA.localeCompare(cB); if(a.cat !== b.cat) return catOrder.indexOf(a.cat || 'officina') - catOrder.indexOf(b.cat || 'officina'); return new Date(b.data) - new Date(a.data); });
+            const sorted = ledgerDB.filter(m => !_segnapostoCassa(m)).sort((a,b) => { const cA = a.collab || 'INTERNO', cB = b.collab || 'INTERNO'; if(cA !== cB) return cA.localeCompare(cB); if(a.cat !== b.cat) return catOrder.indexOf(a.cat || 'officina') - catOrder.indexOf(b.cat || 'officina'); return new Date(b.data) - new Date(a.data); });
             let ti = 0, to = 0; const cs = {};
             let tHtml = sorted.map(m => {
                 const tot = (m.importo || 0) * (m.qta || 1); if(m.tipo === 'in') ti += tot; else to += tot;
@@ -10217,7 +10205,7 @@ A presto!`;
 
         function printCollabLedger(encName) {
             const name = safeDecode(encName);
-            const list = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase()).sort((a,b) => { if(a.cat !== b.cat) return catOrder.indexOf(a.cat || 'officina') - catOrder.indexOf(b.cat || 'officina'); return new Date(b.data) - new Date(a.data); });
+            const list = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase() && !_segnapostoCassa(x)).sort((a,b) => { if(a.cat !== b.cat) return catOrder.indexOf(a.cat || 'officina') - catOrder.indexOf(b.cat || 'officina'); return new Date(b.data) - new Date(a.data); });
             let ti = 0, to = 0;
             const rows = list.map(m => {
                 const tot = (m.importo || 0) * (m.qta || 1); if(m.tipo === 'in') ti += tot; else to += tot; const pt = tot > 0 ? `€ ${tot.toFixed(2)}` : 'DA DEF.';
