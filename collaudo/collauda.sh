@@ -19,8 +19,18 @@ assert len(tags) == 4, f'script Firebase trovati: {len(tags)} (attesi 4)'
 h = h.replace(tags[0], '<script src="fake-firebase.js"></script>\n<script src="dati-iniziali.js"></script>\n', 1)
 for t in tags[1:]:
     h = h.replace(t, '', 1)
-h = h.replace('</body>', '<pre id="e2e-risultati"></pre><pre id="e2e-pdf" style="display:none"></pre>\n<script src="scenari.js"></script>\n</body>', 1)
+h = h.replace('</body>', '<pre id="e2e-risultati"></pre><pre id="e2e-pdf" style="display:none"></pre>\n<script src="cassa-src.js"></script>\n<script src="scenari.js"></script>\n</body>', 1)
 open(sys.argv[2], 'w', encoding='utf-8').write(h)
+# Pagina del collaboratore (cassa.html): la apre scenari.js in un riquadro con il Firebase finto del gestionale
+# (window.__firebaseCollab, con le regole della console) e il codice del link in window.__cassaHash
+import json, os
+c = open(os.path.join(os.path.dirname(sys.argv[1]), 'cassa.html'), encoding='utf-8').read()
+tags = re.findall(r'<script src="https://www\.gstatic\.com/firebasejs/[^"]+"></script>\n?', c)
+assert len(tags) == 2, f'cassa.html: script Firebase trovati {len(tags)} (attesi 2)'
+c = c.replace(tags[0], '<script>window.addEventListener("error", e => parent.__errori.push("cassa.html: " + (e.message || "errore") + " @ riga " + e.lineno)); window.addEventListener("unhandledrejection", e => parent.__errori.push("cassa.html promise: " + ((e.reason && e.reason.message) || e.reason))); window.firebase = parent.__firebaseCollab;</script>\n', 1).replace(tags[1], '', 1)
+assert c.count('const LINK = location.hash;') == 1
+c = c.replace('const LINK = location.hash;', 'const LINK = parent.__cassaHash;')
+open(os.path.join(os.path.dirname(sys.argv[2]), 'cassa-src.js'), 'w', encoding='utf-8').write('window.__cassaHtml = ' + json.dumps(c) + ';\n')
 PY
 
 # Chrome scrive la pagina finale ma poi non si chiude: lo fermiamo appena il file è completo (max 150 s)

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0f172a">
+    <title>Cassa collaboratore · Moto Garage Marcello</title>
+    <!--
+        Cassa condivisa con un collaboratore (v221). Si apre con cassa.html#CODICE + PIN di 4 cifre, dati in
+        /casse_condivise/{CODICE-PIN}: la regola Firebase permette di leggerli e di scrivere solo le voci con
+        autore "collab" finché /casse_codici/{CODICE-PIN}/attivo è vero. Il gestionale riporta le modifiche
+        nella Prima Nota. "tipo" è quello del gestionale: out = l'officina deve al collaboratore (sua entrata),
+        in = il collaboratore deve all'officina (sua uscita).
+    -->
+    <style>
+        :root {
+            --bg: #0f172a; --card: #1e293b; --riga: #172033; --bordo: #334155;
+            --testo: #f1f5f9; --tenue: #94a3b8; --viola: #a78bfa; --viola-scuro: #7c3aed;
+            --verde: #22c55e; --rosso: #f87171; --giallo: #fbbf24; --blu: #60a5fa;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { -webkit-text-size-adjust: 100%; }
+        body { background: var(--bg); color: var(--testo); font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; font-size: 16px; line-height: 1.4; min-height: 100vh; }
+        .pagina { max-width: 760px; margin: 0 auto; padding: 18px 16px 40px; }
+        .hidden { display: none !important; }
+        button, input, select { font: inherit; }
+
+        .testa { margin-bottom: 16px; }
+        .marchio { font-size: 0.72rem; font-weight: 800; letter-spacing: 2px; color: var(--tenue); text-transform: uppercase; }
+        h1 { font-size: 1.45rem; color: var(--viola); text-transform: uppercase; text-wrap: balance; margin-top: 2px; }
+
+        .card { background: var(--card); border: 1px solid var(--bordo); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+
+        /* Saldo */
+        .saldo-et { font-size: 0.85rem; color: var(--tenue); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .saldo-val { font-size: 2rem; font-weight: 900; margin: 2px 0 8px; font-variant-numeric: tabular-nums; }
+        .saldo-sub { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.92rem; color: var(--tenue); }
+        .saldo-sub b { font-variant-numeric: tabular-nums; }
+        .pos { color: var(--verde); } .neg { color: var(--rosso); } .pari { color: var(--blu); }
+
+        /* Modulo */
+        .mod-titolo { font-weight: 800; margin-bottom: 10px; }
+        .tipo-scelta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .tipo-scelta label { position: relative; display: flex; flex-direction: column; gap: 2px; border: 2px solid var(--bordo); border-radius: 10px; padding: 9px 10px; cursor: pointer; font-weight: 800; }
+        .tipo-scelta label small { font-weight: 500; color: var(--tenue); font-size: 0.8rem; }
+        .tipo-scelta input { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; padding: 0; opacity: 0; pointer-events: none; }
+        .tipo-scelta label.sel-out { border-color: var(--verde); background: rgba(34,197,94,0.12); }
+        .tipo-scelta label.sel-in { border-color: var(--rosso); background: rgba(248,113,113,0.12); }
+        .tipo-scelta label:focus-within { outline: 2px solid var(--blu); outline-offset: 2px; }
+        .griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .griglia .intero { grid-column: 1 / -1; }
+        .campo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .campo span { font-size: 0.78rem; color: var(--tenue); font-weight: 700; }
+        input, select { width: 100%; min-width: 0; padding: 10px 11px; background: var(--bg); border: 1px solid var(--bordo); border-radius: 9px; color: var(--testo); font-size: 1rem; }
+        input:focus, select:focus { outline: none; border-color: var(--blu); box-shadow: 0 0 0 2px rgba(96,165,250,0.25); }
+        #f-desc { text-transform: uppercase; }
+        .azioni { display: flex; gap: 8px; margin-top: 12px; }
+        .btn { border: none; border-radius: 10px; padding: 12px 16px; font-weight: 800; cursor: pointer; color: white; background: var(--bordo); }
+        .btn:focus-visible { outline: 2px solid var(--blu); outline-offset: 2px; }
+        .btn-verde { background: #16a34a; flex: 1; }
+        .btn-giallo { background: #d97706; flex: 1; }
+        .btn:disabled { opacity: 0.6; cursor: default; }
+        .esito { font-size: 0.9rem; margin-top: 8px; min-height: 1.2em; }
+
+        /* Elenco */
+        .elenco-testa { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 18px 0 8px; }
+        .elenco-testa h2 { font-size: 1.05rem; }
+        .elenco-testa select { width: auto; padding: 6px 10px; font-size: 0.9rem; }
+        .riga { display: flex; gap: 10px; align-items: flex-start; background: var(--riga); border: 1px solid var(--bordo); border-radius: 12px; padding: 11px 12px; margin-bottom: 8px; }
+        .riga.mia { border-color: rgba(167,139,250,0.45); }
+        .r-sx { flex: 1; min-width: 0; }
+        .r-data { font-size: 0.8rem; color: var(--tenue); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .chip { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; background: var(--bordo); color: white; border-radius: 4px; padding: 1px 6px; letter-spacing: 0.3px; }
+        .r-desc { font-weight: 700; margin: 3px 0; overflow-wrap: anywhere; }
+        .r-qta { background: var(--bordo); border-radius: 4px; padding: 0 5px; font-size: 0.8rem; margin-right: 4px; }
+        .r-chi { font-size: 0.78rem; color: var(--tenue); }
+        .r-chi.mia { color: var(--viola); }
+        .r-dx { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .r-imp { font-weight: 900; font-size: 1.05rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .r-def { color: var(--giallo); font-size: 0.8rem; }
+        .r-az { display: flex; gap: 6px; }
+        .r-az button { background: transparent; border: 1px solid var(--bordo); color: var(--testo); border-radius: 8px; padding: 6px 9px; cursor: pointer; font-size: 0.9rem; }
+        .r-az button.mod { border-color: #d97706; }
+        .r-az button.canc { border-color: #dc2626; }
+        .vuoto { text-align: center; color: var(--tenue); padding: 26px 10px; }
+
+        /* PIN e messaggi */
+        .centro { text-align: center; padding: 26px 18px; }
+        .centro .icona { font-size: 2.4rem; }
+        .centro h2 { margin: 6px 0 8px; font-size: 1.2rem; }
+        .centro p { color: var(--tenue); line-height: 1.5; max-width: 46ch; margin: 0 auto; }
+        #f-pin { max-width: 200px; margin: 16px auto 10px; display: block; text-align: center; font-size: 1.8rem; letter-spacing: 10px; font-weight: 900; }
+        .errore { color: var(--rosso); font-weight: 700; min-height: 1.3em; margin-bottom: 8px; }
+
+        .piede { margin-top: 26px; font-size: 0.82rem; color: var(--tenue); display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
+        .piede button { background: none; border: none; color: var(--blu); text-decoration: underline; cursor: pointer; font-size: 0.82rem; }
+
+        @media (max-width: 420px) {
+            .saldo-val { font-size: 1.7rem; }
+            .tipo-scelta label { padding: 8px; font-size: 0.92rem; }
+        }
+        @media (prefers-reduced-motion: no-preference) {
+            .riga.appena { animation: lampo 1.6s ease-out; }
+            @keyframes lampo { from { background: rgba(167,139,250,0.35); } to { background: var(--riga); } }
+        }
+    </style>
+</head>
+<body>
+<div class="pagina">
+    <header class="testa">
+        <div class="marchio">Moto Garage Marcello</div>
+        <h1 id="titolo">Cassa collaboratore</h1>
+    </header>
+
+    <!-- Messaggi: link incompleto, caricamento, link disattivato -->
+    <section id="sch-msg" class="card centro">
+        <div class="icona" id="msg-icona">⏳</div>
+        <h2 id="msg-titolo">Caricamento…</h2>
+        <p id="msg-testo">Sto aprendo la cassa.</p>
+        <button type="button" id="msg-pin" class="btn btn-verde hidden" style="margin-top:16px; flex:none;">Scrivi il PIN</button>
+    </section>
+
+    <!-- PIN -->
+    <form id="sch-pin" class="card centro hidden" autocomplete="off">
+        <div class="icona">🔒</div>
+        <h2>Scrivi il PIN</h2>
+        <p>Il PIN di 4 cifre te l'ha dato l'officina. Su questo telefono basta scriverlo una volta.</p>
+        <input type="password" id="f-pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" aria-label="PIN di 4 cifre" autocomplete="off">
+        <div class="errore" id="pin-errore"></div>
+        <button type="submit" class="btn btn-verde" style="flex:none; min-width:160px;">Apri la cassa</button>
+    </form>
+
+    <!-- Cassa -->
+    <section id="sch-cassa" class="hidden">
+        <div class="card">
+            <div class="saldo-et" id="saldo-et">Saldo</div>
+            <div class="saldo-val" id="saldo-val">€ 0,00</div>
+            <div class="saldo-sub">
+                <span>🟢 Entrate <b id="tot-in" class="pos">€ 0,00</b></span>
+                <span>🔴 Uscite <b id="tot-out" class="neg">€ 0,00</b></span>
+            </div>
+        </div>
+
+        <form id="modulo" class="card" autocomplete="off">
+            <div class="mod-titolo" id="mod-titolo">Nuovo movimento</div>
+            <div class="tipo-scelta" role="radiogroup" aria-label="Tipo di movimento">
+                <label><input type="radio" name="tipo" value="out" checked>🟢 Entrata (+)<small>l'officina ti deve</small></label>
+                <label><input type="radio" name="tipo" value="in">🔴 Uscita (−)<small>devi all'officina</small></label>
+            </div>
+            <div class="griglia">
+                <label class="campo"><span>Data</span><input type="date" id="f-data" required></label>
+                <label class="campo"><span>Categoria</span>
+                    <select id="f-cat">
+                        <option value="officina">OFFICINA</option>
+                        <option value="vendita">VENDITA</option>
+                        <option value="pre-consegna">PRE CONSEGNA</option>
+                        <option value="garanzia">GARANZIA</option>
+                        <option value="assemblaggio">ASSEMBLAGGIO</option>
+                        <option value="accessori">ACCESSORI/RICAMBI</option>
+                    </select>
+                </label>
+                <label class="campo intero"><span>Descrizione</span><input type="text" id="f-desc" maxlength="200" placeholder="Es. cambio gomme Honda CB500" required></label>
+                <label class="campo"><span>Importo €</span><input type="text" id="f-importo" inputmode="decimal" placeholder="0,00"></label>
+                <label class="campo"><span>Quantità</span><input type="number" id="f-qta" min="1" step="1" value="1"></label>
+            </div>
+            <div class="azioni">
+                <button type="submit" id="btn-salva" class="btn btn-verde">➕ Aggiungi</button>
+                <button type="button" id="btn-annulla" class="btn hidden">Annulla</button>
+            </div>
+            <div class="esito" id="mod-esito" role="status"></div>
+        </form>
+
+        <div class="elenco-testa">
+            <h2>Movimenti</h2>
+            <select id="f-mese" aria-label="Mese dei movimenti"></select>
+        </div>
+        <div id="elenco"></div>
+    </section>
+
+    <footer class="piede">
+        <span id="rete">⏳ Collegamento…</span>
+        <button type="button" id="btn-cambia-pin" class="hidden">Cambia PIN</button>
+    </footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const CAT = ['officina', 'vendita', 'pre-consegna', 'garanzia', 'assemblaggio', 'accessori'];
+    const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    const eur = n => '€ ' + (Number(n) || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const oggi = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    const dataIt = d => { const p = String(d || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(d || ''); };
+    const chiaveVoce = id => 'v' + String(id).replace(/[.#$\[\]\/]/g, '_');
+    const memoria = {
+        leggi: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+        scrivi: (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} },
+    };
+
+    const LINK = location.hash;
+    const CODICE = String(LINK || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const MEM_PIN = 'mgmCassaPin_' + CODICE;
+
+    let database = null, rif = null, chiave = '', nome = '', voci = {}, aperta = false, inModifica = null, meseScelto = '', appena = '';
+
+    function messaggio(icona, titolo, testo, conPin) {
+        $('sch-cassa').classList.add('hidden'); $('sch-pin').classList.add('hidden');
+        $('msg-icona').textContent = icona; $('msg-titolo').textContent = titolo; $('msg-testo').textContent = testo;
+        $('msg-pin').classList.toggle('hidden', !conPin);
+        $('sch-msg').classList.remove('hidden');
+    }
+    function chiediPin(errore) {
+        $('sch-msg').classList.add('hidden'); $('sch-cassa').classList.add('hidden');
+        $('sch-pin').classList.remove('hidden');
+        $('pin-errore').textContent = errore || '';
+        $('f-pin').value = '';
+        $('btn-cambia-pin').classList.add('hidden');
+        try { $('f-pin').focus(); } catch (e) {}
+    }
+    function chiudi() { if (rif) { rif.off(); rif = null; } aperta = false; }
+
+    function apri(pin) {
+        chiudi();
+        chiave = CODICE + '-' + pin;
+        messaggio('⏳', 'Caricamento…', 'Sto aprendo la cassa.');
+        let primo = true;
+        rif = database.ref('casse_condivise/' + chiave);
+        rif.on('value', snap => {
+            const d = snap.val();
+            if (!d) {
+                aperta = false;
+                memoria.scrivi(MEM_PIN, null);
+                messaggio('⛔', 'Cassa non disponibile', 'Il link è stato disattivato dall\'officina. Se te ne hanno dato uno nuovo, apri quello.', true);
+                return;
+            }
+            if (primo) { primo = false; memoria.scrivi(MEM_PIN, pin); }
+            aperta = true;
+            nome = String(d.nome || 'Collaboratore');
+            voci = d.voci && typeof d.voci === 'object' ? d.voci : {};
+            mostraCassa();
+        }, () => {
+            const eraAperta = aperta;
+            chiudi();
+            memoria.scrivi(MEM_PIN, null);
+            if (eraAperta) messaggio('⛔', 'Cassa non disponibile', 'Il link è stato disattivato dall\'officina oppure il PIN è cambiato.', true);
+            else chiediPin('PIN sbagliato, oppure il link è stato disattivato dall\'officina.');
+        });
+    }
+
+    function elencoVoci() {
+        return Object.keys(voci).map(k => Object.assign({ _k: k }, voci[k]))
+            .filter(v => v && typeof v === 'object' && !v.eliminata)
+            .sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || (Number(b.id) || 0) - (Number(a.id) || 0));
+    }
+
+    function mostraCassa() {
+        $('sch-msg').classList.add('hidden'); $('sch-pin').classList.add('hidden');
+        $('sch-cassa').classList.remove('hidden');
+        $('btn-cambia-pin').classList.remove('hidden');
+        $('titolo').textContent = 'Cassa: ' + nome;
+        document.title = 'Cassa ' + nome + ' · Moto Garage Marcello';
+        if (!$('f-data').value) $('f-data').value = oggi();
+
+        const tutte = elencoVoci();
+        let entrate = 0, uscite = 0;
+        tutte.forEach(v => { const t = (Number(v.importo) || 0) * (Number(v.qta) || 1); if (v.tipo === 'out') entrate += t; else uscite += t; });
+        const saldo = entrate - uscite;
+        $('tot-in').textContent = eur(entrate);
+        $('tot-out').textContent = eur(uscite);
+        $('saldo-et').textContent = saldo > 0.004 ? 'L\'officina ti deve' : saldo < -0.004 ? 'Devi all\'officina' : 'Saldo';
+        $('saldo-val').textContent = Math.abs(saldo) > 0.004 ? eur(Math.abs(saldo)) : 'In pari';
+        $('saldo-val').className = 'saldo-val ' + (saldo > 0.004 ? 'pos' : saldo < -0.004 ? 'neg' : 'pari');
+
+        const mesi = [...new Set(tutte.map(v => String(v.data || '').slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort().reverse();
+        if (meseScelto && !mesi.includes(meseScelto)) meseScelto = '';
+        $('f-mese').innerHTML = '<option value="">Tutti i mesi</option>' + mesi.map(m => {
+            const [a, n] = m.split('-');
+            return `<option value="${m}"${m === meseScelto ? ' selected' : ''}>${MESI[parseInt(n, 10) - 1] || n} ${a}</option>`;
+        }).join('');
+
+        const lista = tutte.filter(v => !meseScelto || String(v.data || '').startsWith(meseScelto));
+        $('elenco').innerHTML = lista.length ? lista.map(v => {
+            const mia = v.autore === 'collab';
+            const tot = (Number(v.importo) || 0) * (Number(v.qta) || 1);
+            const imp = tot > 0 ? `<span class="${v.tipo === 'out' ? 'pos' : 'neg'}">${v.tipo === 'out' ? '+' : '−'} ${eur(tot)}</span>` : '<span class="r-def">DA DEFINIRE</span>';
+            const chi = mia ? (v.sinc ? '✍️ scritto da te' : '✍️ scritto da te · ⏳ in arrivo all\'officina') : '🔒 scritto dall\'officina';
+            return `<div class="riga${mia ? ' mia' : ''}${v._k === appena ? ' appena' : ''}" data-voce="${esc(v._k)}">
+                <div class="r-sx">
+                    <div class="r-data">${esc(dataIt(v.data))} <span class="chip">${esc(v.cat || 'officina')}</span></div>
+                    <div class="r-desc">${Number(v.qta) > 1 ? `<span class="r-qta">${esc(v.qta)}×</span>` : ''}${esc(v.desc)}</div>
+                    <div class="r-chi${mia ? ' mia' : ''}">${chi}</div>
+                </div>
+                <div class="r-dx">
+                    <div class="r-imp">${imp}</div>
+                    ${mia ? `<div class="r-az"><button type="button" class="mod" data-mod="${esc(v._k)}" aria-label="Correggi">✏️</button><button type="button" class="canc" data-canc="${esc(v._k)}" aria-label="Cancella">🗑️</button></div>` : ''}
+                </div>
+            </div>`;
+        }).join('') : `<div class="vuoto">${meseScelto ? 'Nessun movimento in questo mese.' : 'Nessun movimento registrato.'}</div>`;
+        appena = '';
+    }
+
+    function segnaTipo() {
+        document.querySelectorAll('.tipo-scelta label').forEach(l => {
+            const r = l.querySelector('input');
+            l.classList.toggle('sel-out', r.checked && r.value === 'out');
+            l.classList.toggle('sel-in', r.checked && r.value === 'in');
+        });
+    }
+    function svuotaModulo() {
+        inModifica = null;
+        $('modulo').reset();
+        $('f-data').value = oggi();
+        $('f-qta').value = '1';
+        $('mod-titolo').textContent = 'Nuovo movimento';
+        $('btn-salva').textContent = '➕ Aggiungi';
+        $('btn-salva').className = 'btn btn-verde';
+        $('btn-annulla').classList.add('hidden');
+        segnaTipo();
+    }
+    function esito(testo, errore) {
+        const e = $('mod-esito');
+        e.textContent = testo || '';
+        e.style.color = errore ? 'var(--rosso)' : 'var(--verde)';
+    }
+    const numero = s => { const t = String(s || '').trim().replace(/\s|€/g, ''); if (!t) return 0; const n = parseFloat(/,/.test(t) ? t.replace(/\./g, '').replace(',', '.') : t); return isFinite(n) ? Math.round(n * 100) / 100 : NaN; };
+
+    function salva(ev) {
+        ev.preventDefault();
+        if (!aperta) return;
+        const data = $('f-data').value, desc = $('f-desc').value.trim().toUpperCase().slice(0, 200);
+        const importo = numero($('f-importo').value), qta = Math.max(1, parseInt($('f-qta').value, 10) || 1);
+        const tipo = (document.querySelector('input[name="tipo"]:checked') || {}).value === 'in' ? 'in' : 'out';
+        const cat = CAT.includes($('f-cat').value) ? $('f-cat').value : 'officina';
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return esito('Scrivi la data.', true);
+        if (!desc) return esito('Scrivi la descrizione.', true);
+        if (isNaN(importo) || importo < 0) return esito('Importo non valido: scrivi solo il numero, es. 25,50', true);
+        let id, k;
+        if (inModifica) {
+            const v = voci[inModifica];
+            if (!v || v.autore !== 'collab') { svuotaModulo(); return esito('Questo movimento non si può più correggere.', true); }
+            k = inModifica; id = v.id;
+        } else {
+            id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+            k = chiaveVoce(id);
+        }
+        const voce = { id, data, tipo, cat, desc, importo, qta, autore: 'collab', agg: Date.now() };
+        if (meseScelto && !data.startsWith(meseScelto)) meseScelto = '';
+        appena = k;
+        const eraModifica = !!inModifica;
+        svuotaModulo();
+        esito(eraModifica ? '✓ Correzione salvata' : '✓ Movimento aggiunto');
+        rif.child('voci/' + k).set(voce).catch(() => esito('⚠️ Non salvato: il link è stato disattivato oppure il PIN è cambiato.', true));
+    }
+
+    function correggi(k) {
+        const v = voci[k];
+        if (!v || v.autore !== 'collab') return;
+        inModifica = k;
+        const r = document.querySelector(`input[name="tipo"][value="${v.tipo === 'in' ? 'in' : 'out'}"]`); if (r) r.checked = true;
+        segnaTipo();
+        $('f-data').value = v.data || oggi();
+        $('f-cat').value = CAT.includes(v.cat) ? v.cat : 'officina';
+        $('f-desc').value = v.desc || '';
+        $('f-importo').value = Number(v.importo) ? String(v.importo).replace('.', ',') : '';
+        $('f-qta').value = Number(v.qta) || 1;
+        $('mod-titolo').textContent = 'Correggi movimento';
+        $('btn-salva').textContent = '💾 Salva correzione';
+        $('btn-salva').className = 'btn btn-giallo';
+        $('btn-annulla').classList.remove('hidden');
+        esito('');
+        try { $('modulo').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+    }
+
+    function cancella(k) {
+        const v = voci[k];
+        if (!v || v.autore !== 'collab') return;
+        if (!confirm('Cancellare questo movimento?\n\n' + (v.desc || ''))) return;
+        if (inModifica === k) svuotaModulo();
+        esito('✓ Movimento cancellato');
+        rif.child('voci/' + k).set({ id: v.id, autore: 'collab', eliminata: true, agg: Date.now() })
+            .catch(() => esito('⚠️ Non cancellato: il link è stato disattivato oppure il PIN è cambiato.', true));
+    }
+
+    // Avvio
+    $('modulo').addEventListener('submit', salva);
+    document.querySelectorAll('input[name="tipo"]').forEach(r => r.addEventListener('change', segnaTipo));
+    segnaTipo();
+    $('btn-annulla').addEventListener('click', () => { svuotaModulo(); esito(''); });
+    $('f-mese').addEventListener('change', e => { meseScelto = e.target.value; mostraCassa(); });
+    $('elenco').addEventListener('click', e => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.mod) correggi(b.dataset.mod);
+        else if (b.dataset.canc) cancella(b.dataset.canc);
+    });
+    $('sch-pin').addEventListener('submit', e => {
+        e.preventDefault();
+        const pin = $('f-pin').value.replace(/\D/g, '');
+        if (pin.length !== 4) { $('pin-errore').textContent = 'Il PIN ha 4 cifre.'; return; }
+        apri(pin);
+    });
+    $('msg-pin').addEventListener('click', () => chiediPin(''));
+    $('btn-cambia-pin').addEventListener('click', () => { chiudi(); memoria.scrivi(MEM_PIN, null); svuotaModulo(); esito(''); chiediPin(''); });
+
+    if (CODICE.length !== 12) {
+        messaggio('🔗', 'Link incompleto', 'Apri il link completo che ti ha mandato l\'officina (finisce con un codice di 12 lettere e numeri).');
+        $('rete').textContent = '';
+        return;
+    }
+    try {
+        firebase.initializeApp({
+            apiKey: 'AIzaSyAtjDw6vSTPTIAjjNZVrrrWrWT7pKux0yw',
+            projectId: 'motogaragemarcello-18f47',
+            databaseURL: 'https://motogaragemarcello-18f47-default-rtdb.europe-west1.firebasedatabase.app',
+        });
+        database = firebase.database();
+    } catch (e) {
+        messaggio('📡', 'Servizio non raggiungibile', 'Controlla la connessione a internet e ricarica la pagina.');
+        return;
+    }
+    database.ref('.info/connected').on('value', s => {
+        $('rete').textContent = s.val() ? '🟢 Collegato' : '📴 Senza connessione: le modifiche partono appena torna';
+    });
+    const salvato = memoria.leggi(MEM_PIN);
+    if (salvato && /^\d{4}$/.test(salvato)) apri(salvato); else chiediPin('');
+})();
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-const CACHE = 'garage-v220';
+const CACHE = 'garage-v221';
 const APP_SHELL = [
   '/GESTIONALE-MOTO-GARAGE-MARCELLO/',
   '/GESTIONALE-MOTO-GARAGE-MARCELLO/index.html'
@@ -33,6 +33,8 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // La cassa del collaboratore (v221) è una pagina a parte e vuole internet: mai sostituirla con il gestionale salvato
+  if (/\/cassa\.html(?:[?#]|$)/.test(e.request.url)) return;
   const pagina = e.request.mode === 'navigate';
   e.respondWith(
     caches.match(e.request, { ignoreSearch: pagina }).then(cached => cached || fetch(e.request).then(r => {

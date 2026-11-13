@@ -19,12 +19,12 @@
   const campo = (id, v) => { const e = document.getElementById(id); if (!e) throw new Error('campo mancante ' + id); e.value = v; };
   async function passo(nome, fn) { try { await fn(); } catch (e) { ok(false, nome + ': eccezione ' + (e && e.message)); } }
 
-  for (let i = 0; i < 300 && fb.inAttesa.length < 21; i++) await attendi(20);
+  for (let i = 0; i < 300 && fb.inAttesa.length < 23; i++) await attendi(20);
   await attendi(50);
 
   await passo('Avvio', async () => {
     ok(document.getElementById('app-shell').style.display === 'flex', 'Avvio: accesso simulato, gestionale visibile');
-    ok(fb.inAttesa.length === 21, 'Avvio: tutte le 21 sezioni in ascolto (' + fb.inAttesa.length + ')');
+    ok(fb.inAttesa.length === 23, 'Avvio: tutte le 23 sezioni in ascolto (' + fb.inAttesa.length + ')');
     ok(ovVisibile() && ovTitolo() === 'Caricamento dati…', 'Avvio: pannello "Caricamento dati…" finché i dati non arrivano');
     const n = nScr(), a = fb.alerts.length;
     db.push({ id: 999, cognome: 'PRIMA DEL CARICAMENTO' });
@@ -2999,6 +2999,263 @@
     _locale.specchio.rubrica = salvo.val;
     fb.scritturaRemota({ 'rubrica/zz': { id: 'zz', nome: 'DAL CLOUD', tel1: '1' } });
     ok(rubricaDB.some(r => r.nome === 'DAL CLOUD') && !rubricaDB.some(r => r.nome === 'DALLA COPIA'), 'Copia: appena arrivano, i dati del cloud prendono il posto della copia');
+  });
+
+  await passo('Cassa condivisa con il collaboratore', async () => {
+    const ledgerPrima = JSON.parse(JSON.stringify(ledgerDB));
+    const C = "GOMMISTA D'ANGELO", enc = safeEncode(C);
+    const voci = k => fb.leggi('casse_condivise/' + k + '/voci') || {};
+    const nelLedger = id => Object.values(fb.leggi('ledger') || {}).find(x => x && String(x.id) === String(id));
+    const sinc = () => attendi(1400);
+    fb.scritturaRemota({ ledger: ledgerPrima.concat([
+      { id: 97001, data: oggi, tipo: 'in', cat: 'officina', collab: C, desc: 'RICAMBI DATI', importo: 40, qta: 1 },
+      { id: 97002, data: oggi, tipo: 'out', cat: 'officina', collab: C, desc: 'GOMME MONTATE', importo: 25, qta: 2 },
+    ]) }, false);
+    switchView('ledger'); await attendi(60);
+    ok(Object.keys(fb.leggi('casse_condivise') || {}).length === 0, 'Cassa condivisa: senza link non si scrive niente online');
+    openCollabDetail(safeEncode('INTERNO')); await attendi(20);
+    ok(document.getElementById('mc-btn-link').style.display === 'none', 'Cassa condivisa: niente link per la cassa INTERNA');
+    openCollabDetail(enc); await attendi(20);
+    const bl = document.getElementById('mc-btn-link');
+    ok(bl.style.display !== 'none' && bl.textContent.includes('Link per il collaboratore'), 'Cassa condivisa: pulsante "🔗 Link per il collaboratore" nella cassa');
+    bl.click(); await attendi(20);
+    ok(!document.getElementById('modal-cassa-link').classList.contains('hidden') && document.getElementById('cl-corpo').textContent.includes('Crea link e PIN'), 'Cassa condivisa: la finestra spiega e propone "Crea link e PIN" (nome con apostrofo)');
+    let n = nScr();
+    document.querySelector('#cl-corpo button.btn-success').click(); await attendi(30);
+    const cc = fb.leggi('casse_codici') || {}, K = Object.keys(cc)[0], rec = cc[K] || {};
+    ok(Object.keys(cc).length === 1 && /^[A-HJ-NP-Z2-9]{12}-\d{4}$/.test(K) && K === rec.codice + '-' + rec.pin && rec.attivo === true && rec.nome === C, 'Link: codice di 12 caratteri (senza 0/O/1/I) + PIN di 4 cifre, attivo, con il nome della cassa (' + K + ')');
+    let v = voci(K);
+    ok(Object.keys(v).length === 2 && v.v97001 && v.v97001.autore === 'officina' && v.v97001.sinc === true && v.v97002.qta === 2 && v.v97002.tipo === 'out' && fb.leggi('casse_condivise/' + K + '/nome') === C, 'Link: online la copia dei 2 movimenti della cassa, scritti dall\'officina');
+    ok(!Object.values(v).some(x => x.desc === 'INCASSO PROVA'), 'Link: online non va nessun movimento delle altre casse');
+    ok(fb.scritture.slice(n).filter(w => w.chiavi.some(k => k.startsWith('casse_'))).length === 1, 'Link: creato con una sola scrittura');
+    ok(document.getElementById('cl-url').textContent === CASSA_URL + rec.codice && document.getElementById('cl-pin').textContent === rec.pin, 'Link: la finestra mostra il link e il PIN');
+    ok(document.getElementById('mc-btn-link').textContent.includes('Link attivo'), 'Link: il pulsante della cassa dice "Link attivo"');
+    refreshLedger();
+    const card = () => [...document.querySelectorAll('#collab-summary-grid .card')].find(c => c.textContent.includes(C));
+    ok(card() && card().querySelector('.cassa-link-on') && !card().querySelector('.cassa-nuovi'), 'Prima Nota: sulla scheda della cassa "🔗 Link attivo"');
+    let wa = null; const wo = window.open; window.open = u => { wa = u; };
+    try { waLinkCassa(enc); } finally { window.open = wo; }
+    ok(wa && decodeURIComponent(wa).includes(CASSA_URL + rec.codice) && !decodeURIComponent(wa).includes(rec.pin), 'Link: il WhatsApp porta il link ma non il PIN');
+    closeModal('modal-cassa-link');
+
+    // Movimenti scritti in officina → copia online
+    campo('ld_tipo', 'in'); campo('ld_desc', 'bulloni'); campo('ld_importo', '5'); saveLedgerEntry(); await sinc();
+    v = voci(K);
+    const bul = Object.values(v).find(x => x.desc === 'BULLONI');
+    ok(Object.keys(v).length === 3 && bul && bul.autore === 'officina' && bul.importo === 5, 'Officina → online: un movimento nuovo compare nella copia del collaboratore');
+    editLedgerEntry(97001); campo('ld_desc', 'RICAMBI DATI CORRETTO'); saveLedgerEntry(); await sinc();
+    ok(voci(K).v97001.desc === 'RICAMBI DATI CORRETTO', 'Officina → online: una correzione arriva nella copia');
+    deleteLedgerEntry(97002); await sinc();
+    ok(!voci(K).v97002 && Object.keys(voci(K)).length === 2, 'Officina → online: un movimento cancellato sparisce dalla copia');
+
+    // Movimenti scritti dal collaboratore → Prima Nota (con la cassa chiusa: aperta, li segna subito come visti)
+    closeModal('modal-collab');
+    n = nScr();
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/v555']: { id: 555, data: oggi, tipo: 'out', cat: 'garanzia', desc: 'cambio <b>gomme</b>', importo: 50, qta: 1, autore: 'collab', agg: 1 } });
+    await sinc();
+    let L = nelLedger(555);
+    ok(L && L.collab === C && L.autore === 'collab' && L.da_vedere === true && L.desc === 'CAMBIO <B>GOMME</B>' && L.cat === 'garanzia' && L.tipo === 'out' && L.importo === 50, 'Collaboratore → Prima Nota: il suo movimento entra nella cassa, segnato come suo e da vedere');
+    ok(voci(K).v555 && voci(K).v555.sinc === true && voci(K).v555.autore === 'collab', 'Collaboratore → Prima Nota: online risulta arrivato in officina');
+    ok(fb.scritture.slice(n).some(w => !w.remota && w.chiavi.some(k => k.startsWith('ledger')) && w.chiavi.some(k => k.startsWith('casse_condivise/'))), 'Collaboratore → Prima Nota: Prima Nota e copia online aggiornate con una sola scrittura');
+    ok(fb.leggi('ledger/c555') && fb.leggi('ledger/c555').id === 555, 'Collaboratore → Prima Nota: il movimento nuovo ha sempre lo stesso posto nella Prima Nota (ledger/c555)');
+    ok(card() && card().querySelector('.cassa-nuovi') && card().querySelector('.cassa-nuovi').textContent.includes('1 nuovo'), 'Prima Nota: sulla scheda della cassa "✍️ 1 nuovo"');
+    closeModal('modal-collab'); openCollabDetail(enc); await attendi(40);
+    const riga = () => [...document.querySelectorAll('#mc-rows tr')].find(tr => tr.textContent.includes('CAMBIO'));
+    ok(riga() && riga().textContent.includes('dal collaboratore · nuovo') && getComputedStyle(riga()).backgroundColor === 'rgb(254, 249, 195)', 'Cassa: il movimento nuovo è evidenziato con "✍️ dal collaboratore · nuovo"');
+    ok(!document.querySelector('#mc-rows b'), 'Cassa: il testo scritto dal collaboratore non diventa codice');
+    ok(nelLedger(555) && !nelLedger(555).da_vedere && card() && !card().querySelector('.cassa-nuovi'), 'Cassa: aperta la cassa, il movimento non conta più come nuovo (anche sugli altri dispositivi)');
+    openCollabDetail(currentCollabView); await attendi(20);
+    ok(riga() && riga().textContent.includes('nuovo'), 'Cassa: finché resta aperta, il movimento nuovo resta evidenziato');
+    const altra = [...document.querySelectorAll('#mc-rows tr')].find(tr => tr.textContent.includes('BULLONI'));
+    ok(altra && !altra.textContent.includes('dal collaboratore'), 'Cassa: i movimenti dell\'officina non hanno la scritta del collaboratore');
+    closeModal('modal-collab');
+
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/v555']: { id: 555, data: oggi, tipo: 'out', cat: 'garanzia', desc: 'cambio gomme', importo: 60, qta: 1, autore: 'collab', agg: 2 } });
+    await sinc();
+    L = nelLedger(555);
+    ok(L && L.importo === 60 && L.desc === 'CAMBIO GOMME' && L.da_vedere === true && voci(K).v555.sinc === true, 'Collaboratore corregge: la Prima Nota si aggiorna e il movimento torna "nuovo"');
+    n = nScr();
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/v555']: { id: 555, data: oggi, tipo: 'out', cat: 'garanzia', desc: 'CAMBIO GOMME', importo: 60, qta: 1, autore: 'collab', agg: 3 } });
+    await sinc();
+    ok(!fb.scritture.slice(n).some(w => !w.remota && w.chiavi.some(k => k.startsWith('ledger'))) && voci(K).v555.sinc === true, 'Collaboratore risalva senza cambiare niente: la Prima Nota non si riscrive');
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/v555']: { id: 555, autore: 'collab', eliminata: true, agg: 4 } });
+    await sinc();
+    ok(!nelLedger(555) && !voci(K).v555, 'Collaboratore cancella: il movimento sparisce dalla Prima Nota e dalla copia');
+
+    // Le voci dell'officina non si toccano dalla pagina del collaboratore
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/v97001']: { id: 97001, data: oggi, tipo: 'out', cat: 'officina', desc: 'MANOMESSO', importo: 1, qta: 1, autore: 'collab' }, ['casse_condivise/' + K + '/voci/v999']: { id: 97001, data: oggi, tipo: 'out', cat: 'officina', desc: 'MANOMESSO 2', importo: 1, qta: 1, autore: 'collab' } });
+    await sinc();
+    L = nelLedger(97001);
+    ok(L && L.desc === 'RICAMBI DATI CORRETTO' && !L.autore && voci(K).v97001.desc === 'RICAMBI DATI CORRETTO' && voci(K).v97001.autore === 'officina' && !voci(K).v999, 'Sicurezza: un movimento dell\'officina riscritto dalla pagina del collaboratore torna com\'era');
+
+    // Un movimento del collaboratore corretto in officina resta suo
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/v556']: { id: 556, data: oggi, tipo: 'in', cat: 'accessori', desc: 'CATENA', importo: 30, qta: 1, autore: 'collab', agg: 5 } });
+    // Due dispositivi aperti insieme: il secondo lavora con i dati di prima e porta dentro lo stesso movimento
+    const ledgerVecchio = ledgerDB.slice(), casseVecchie = JSON.parse(JSON.stringify(casseCondivise));
+    _sincronizzaCasse(); await attendi(20);
+    ledgerDB = ledgerVecchio; casseCondivise = casseVecchie;
+    _sincronizzaCasse(); await sinc();
+    ok(Object.values(fb.leggi('ledger') || {}).filter(x => x && x.id === 556).length === 1 && ledgerDB.filter(x => x.id === 556).length === 1, 'Due dispositivi insieme: il movimento del collaboratore entra una volta sola');
+    // nella realtà Firebase riallinea subito i dati del dispositivo: qui li si riconsegna a mano
+    fb.listeners.filter(x => x.path === 'ledger' || x.path === 'casse_condivise').forEach(x => { x.ultimo = undefined; }); fb.consegnaTutto(); await attendi(20);
+    openCollabDetail(enc); editLedgerEntry(556); campo('ld_desc', 'CATENA DID'); saveLedgerEntry(); await sinc();
+    ok(nelLedger(556) && nelLedger(556).autore === 'collab' && voci(K).v556.desc === 'CATENA DID' && voci(K).v556.autore === 'collab', 'Officina corregge un movimento del collaboratore: resta suo (lo può ancora correggere) e la copia si aggiorna');
+    closeModal('modal-collab');
+
+    // Senza internet non si allinea niente; al ritorno sì
+    fb.setConnesso(false);
+    n = nScr();
+    openCollabDetail(enc); campo('ld_desc', 'SCRITTO SENZA RETE'); campo('ld_importo', '9'); saveLedgerEntry(); await sinc();
+    ok(!fb.scritture.slice(n).some(w => w.chiavi.some(k => k.startsWith('casse_'))), 'Senza internet: la copia online non si tocca');
+    fb.setConnesso(true); await sinc();
+    ok(Object.values(voci(K)).some(x => x.desc === 'SCRITTO SENZA RETE'), 'Ritorno della rete: la copia online si allinea da sola');
+    closeModal('modal-collab');
+
+    // Disattivazione: prima arriva quello che ha appena scritto
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/v557']: { id: 557, data: oggi, tipo: 'out', cat: 'officina', desc: 'ULTIMO PRIMA DI SPEGNERE', importo: 15, qta: 1, autore: 'collab', agg: 6 } });
+    disattivaLinkCassa(enc); await attendi(30);
+    ok(nelLedger(557) && nelLedger(557).autore === 'collab', 'Disattiva: quello che ha appena scritto arriva prima nella Prima Nota');
+    ok(fb.leggi('casse_codici/' + K + '/attivo') === false && fb.leggi('casse_codici/' + K + '/pin') === rec.pin && !fb.leggi('casse_condivise/' + K), 'Disattiva: link spento (codice e PIN conservati) e copia online cancellata');
+    ok(document.getElementById('cl-corpo').textContent.includes('Riattiva') && document.getElementById('mc-btn-link').textContent.includes('Link per il collaboratore'), 'Disattiva: la finestra propone di riattivare');
+    openCollabDetail(enc); campo('ld_desc', 'DOPO LO SPEGNIMENTO'); campo('ld_importo', '1'); saveLedgerEntry(); await sinc();
+    ok(!fb.leggi('casse_condivise/' + K), 'Disattiva: i movimenti nuovi non vanno più online');
+    attivaLinkCassa(enc); await attendi(30);
+    ok(Object.keys(fb.leggi('casse_codici')).length === 1 && fb.leggi('casse_codici/' + K + '/attivo') === true && Object.values(voci(K)).some(x => x.desc === 'DOPO LO SPEGNIMENTO') && voci(K).v557, 'Riattiva: stesso link e PIN, copia online di nuovo completa');
+    attivaLinkCassa(enc, true); await attendi(30);
+    const K2 = Object.keys(fb.leggi('casse_codici') || {})[0];
+    ok(Object.keys(fb.leggi('casse_codici')).length === 1 && K2 !== K && !fb.leggi('casse_condivise/' + K) && Object.keys(voci(K2)).length === Object.keys(_vociCassaCondivisa(C)).length, 'Link nuovo: codice e PIN diversi, il vecchio link non funziona più');
+    closeModal('modal-cassa-link'); closeModal('modal-collab');
+
+    // Copie online senza un link attivo: si cancellano
+    fb.scritturaRemota({ 'casse_condivise/ZZZZZZZZZZZZ-0000': { nome: 'SCONOSCIUTA', voci: { v1: { id: 1, desc: 'X', autore: 'collab' } } } });
+    await sinc();
+    ok(!fb.leggi('casse_condivise/ZZZZZZZZZZZZ-0000') && fb.leggi('casse_condivise/' + K2), 'Pulizia: una copia online senza link attivo viene cancellata');
+    ok(BACKUP_ALTRE.includes('casse_codici') && !BACKUP_ALTRE.includes('casse_condivise') && BACKUP_NOMI.casse_codici, 'Backup: i link delle casse sì, le copie online no (si rifanno dalla Prima Nota)');
+
+    fb.scritturaRemota({ casse_codici: null, casse_condivise: null, ledger: ledgerPrima }, false);
+    await sinc();
+    switchView('board'); await attendi(50);
+  });
+
+  await passo('Pagina del collaboratore', async () => {
+    const ledgerPrima = JSON.parse(JSON.stringify(ledgerDB));
+    const C = 'ELETTRAUTO PROVA', enc = safeEncode(C);
+    // Firebase visto dalla pagina del collaboratore: senza accesso, con le stesse regole della console (CLAUDE.md)
+    const attivo = k => fb.leggi('casse_codici/' + k + '/attivo') === true;
+    const puoLeggere = p => { const s = p.split('/').filter(Boolean); return p === '.info/connected' || (s[0] === 'casse_condivise' && s.length >= 2 && attivo(s[1])); };
+    const puoScrivere = (p, x) => {
+      const s = p.split('/').filter(Boolean);
+      if (!(s[0] === 'casse_condivise' && s.length === 4 && s[2] === 'voci' && attivo(s[1]))) return false;
+      const prima = fb.leggi(p);
+      if (prima && prima.autore !== 'collab') return false;
+      if (!x || x.autore !== 'collab' || 'sinc' in x) return false;
+      if (x.eliminata === true) return true;
+      return typeof x.desc === 'string' && x.desc.length <= 200 && typeof x.data === 'string' && x.data.length === 10 && typeof x.importo === 'number' && typeof x.qta === 'number' && (x.tipo === 'in' || x.tipo === 'out');
+    };
+    const regole = { negate: 0, scritte: 0 }, ascolti = [];
+    const veroDB = firebase.database();
+    const refCollab = p => {
+      const r = veroDB.ref(p);
+      return {
+        child: c => refCollab(p + '/' + c),
+        on(ev, cb, err) {
+          if (!puoLeggere(p)) { regole.negate++; setTimeout(() => err && err(new Error('permission_denied')), 0); return cb; }
+          ascolti.push([p, cb]); return r.on(ev, cb);
+        },
+        off(ev, cb) { return r.off(ev, cb); },
+        set(x) { if (!puoScrivere(p, x)) { regole.negate++; return Promise.reject(new Error('PERMISSION_DENIED')); } regole.scritte++; return r.set(x); },
+        update() { regole.negate++; return Promise.reject(new Error('PERMISSION_DENIED')); },
+        remove() { regole.negate++; return Promise.reject(new Error('PERMISSION_DENIED')); },
+      };
+    };
+    window.__firebaseCollab = { initializeApp: () => ({}), database: () => ({ ref: refCollab }) };
+    const riquadri = [];
+    const apriPagina = async hash => {
+      window.__cassaHash = hash;
+      const f = document.createElement('iframe');
+      f.style.cssText = 'position:fixed; left:0; top:0; width:390px; height:800px; border:0; z-index:99999; background:#0f172a;';
+      f.srcdoc = window.__cassaHtml;
+      document.body.appendChild(f); riquadri.push(f);
+      for (let i = 0; i < 150 && !(f.contentDocument && f.contentDocument.readyState === 'complete' && f.contentDocument.getElementById('rete')); i++) await attendi(20);
+      await attendi(60);
+      f.contentWindow.confirm = () => true;
+      return f;
+    };
+    const chiudiPagine = () => { ascolti.splice(0).forEach(([p, cb]) => veroDB.ref(p).off('value', cb)); riquadri.splice(0).forEach(f => f.remove()); };
+    const vis = (d, id) => !d.getElementById(id).classList.contains('hidden');
+
+    fb.scritturaRemota({ ledger: ledgerPrima.concat([{ id: 96001, data: oggi, tipo: 'in', cat: 'officina', collab: C, desc: 'BATTERIA DATA', importo: 80, qta: 1 }]) }, false);
+    switchView('ledger'); await attendi(50);
+    attivaLinkCassa(enc); await attendi(30); closeModal('modal-cassa-link');
+    const l = _linkCassa(C), K = l.chiave;
+    ok(typeof window.__cassaHtml === 'string' && window.__cassaHtml.includes('parent.__firebaseCollab'), 'Pagina: preparata per il collaudo');
+
+    let f = await apriPagina('#'), d = f.contentDocument;
+    ok(vis(d, 'sch-msg') && d.getElementById('msg-titolo').textContent === 'Link incompleto', 'Pagina: con il link incompleto lo dice');
+    chiudiPagine();
+    try { localStorage.removeItem('mgmCassaPin_' + l.codice); } catch (e) {}
+
+    f = await apriPagina('#' + l.codice); d = f.contentDocument;
+    ok(vis(d, 'sch-pin') && !vis(d, 'sch-cassa'), 'Pagina: la prima volta chiede il PIN');
+    const sbagliato = String((Number(l.pin) + 1) % 10000).padStart(4, '0');
+    d.getElementById('f-pin').value = sbagliato; d.getElementById('sch-pin').requestSubmit(); await attendi(80);
+    ok(vis(d, 'sch-pin') && d.getElementById('pin-errore').textContent.includes('PIN sbagliato') && regole.negate >= 1 && !d.getElementById('elenco').textContent, 'Pagina: con il PIN sbagliato non si apre niente');
+    d.getElementById('f-pin').value = l.pin; d.getElementById('sch-pin').requestSubmit(); await attendi(80);
+    ok(vis(d, 'sch-cassa') && d.getElementById('titolo').textContent === 'Cassa: ' + C, 'Pagina: con il PIN giusto si apre la cassa');
+    let righe = () => [...d.querySelectorAll('#elenco .riga')];
+    ok(righe().length === 1 && righe()[0].textContent.includes('BATTERIA DATA') && righe()[0].textContent.includes('scritto dall\'officina') && !righe()[0].querySelector('button'), 'Pagina: vede i movimenti dell\'officina, senza pulsanti per correggerli');
+    ok(d.getElementById('saldo-et').textContent === 'Devi all\'officina' && d.getElementById('saldo-val').textContent === '€ 80,00' && d.getElementById('tot-out').textContent === '€ 80,00', 'Pagina: saldo dal suo punto di vista (quello che noi chiamiamo "ci devono" per lui è un\'uscita)');
+    let pinSalvato = null; try { pinSalvato = localStorage.getItem('mgmCassaPin_' + l.codice); } catch (e) {}
+    ok(pinSalvato === l.pin, 'Pagina: il telefono ricorda il PIN');
+
+    d.getElementById('f-desc').value = 'riparazione impianto'; d.getElementById('f-importo').value = '120,50';
+    d.getElementById('modulo').requestSubmit(); await attendi(40);
+    const sue = () => Object.values(fb.leggi('casse_condivise/' + K + '/voci') || {}).filter(x => x.autore === 'collab');
+    ok(sue().length === 1 && sue()[0].desc === 'RIPARAZIONE IMPIANTO' && sue()[0].importo === 120.5 && sue()[0].tipo === 'out' && !('sinc' in sue()[0]), 'Pagina: aggiunge un movimento (in maiuscolo, 120,50 → 120.5)');
+    ok(righe().some(r => r.textContent.includes('RIPARAZIONE IMPIANTO') && r.textContent.includes('in arrivo all\'officina')), 'Pagina: finché l\'officina non lo riceve è "in arrivo"');
+    await attendi(1400);
+    const mov = Object.values(fb.leggi('ledger') || {}).find(x => x && x.desc === 'RIPARAZIONE IMPIANTO');
+    ok(mov && mov.collab === C && mov.autore === 'collab' && mov.importo === 120.5 && mov.da_vedere === true, 'Pagina → gestionale: il movimento entra nella Prima Nota');
+    const suaRiga = () => righe().find(r => r.textContent.includes('RIPARAZIONE'));
+    ok(suaRiga() && suaRiga().textContent.includes('scritto da te') && !suaRiga().textContent.includes('in arrivo') && suaRiga().querySelectorAll('button').length === 2, 'Pagina: poi è "scritto da te" con ✏️ e 🗑️');
+    ok(d.getElementById('saldo-et').textContent === 'L\'officina ti deve' && d.getElementById('saldo-val').textContent === '€ 40,50', 'Pagina: saldo aggiornato (120,50 − 80 = l\'officina ti deve € 40,50)');
+
+    suaRiga().querySelector('button.mod').click(); await attendi(20);
+    ok(d.getElementById('mod-titolo').textContent === 'Correggi movimento' && d.getElementById('f-importo').value === '120,5', 'Pagina: ✏️ riempie il modulo per correggere');
+    d.getElementById('f-importo').value = '100'; d.getElementById('modulo').requestSubmit(); await attendi(1450);
+    ok(Object.values(fb.leggi('ledger') || {}).some(x => x && x.desc === 'RIPARAZIONE IMPIANTO' && x.importo === 100) && sue().length === 1, 'Pagina → gestionale: la correzione arriva nella Prima Nota');
+    let rifiutato = false;
+    await f.contentWindow.firebase.database().ref('casse_condivise/' + K + '/voci/v96001').set({ id: 96001, data: oggi, tipo: 'out', cat: 'officina', desc: 'X', importo: 0, qta: 1, autore: 'collab' }).catch(() => { rifiutato = true; });
+    ok(rifiutato && fb.leggi('casse_condivise/' + K + '/voci/v96001/desc') === 'BATTERIA DATA', 'Regole: dalla pagina non si può riscrivere un movimento dell\'officina');
+
+    d.getElementById('f-desc').value = '<img src=x onerror="parent.__xssCassa=1">'; d.getElementById('f-importo').value = '1';
+    d.getElementById('modulo').requestSubmit(); await attendi(1450);
+    ok(!d.querySelector('#elenco img') && window.__xssCassa === undefined && righe().some(r => r.textContent.includes('<IMG SRC=X')), 'Pagina: un testo con simboli si vede com\'è scritto, senza diventare codice');
+    openCollabDetail(enc); await attendi(30);
+    ok(!document.querySelector('#mc-rows img') && window.__xssCassa === undefined, 'Gestionale: lo stesso testo nella cassa resta testo');
+    closeModal('modal-collab');
+
+    const daCanc = righe().find(r => r.textContent.includes('<IMG'));
+    daCanc.querySelector('button.canc').click(); await attendi(1450);
+    ok(!righe().some(r => r.textContent.includes('<IMG')) && !Object.values(fb.leggi('ledger') || {}).some(x => x && String(x.desc).includes('<IMG')), 'Pagina: 🗑️ cancella il suo movimento, anche dalla Prima Nota');
+    const sel = d.getElementById('f-mese');
+    ok(sel.options[0].textContent === 'Tutti i mesi' && sel.options.length >= 2, 'Pagina: filtro per mese');
+    ok(d.documentElement.scrollWidth <= 390, 'Pagina: sul telefono (390 px) niente scorrimento di lato (' + d.documentElement.scrollWidth + ')');
+    chiudiPagine();
+
+    f = await apriPagina('#' + l.codice); d = f.contentDocument;
+    ok(vis(d, 'sch-cassa') && !vis(d, 'sch-pin'), 'Pagina: riaprendo il link il PIN non serve più');
+    disattivaLinkCassa(enc); await attendi(60);
+    ok(vis(d, 'sch-msg') && d.getElementById('msg-titolo').textContent === 'Cassa non disponibile' && !vis(d, 'sch-cassa'), 'Pagina: con il link disattivato la cassa sparisce dal telefono');
+    let negato = false;
+    await f.contentWindow.firebase.database().ref('casse_condivise/' + K + '/voci/v1').set({ id: 1, data: oggi, tipo: 'out', cat: 'officina', desc: 'DOPO', importo: 1, qta: 1, autore: 'collab' }).catch(() => { negato = true; });
+    ok(negato && !fb.leggi('casse_condivise/' + K), 'Regole: con il link disattivato non si scrive più niente');
+    chiudiPagine();
+    closeModal('modal-cassa-link');
+    try { localStorage.removeItem('mgmCassaPin_' + l.codice); } catch (e) {}
+    fb.scritturaRemota({ casse_codici: null, casse_condivise: null, ledger: ledgerPrima }, false);
+    await attendi(1400);
+    switchView('board'); await attendi(50);
   });
 
   const intere = fb.scritture.filter(w => !w.remota && w.chiavi.some(k => k === 'db' || k === 'agenda'));

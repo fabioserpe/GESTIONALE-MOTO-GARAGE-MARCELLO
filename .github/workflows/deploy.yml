@@ -31,6 +31,7 @@ jobs:
           [ -f icon-512.png  ] && cp icon-512.png  /tmp/src/ || true
           [ -f README.md     ] && cp README.md     /tmp/src/ || true
           [ -f passaporto.html ] && cp passaporto.html /tmp/src/ || true
+          [ -f cassa.html      ] && cp cassa.html      /tmp/src/ || true
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -56,6 +57,7 @@ jobs:
           [ -f /tmp/src/icon-512.png  ] && cp /tmp/src/icon-512.png  . || true
           [ -f /tmp/src/README.md     ] && cp /tmp/src/README.md     . || true
           [ -f /tmp/src/passaporto.html ] && cp /tmp/src/passaporto.html . || true
+          [ -f /tmp/src/cassa.html      ] && cp /tmp/src/cassa.html      . || true
           touch .nojekyll
 
           git add -A

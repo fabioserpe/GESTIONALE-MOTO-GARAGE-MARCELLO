@@ -2035,7 +2035,10 @@
         <div class="modal-content" style="width: 95vw; max-width: 1400px; height: 95vh; display: flex; flex-direction: column; padding: 25px;">
             <div class="flex-between mb-15" style="flex-shrink: 0;">
                 <h2 id="mc-title" style="color:var(--purple); text-transform:uppercase; margin:0;">Estratto Conto</h2>
-                <button onclick="closeModal('modal-collab')" style="background:none; border:none; color:var(--muted); font-size:2rem; cursor:pointer; line-height: 1;">&times;</button>
+                <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
+                    <button type="button" id="mc-btn-link" class="btn w-auto" onclick="apriLinkCassa()" style="margin:0; background:none; border:1px solid var(--purple); color:#c4b5fd; padding:7px 12px; font-size:0.88rem;">🔗 Link per il collaboratore</button>
+                    <button onclick="closeModal('modal-collab')" style="background:none; border:none; color:var(--muted); font-size:2rem; cursor:pointer; line-height: 1;">&times;</button>
+                </div>
             </div>
             
             <div class="stats-grid mb-15" style="flex-shrink: 0;">
@@ -2424,6 +2427,15 @@
             <div id="pp-moto" style="color:var(--muted); margin-bottom:14px;"></div>
             <div id="pp-corpo"></div>
             <div class="flex-row mt-20"><button class="btn btn-dark" onclick="closeModal('modal-passaporto')" style="flex:1;">Chiudi</button></div>
+        </div>
+    </div>
+
+    <div id="modal-cassa-link" class="modal hidden no-print" style="z-index:10001;">
+        <div class="modal-content" style="max-width:600px;">
+            <h2 style="color:#c4b5fd; margin:0 0 4px;">🔗 Cassa condivisa con il collaboratore</h2>
+            <div id="cl-nome" style="color:white; font-weight:800; text-transform:uppercase; margin-bottom:14px;"></div>
+            <div id="cl-corpo"></div>
+            <div class="flex-row" style="margin-top:18px;"><button class="btn btn-dark" onclick="closeModal('modal-cassa-link')" style="flex:1;">Chiudi</button></div>
         </div>
     </div>
 
@@ -2827,6 +2839,7 @@
             _ascolta('/ledger', (snap) => {
                 _segnaCaricato('ledger');
                 ledgerDB = _leggiSezione('ledger', snap); _idMancanti('ledger', ledgerDB);
+                _dSincCasse();
                 if (currentView === 'ledger') {
                     refreshLedger();
                     if (currentCollabView && !$('modal-collab').classList.contains('hidden')) openCollabDetail(currentCollabView);
@@ -2930,6 +2943,19 @@
                 _segnaCaricato('passaporti_idx');
                 passaportiIdx = snap.val() || {};
                 _dSincPassaporti();
+            });
+
+            // Cassa condivisa con il collaboratore (v221): link attivi e copie online delle casse
+            _ascolta('/casse_codici', (snap) => {
+                _segnaCaricato('casse_codici');
+                casseCodici = snap.val() || {};
+                _dSincCasse();
+                if (currentView === 'ledger') { refreshLedger(); _aggiornaBottoneLinkCassa(); }
+            });
+            _ascolta('/casse_condivise', (snap) => {
+                _segnaCaricato('casse_condivise');
+                casseCondivise = snap.val() || {};
+                _dSincCasse();
             });
 
             _ascolta('/garanzie', (snap) => {
@@ -3210,7 +3236,9 @@
                 if (_cloud.connesso) _cloud.maiConnesso = true;
                 _aggiornaOverlayCloud();
                 if (_cloud.connesso && _cloud.ricaricaAlRitorno) _ricaricaDopoRiconnessione();
+                if (_cloud.connesso) _dSincCasse();
             });
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') _dSincCasse(); });
         }
         function checkBackupReminder() {
             try {
@@ -4430,8 +4458,8 @@
         // =====================================================================
         // Backup manuale: le sezioni principali (come prima, così i vecchi file restano ripristinabili)
         // più tutte le altre lette dal cloud così come sono. Restano fuori solo i file dei libretti (pesanti).
-        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse', 'passaporti_idx', 'passaporti', 'marche_extra', 'schede_tecniche'];
-        const BACKUP_NOMI = { db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Prima Nota', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse', passaporti_idx: 'Passaporti delle moto', passaporti: 'Pagine online dei passaporti' };
+        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse', 'passaporti_idx', 'passaporti', 'marche_extra', 'schede_tecniche', 'casse_codici'];
+        const BACKUP_NOMI = { casse_codici: 'Link delle casse dei collaboratori', db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Prima Nota', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse', passaporti_idx: 'Passaporti delle moto', passaporti: 'Pagine online dei passaporti' };
         function _contaBackup(v) {
             if (v == null || typeof v !== 'object') return '';
             const n = (Array.isArray(v) ? v : Object.values(v)).filter(x => x != null).length;
@@ -6076,7 +6104,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const i = parseFloat($('ld_importo').value) || 0, q = parseFloat($('ld_qta').value) || 1, e = $('ld_edit_id').value;
             if(!d || !ds) return mostraErrore("Data e Descrizione obbligatori!");
             if (_mcMese && !d.startsWith(_mcMese)) _mcMese = '';   // movimento di un altro mese: si torna a "Tutti i mesi" così si vede
-            if(e) { const idx = ledgerDB.findIndex(x => String(x.id) === String(e)); if(idx > -1) ledgerDB[idx] = { id: parseInt(e), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }; } 
+            if(e) { const idx = ledgerDB.findIndex(x => String(x.id) === String(e)); if(idx > -1) { const prima = ledgerDB[idx]; ledgerDB[idx] = { id: prima.id != null ? prima.id : parseInt(e), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }; if (prima.autore === 'collab') ledgerDB[idx].autore = 'collab'; } } 
             else { ledgerDB.push({ id: genId(), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }); }
             cancelLedgerEdit(); saveLedger();
         }
@@ -6110,6 +6138,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 const cName = m.collab || 'INTERNO';
                 if(!cStats[cName]) cStats[cName] = { in: 0, out: 0 };
                 if(m.tipo === 'in') cStats[cName].in += total; else cStats[cName].out += total;
+                if (m.da_vedere) cStats[cName].nuovi = (cStats[cName].nuovi || 0) + 1;
             });
 
             if($('ledger-tot-in')) $('ledger-tot-in').innerText = "€ " + ti.toFixed(2); 
@@ -6126,6 +6155,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     const rLabel = r <= 0 ? (r < 0 ? 'ci devono' : 'in pari') : 'dobbiamo';
                     sg.innerHTML += `<div class="card card-clickable" style="padding:15px; border-top: 4px solid var(--purple); margin:0;" onclick="openCollabDetail('${safeN}')">
                         <div style="font-weight:bold; color:white; margin-bottom:10px; font-size:1.1rem; text-transform:uppercase;">${htmlEsc(n)}</div>
+                        ${_segniCassa(n, s.nuovi)}
                         <div class="flex-between" style="font-size:0.85rem; margin-bottom:5px;"><span style="color:var(--success);">Avere</span><span style="color:var(--success)">€ ${s.in.toFixed(2)}</span></div>
                         <div class="flex-between" style="font-size:0.85rem; margin-bottom:10px;"><span style="color:var(--accent);">Dare</span><span style="color:var(--accent)">€ ${s.out.toFixed(2)}</span></div>
                         <div class="flex-between" style="border-top:1px solid #334155; padding-top:10px; font-weight:bold; font-size:1rem;"><span>Saldo <span style="font-size:0.7rem; font-weight:400; color:var(--muted);">(${rLabel})</span></span><span style="color:${rColor}">€ ${Math.abs(r).toFixed(2)}</span></div>
@@ -6161,7 +6191,8 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const name = safeDecode(encName); currentCollabView = encName; 
             $('mc-title').innerText = "Cassa: " + name; if (!tieniModulo) cancelLedgerEdit(); 
             
-            if (!giaAperta || encName !== _mcCassa) { _mcCassa = encName; _mcMese = ''; }
+            if (!giaAperta || encName !== _mcCassa) { _mcCassa = encName; _mcMese = ''; _mcEvidenzia = new Set(); }
+            _aggiornaBottoneLinkCassa();
             const tutti = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase());
             const mesi = [...new Set(tutti.map(x => String(x.data || '').slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort().reverse();
             if (_mcMese && !mesi.includes(_mcMese)) _mcMese = '';
@@ -6179,11 +6210,14 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 const tot = (m.importo || 0) * (m.qta || 1);
                 if(m.tipo === 'in') ti += tot; else to += tot;
                 const pTxt = tot > 0 ? `€ ${tot.toFixed(2)}` : `<span style="color:var(--warning); font-size:0.8rem;">DA DEF.</span>`;
-                const rowBgLedger = m.tipo==='in' ? 'white' : '#fff8f8';
+                const nuova = _mcEvidenzia.has(String(m.id)) || !!m.da_vedere;
+                const rowBgLedger = nuova ? '#fef9c3' : m.tipo==='in' ? 'white' : '#fff8f8';
+                const chipCollab = m.autore === 'collab' ? `<span class="mc-dal-collab" style="background:#ede9fe; color:#5b21b6; border-radius:4px; padding:1px 6px; font-size:0.72rem; margin-left:6px; font-weight:700; white-space:nowrap;">✍️ dal collaboratore${nuova ? ' · nuovo' : ''}</span>` : '';
+                const chipCollabMob = m.autore === 'collab' ? `<span class="mc-dal-collab" style="background:rgba(139,92,246,0.22); color:#c4b5fd; border-radius:4px; padding:1px 6px; font-size:0.72rem; margin-left:6px; font-weight:700; white-space:nowrap;">✍️ dal collaboratore${nuova ? ' · nuovo' : ''}</span>` : '';
                 tb.innerHTML += `<tr style="border-bottom:2px solid #94a3b8; background:${rowBgLedger};">
                     <td style="padding:9px 14px; background:#f1f5f9; border-right:1px solid #cbd5e1; color:#1e293b; font-family:monospace; font-size:0.88rem; font-weight:700; white-space:nowrap;">${formattaData(m.data)}</td>
                     <td style="padding:9px 14px; background:#cbd5e1; border-right:1px solid #b0bec5; font-weight:700; color:#1e293b; font-size:0.8rem;"><span class="cat-badge">${htmlEsc(m.cat || 'OFF')}</span></td>
-                    <td style="padding:9px 14px; background:#f8fafc; border-right:1px solid #cbd5e1; font-weight:600; color:#1e293b;">${m.qta>1?'<span style=\'background:#e0e7ef;border-radius:4px;padding:1px 6px;font-size:0.78rem;margin-right:5px;\'>' + m.qta + '×</span>':''}${htmlEsc(m.desc)}</td>
+                    <td style="padding:9px 14px; background:#f8fafc; border-right:1px solid #cbd5e1; font-weight:600; color:#1e293b;">${m.qta>1?'<span style=\'background:#e0e7ef;border-radius:4px;padding:1px 6px;font-size:0.78rem;margin-right:5px;\'>' + m.qta + '×</span>':''}${htmlEsc(m.desc)}${chipCollab}</td>
                     <td style="padding:9px 14px; text-align:right; border-right:1px solid #cbd5e1; font-weight:800; font-size:1rem; color:#16a34a;">${m.tipo==='in'?'+ '+pTxt:''}</td>
                     <td style="padding:9px 14px; text-align:right; border-right:1px solid #cbd5e1; font-weight:800; font-size:1rem; color:#dc2626;">${m.tipo==='out'?'− '+pTxt:''}</td>
                     <td style="padding:9px 10px; text-align:center;"><div style="display:flex; gap:5px; justify-content:center;"><button style="background:transparent; color:#f59e0b; border:1px solid #f59e0b; padding:5px 9px; border-radius:6px; cursor:pointer; font-size:0.8rem;" onclick="editLedgerEntry(${m.id})">✏️</button><button style="background:transparent; color:#ef4444; border:1px solid #ef4444; padding:5px 9px; border-radius:6px; cursor:pointer; font-size:0.8rem;" onclick="deleteLedgerEntry(${m.id})">🗑️</button></div></td>
@@ -6202,7 +6236,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                                 <button onclick="deleteLedgerEntry(${m.id})" style="background:transparent; border:1px solid var(--accent); color:var(--accent); padding:4px 8px; border-radius:6px; font-size:0.8rem; cursor:pointer;">🗑️</button>
                             </div>
                         </div>
-                        <div style="font-size:0.88rem; color:white; margin-bottom:4px;">${m.qta>1?m.qta+'x ':''}${htmlEsc(m.desc)}</div>
+                        <div style="font-size:0.88rem; color:white; margin-bottom:4px;">${m.qta>1?m.qta+'x ':''}${htmlEsc(m.desc)}${chipCollabMob}</div>
                         <div style="font-weight:900; font-size:1.05rem; color:${colore};">${segno} ${pTxt}</div>
                     </div>`;
                 }
@@ -6218,6 +6252,206 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             showCollabTab('corrente');
             const badge = $('mc-archivio-badge'); if(badge) badge.style.display='none';
             $('modal-collab').classList.remove('hidden');
+            _segnaVistiCassa(tutti);
+        }
+
+        // =====================================================================
+        // CASSA CONDIVISA CON IL COLLABORATORE (v221)
+        // Il collaboratore apre cassa.html#CODICE e scrive il PIN: legge /casse_condivise/{CODICE-PIN}, una copia dei
+        // movimenti della sua cassa. La regola Firebase lo lascia leggere e scrivere (solo voci con autore 'collab')
+        // finché /casse_codici/{CODICE-PIN}/attivo è vero. Le sue modifiche arrivano senza 'sinc': _sincronizzaCasse le
+        // porta nella Prima Nota (da_vedere = "✍️ N nuovi" sulla cassa) e tiene la copia uguale alla Prima Nota.
+        // =====================================================================
+        const CASSA_URL = 'https://fabioserpe.github.io/GESTIONALE-MOTO-GARAGE-MARCELLO/cassa.html#';
+        let casseCodici = {}, casseCondivise = {}, _mcEvidenzia = new Set();
+        const _nomeCassa = n => String(n || 'INTERNO').toUpperCase();
+        const _chiaveVoceCassa = id => 'v' + String(id).replace(/[.#$\[\]\/]/g, '_');
+        // Link della cassa (attivo o spento) con la sua chiave CODICE-PIN
+        function _linkCassa(nome) {
+            const n = _nomeCassa(nome), cc = casseCodici || {};
+            const k = Object.keys(cc).find(k => cc[k] && typeof cc[k] === 'object' && _nomeCassa(cc[k].nome) === n);
+            return k ? Object.assign({}, cc[k], { chiave: k }) : null;
+        }
+        // Come appare un movimento della Prima Nota nella copia online
+        function _voceCassaCondivisa(m) {
+            return { id: m.id, data: String(m.data || ''), tipo: m.tipo === 'out' ? 'out' : 'in', cat: String(m.cat || 'officina'), desc: String(m.desc || ''),
+                importo: Number(m.importo) || 0, qta: Number(m.qta) || 1, autore: m.autore === 'collab' ? 'collab' : 'officina', sinc: true };
+        }
+        function _vociCassaCondivisa(nome) {
+            const voci = {};
+            ledgerDB.forEach(m => { if (m && typeof m === 'object' && m.id != null && m.id !== '' && _nomeCassa(m.collab) === nome) voci[_chiaveVoceCassa(m.id)] = _voceCassaCondivisa(m); });
+            return voci;
+        }
+        // Porta nella Prima Nota le modifiche del collaboratore e rende la copia online uguale alla Prima Nota.
+        // Solo con internet, con i dati arrivati dal cloud e sul dispositivo in uso (come _agganciaOrdiniInAttesa).
+        function _sincronizzaCasse() {
+            if (_locale.inCopia || !_cloud.connesso || document.visibilityState === 'hidden' || !['ledger', 'casse_codici', 'casse_condivise'].every(n => _cloud.caricati.has(n))) return;
+            const u = {}, cc = casseCodici || {}, online = casseCondivise || {}, bl = _baseCloud.ledger;
+            let ledgerIntero = false;
+            // Nella Prima Nota si scrive solo il movimento toccato; uno nuovo va in ledger/c{id}: se due dispositivi
+            // lo portano dentro insieme scrivono nello stesso posto e non nasce un doppione
+            const scriviLedger = (id, val) => {
+                if (!bl || !bl.affidabile) { ledgerIntero = true; return; }
+                const k = bl.chiavi[String(id)];
+                if (k !== undefined) u['ledger/' + k] = val;
+                else if (val) u['ledger/c' + String(id).replace(/[.#$\[\]\/]/g, '_')] = val;
+            };
+            // Copie di link spenti o sconosciuti: si cancellano
+            Object.keys(online).forEach(k => { if (!cc[k] || !cc[k].attivo) u['casse_condivise/' + k] = null; });
+            Object.keys(cc).forEach(k => {
+                const c = cc[k];
+                if (!c || typeof c !== 'object' || !c.attivo) return;
+                const nome = _nomeCassa(c.nome), base = 'casse_condivise/' + k + '/voci/';
+                const copia = online[k] && typeof online[k] === 'object' ? online[k] : {};
+                const voci = copia.voci && typeof copia.voci === 'object' ? copia.voci : {};
+                const restano = {};
+                // 1) Modifiche del collaboratore (senza 'sinc')
+                Object.keys(voci).forEach(vk => {
+                    const p = voci[vk];
+                    if (!p || typeof p !== 'object') { u[base + vk] = null; return; }
+                    if (p.sinc) { restano[vk] = p; return; }
+                    const idGrezzo = p.id != null && p.id !== '' ? p.id : vk.slice(1);
+                    const id = typeof idGrezzo === 'string' && /^\d{1,15}$/.test(idGrezzo) ? Number(idGrezzo) : idGrezzo;
+                    const i = ledgerDB.findIndex(x => x && String(x.id) === String(id));
+                    const es = i > -1 ? ledgerDB[i] : null;
+                    u[base + vk] = null;   // se la voce resta nella Prima Nota, il punto 2 la riscrive com'è lì
+                    if (es && (es.autore !== 'collab' || _nomeCassa(es.collab) !== nome)) return;   // non è una sua voce: non si tocca
+                    if (p.eliminata) { if (es) { ledgerDB.splice(i, 1); scriviLedger(id, null); } return; }
+                    const nv = { id, data: /^\d{4}-\d{2}-\d{2}$/.test(p.data) ? p.data : getOggiLocale(), tipo: p.tipo === 'out' ? 'out' : 'in',
+                        cat: catOrder.includes(p.cat) ? p.cat : 'officina', collab: nome, desc: String(p.desc || '').trim().toUpperCase().slice(0, 200) || 'MOVIMENTO',
+                        importo: Number(p.importo) || 0, qta: Math.max(1, Number(p.qta) || 1), autore: 'collab' };
+                    const cambiato = !es || ['data', 'tipo', 'cat', 'desc', 'importo', 'qta'].some(f => String(es[f]) !== String(nv[f]));
+                    if (cambiato || (es && es.da_vedere)) nv.da_vedere = true;
+                    if (!cambiato) return;
+                    if (es) ledgerDB[i] = nv; else ledgerDB.push(nv);
+                    scriviLedger(id, nv);
+                });
+                // 2) La copia online uguale alla Prima Nota
+                const voluti = _vociCassaCondivisa(nome);
+                Object.keys(voluti).forEach(vk => { if (_jsonStabile(restano[vk]) !== _jsonStabile(voluti[vk])) u[base + vk] = voluti[vk]; });
+                Object.keys(restano).forEach(vk => { if (!voluti[vk]) u[base + vk] = null; });
+                if (copia.nome !== nome) u['casse_condivise/' + k + '/nome'] = nome;
+            });
+            if (ledgerIntero) { Object.keys(u).forEach(k => { if (k.startsWith('ledger/')) delete u[k]; }); _diffSezione('ledger', ledgerDB, u); }
+            if (Object.keys(u).length) _scrivi(u);
+        }
+        const _dSincCasse = debounce(_sincronizzaCasse, 1200);
+
+        // Segni sulla scheda della cassa in Prima Nota
+        function _segniCassa(nome, nuovi) {
+            const l = _nomeCassa(nome) === 'INTERNO' ? null : _linkCassa(nome), p = [];
+            if (l && l.attivo) p.push(`<span class="cassa-link-on" style="background:rgba(139,92,246,0.18); color:#c4b5fd; border:1px solid rgba(139,92,246,0.45); border-radius:12px; padding:2px 9px; font-size:0.75rem; font-weight:700;">🔗 Link attivo</span>`);
+            if (nuovi) p.push(`<span class="cassa-nuovi" style="background:#fbbf24; color:#1e1e1e; border-radius:12px; padding:2px 9px; font-size:0.75rem; font-weight:800;">✍️ ${nuovi} ${nuovi === 1 ? 'nuovo' : 'nuovi'}</span>`);
+            return p.length ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin:-4px 0 10px;">${p.join('')}</div>` : '';
+        }
+        function _aggiornaBottoneLinkCassa() {
+            const b = $('mc-btn-link');
+            if (!b || !currentCollabView) return;
+            const nome = _nomeCassa(safeDecode(currentCollabView)), l = _linkCassa(nome);
+            b.style.display = nome === 'INTERNO' ? 'none' : '';
+            b.textContent = l && l.attivo ? '🔗 Link attivo' : '🔗 Link per il collaboratore';
+            b.style.background = l && l.attivo ? 'rgba(139,92,246,0.22)' : 'none';
+        }
+        // Aprendo la cassa i movimenti nuovi del collaboratore restano evidenziati, ma non contano più come "nuovi"
+        function _segnaVistiCassa(voci) {
+            const nuovi = (voci || []).filter(x => x && x.da_vedere);
+            if (!nuovi.length || !_cloud.connesso || _locale.inCopia || !_cloud.caricati.has('ledger')) return;
+            nuovi.forEach(x => _mcEvidenzia.add(String(x.id)));
+            ledgerDB.forEach(x => { if (x && x.da_vedere && _mcEvidenzia.has(String(x.id))) delete x.da_vedere; });
+            saveLedger();
+            refreshLedger();
+        }
+        function _pinCassa() { const r = new Uint32Array(1); crypto.getRandomValues(r); return String(r[0] % 10000).padStart(4, '0'); }
+
+        function apriLinkCassa(encName) {
+            const nome = _nomeCassa(safeDecode(encName || currentCollabView));
+            if (nome === 'INTERNO') return;
+            const l = _linkCassa(nome), e = safeEncode(nome), pb = 'margin:0;';
+            $('cl-nome').textContent = 'Cassa: ' + nome;
+            const spiega = `<p style="margin:0 0 10px; line-height:1.5;">Con il link <b style="color:white;">${htmlEsc(nome)}</b> apre questa cassa dal telefono: vede tutti i movimenti, ne aggiunge di nuovi e corregge o cancella solo quelli scritti da lui. I tuoi li vede ma non li può toccare.</p>
+                <p style="margin:0 0 14px; color:var(--muted); font-size:0.9rem; line-height:1.5;">Per aprirla serve anche un PIN di 4 cifre. Quando scrive qualcosa, sulla cassa in Prima Nota compare "✍️ nuovi".</p>`;
+            let html;
+            if (l && l.attivo) {
+                const url = CASSA_URL + l.codice;
+                html = `<div style="color:#34d399; font-weight:800; margin-bottom:10px;">✓ Link attivo</div>
+                    <div style="color:var(--muted); font-size:0.85rem;">Link</div>
+                    <div id="cl-url" style="font-family:monospace; font-size:0.92rem; color:white; word-break:break-all; background:#0f172a; border:1px solid #334155; border-radius:8px; padding:8px 10px; margin:4px 0 12px; user-select:all; text-transform:none;">${htmlEsc(url)}</div>
+                    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:14px;">
+                        <div><div style="color:var(--muted); font-size:0.85rem;">PIN</div><div id="cl-pin" style="font-family:monospace; font-size:2rem; font-weight:900; letter-spacing:8px; color:#fbbf24;">${htmlEsc(l.pin)}</div></div>
+                        <div style="flex:1; min-width:200px; color:var(--muted); font-size:0.88rem; line-height:1.45;">Il PIN diglielo a voce o in un messaggio a parte: senza PIN il link non si apre. Il suo telefono lo ricorda dopo la prima volta.</div>
+                    </div>
+                    <div class="flex-row" style="gap:8px; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-wa w-auto" onclick="waLinkCassa('${e}')" style="${pb}">📲 Manda il link</button>
+                        <button type="button" class="btn btn-dark w-auto" onclick="copiaLinkCassa('${e}')" style="${pb}">📋 Copia link</button>
+                        <a class="btn btn-info w-auto" href="${htmlEsc(url)}" target="_blank" rel="noopener" style="${pb} text-decoration:none;">👁️ Apri la pagina</a>
+                        <button type="button" class="btn btn-dark w-auto" onclick="disattivaLinkCassa('${e}')" style="${pb} color:#f87171;">⛔ Disattiva</button>
+                    </div>`;
+            } else if (l) {
+                html = spiega + `<p style="margin:0 0 14px; color:#fbbf24; font-weight:700;">⛔ Link disattivato: ${htmlEsc(nome)} non può aprire la cassa.</p>
+                    <div class="flex-row" style="gap:8px; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-success w-auto" onclick="attivaLinkCassa('${e}')" style="${pb}">✅ Riattiva (stesso link e PIN)</button>
+                        <button type="button" class="btn btn-dark w-auto" onclick="attivaLinkCassa('${e}', true)" style="${pb}">🔄 Crea link e PIN nuovi</button>
+                    </div>`;
+            } else {
+                html = spiega + `<button type="button" class="btn btn-success" onclick="attivaLinkCassa('${e}')" style="${pb}">✅ Crea link e PIN</button>`;
+            }
+            $('cl-corpo').innerHTML = html;
+            openModal('modal-cassa-link');
+        }
+        function attivaLinkCassa(encName, nuovo) {
+            const nome = _nomeCassa(safeDecode(encName));
+            if (nome === 'INTERNO') return;
+            if (!_cloud.connesso) return mostraErrore('📴 Serve internet per creare o riattivare il link.');
+            if (!_puoSalvare('ledger', 'casse_codici', 'casse_condivise')) return;
+            const vecchio = _linkCassa(nome), u = {};
+            let k, rec;
+            if (vecchio && !nuovo) {
+                k = vecchio.chiave;
+                rec = Object.assign({}, casseCodici[k], { attivo: true });
+            } else {
+                if (vecchio) { u['casse_codici/' + vecchio.chiave] = null; u['casse_condivise/' + vecchio.chiave] = null; delete casseCodici[vecchio.chiave]; }
+                const codice = _codicePassaporto(), pin = _pinCassa();
+                k = codice + '-' + pin;
+                rec = { nome, codice, pin, attivo: true, creato: getOggiLocale() };
+            }
+            u['casse_codici/' + k] = rec;
+            u['casse_condivise/' + k] = { nome, voci: _vociCassaCondivisa(nome) };
+            casseCodici[k] = rec;
+            _scrivi(u);
+            mostraToast(nuovo ? '🔄 Link e PIN nuovi: quelli vecchi non funzionano più' : vecchio ? '✅ Link riattivato' : '🔗 Link creato: mandalo al collaboratore');
+            apriLinkCassa(encName);
+            _aggiornaBottoneLinkCassa();
+            if (currentView === 'ledger') refreshLedger();
+        }
+        function disattivaLinkCassa(encName) {
+            const nome = _nomeCassa(safeDecode(encName)), l = _linkCassa(nome);
+            if (!l || !l.attivo) return;
+            if (!confirm(`Disattivare il link di ${nome}?\n\nDa subito non potrà più aprire la cassa dal telefono. I movimenti restano nella Prima Nota.\nPuoi riattivarlo quando vuoi con lo stesso link e PIN.`)) return;
+            if (!_cloud.connesso) return mostraErrore('📴 Serve internet per disattivare il link.');
+            if (!_puoSalvare('ledger', 'casse_codici', 'casse_condivise')) return;
+            _sincronizzaCasse();   // prima arriva nella Prima Nota quello che ha appena scritto
+            casseCodici[l.chiave] = Object.assign({}, casseCodici[l.chiave], { attivo: false });
+            _scrivi({ ['casse_codici/' + l.chiave + '/attivo']: false, ['casse_condivise/' + l.chiave]: null });
+            mostraToast('⛔ Link disattivato');
+            apriLinkCassa(encName);
+            _aggiornaBottoneLinkCassa();
+            if (currentView === 'ledger') refreshLedger();
+        }
+        function _testoLinkCassa(nome) {
+            const l = _linkCassa(nome);
+            return l && l.attivo ? `Ciao 👋, ecco il link della nostra cassa (Moto Garage Marcello): vedi tutti i movimenti e puoi aggiungere e correggere i tuoi.\n${CASSA_URL + l.codice}\nPer aprirla serve il PIN che ti do a parte.` : '';
+        }
+        function waLinkCassa(encName) {
+            const t = _testoLinkCassa(_nomeCassa(safeDecode(encName)));
+            if (t) window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank');
+        }
+        function copiaLinkCassa(encName) {
+            const l = _linkCassa(_nomeCassa(safeDecode(encName)));
+            if (!l || !l.attivo) return;
+            const url = CASSA_URL + l.codice;
+            const fatto = () => mostraToast('📋 Link copiato');
+            try { navigator.clipboard.writeText(url).then(fatto, () => { prompt('Copia il link:', url); }); }
+            catch (e) { prompt('Copia il link:', url); }
         }
 
         function azzeraCassa() {
