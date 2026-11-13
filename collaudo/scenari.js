@@ -2245,8 +2245,8 @@
     toggleSidebar();
     const voce = id => document.querySelector('.sidebar .nav-link[data-nav-id="' + id + '"]');
     const nascosta = id => getComputedStyle(voce(id)).display === 'none';
-    ok(['board', 'nuova', 'agenda', 'archivio', 'magazzino', 'ordini', 'garanzie', 'preventivi', 'nuovo-cliente', 'specials', 'incidentate'].every(nascosta), 'Menu: sul Mac le sezioni già nella barra in alto non si ripetono');
-    ok(['tagliandi', 'ledger', 'scadenze', 'lista-attesa', 'usate', 'vendite', 'stats', 'appunti', 'rubrica', 'export', 'backup', 'ripristina'].every(id => !nascosta(id)), 'Menu: restano le sezioni che non sono in alto e gli strumenti');
+    ok(['board', 'nuova', 'agenda', 'archivio', 'magazzino', 'ordini', 'garanzie', 'preventivi', 'nuovo-cliente', 'specials', 'incidentate', 'ledger'].every(nascosta), 'Menu: sul Mac le sezioni già nella barra in alto non si ripetono');
+    ok(['tagliandi', 'scadenze', 'lista-attesa', 'usate', 'vendite', 'stats', 'appunti', 'rubrica', 'export', 'backup', 'ripristina'].every(id => !nascosta(id)), 'Menu: restano le sezioni che non sono in alto e gli strumenti');
     const esci = document.getElementById('btn-logout'), tema = document.querySelector('.sidebar .tema-sfondo');
     ok(!!(tema.compareDocumentPosition(esci) & Node.DOCUMENT_POSITION_FOLLOWING), 'Menu: "Esci" in fondo, sotto i colori del tema');
     toggleSidebar();
@@ -2974,7 +2974,10 @@
     refreshLedger();
     const card = [...document.querySelectorAll('#collab-summary-grid .card')].find(c => c.textContent.includes(C));
     ok(card && card.querySelector('.cassa-msg') && card.querySelector('.cassa-msg').textContent.includes('1 messaggio nuovo'), 'Chat: sulla cassa "💬 1 messaggio nuovo"');
-    ok(document.getElementById('chat-badge').textContent === '1', 'Chat: il numero dei messaggi nuovi anche nel menu, su Prima Nota');
+    ok(document.getElementById('chat-badge').textContent === '1' && document.getElementById('chat-badge-top').textContent === '1' && document.getElementById('chat-badge-top').style.display !== 'none', 'Chat: il numero dei messaggi nuovi anche sul pulsante "💸 Collaboratori" in alto');
+    const qb = document.querySelector('#topbar-quicklinks .topbar-qbtn[data-view="ledger"]');
+    ok(qb && qb.previousElementSibling && qb.previousElementSibling.dataset.view === 'incidentate' && qb.textContent.includes('Collaboratori'), 'Collaboratori: pulsante in alto subito dopo Incidentate');
+    ok(document.querySelector('.sidebar .nav-link[data-nav-id="ledger"]').textContent.includes('Collaboratori') && !document.querySelector('.sidebar .nav-link[data-nav-id="ledger"]').textContent.includes('Prima Nota'), 'Collaboratori: la voce si chiama "Collaboratori" (non più Prima Nota)');
     openCollabDetail(enc); await attendi(30);
     const lista = document.getElementById('mc-chat-lista');
     ok(lista.querySelectorAll('.mcc-msg.suo').length === 1 && lista.innerHTML.includes('&lt;b&gt;9&lt;/b&gt;'), 'Chat: il suo messaggio a sinistra, testo protetto');

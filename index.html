@@ -237,6 +237,7 @@
         #topbar-quicklinks::-webkit-scrollbar { display: none; }
         #topbar-quicklinks { padding: 4px 3px; margin: -4px 0; } /* il contorno del pulsante selezionato non viene tagliato sopra e sotto */
         @media (min-width: 769px) and (max-width: 1600px) { #topbar-quicklinks { gap: 4px !important; } .topbar-qbtn { padding: 5px 7px; } }
+        @media (min-width: 769px) { #topbar-section.ts-doppione { display: none; } }   /* sul Mac il nome della sezione che ha già il suo pulsante in alto (evidenziato) non si ripete */
         @media (min-width: 769px) and (max-width: 1360px) { #topbar-quicklinks { gap: 3px !important; } .topbar-qbtn { padding: 4px 5px; font-size: 0.73rem; } }
         .main-content { flex-grow: 1; width: 100%; display: flex; flex-direction: column; overflow-y: auto; overflow-x: clip; padding: 0; position: relative; z-index: 1; }
         /* .view padding already set globally above */
@@ -727,7 +728,7 @@
         <button class="nav-link" data-nav-id="ordini" style="color:#fca5a5;" onclick="switchView('ordini', this)">📦 Ordini Ricambi</button>
         <button class="nav-link" data-nav-id="garanzie" style="color:#34d399;" onclick="switchView('garanzie', this)">🛡️ Garanzie <span id="gar-badge" title="Clienti da contattare" style="display:none; background:#34d399; color:#0f172a; border-radius:10px; padding:0 7px; font-size:0.7rem; font-weight:900; margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="tagliandi" style="color:#fb923c;" onclick="switchView('tagliandi', this)">🔧 Scad. Tagliando <span id="consigli-badge" title="Lavori consigliati da ricordare ai clienti" style="display:none;background:#facc15;color:#422006;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
-        <button class="nav-link" data-nav-id="ledger" style="color:#34d399;" onclick="switchView('ledger', this)">💸 Prima Nota <span id="chat-badge" title="Messaggi nuovi dai collaboratori" style="display:none;background:#38bdf8;color:#0c1a2b;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
+        <button class="nav-link" data-nav-id="ledger" style="color:#34d399;" onclick="switchView('ledger', this)">💸 Collaboratori <span id="chat-badge" title="Messaggi nuovi dai collaboratori" style="display:none;background:#38bdf8;color:#0c1a2b;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="scadenze" style="color:#f43f5e;" onclick="switchView('scadenze', this)">📅 Scadenzario <span id="scadenze-badge" style="display:none;background:#f43f5e;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="magazzino" style="color:#14b8a6;" onclick="switchView('magazzino', this)">📦 Magazzino</button>
         <button class="nav-link" data-nav-id="schede" style="color:#f97316;" onclick="switchView('schede', this)">🔧 Schede tecniche</button>
@@ -790,6 +791,7 @@
                 <button class="topbar-qbtn" data-view="nuovo-cliente" onclick="switchView('nuovo-cliente',null)">👤 Cliente</button>
                 <button class="topbar-qbtn" data-view="specials" onclick="switchView('specials',null)">🕰️ Lavori Lunghi</button>
                 <button class="topbar-qbtn" data-view="incidentate" onclick="switchView('incidentate',null)">🚗 Incidentate</button>
+                <button class="topbar-qbtn" data-view="ledger" onclick="switchView('ledger',null)">💸 Collaboratori<span id="chat-badge-top" title="Messaggi nuovi dai collaboratori" style="display:none; background:#38bdf8; color:#0c1a2b; border-radius:10px; padding:0 6px; font-size:0.68rem; font-weight:900; margin-left:4px;"></span></button>
             </div>
             <span id="topbar-section" style="font-size:0.72rem; color:var(--muted); font-weight:600; letter-spacing:0.5px; text-transform:uppercase; flex-shrink:0;"></span>
         </div>
@@ -975,7 +977,7 @@
 
         <div id="view-ledger" class="view hidden">
             <div class="flex-between mb-20">
-                <h2 style="color:#34d399; margin:0;">Casse Collaboratori (Prima Nota)</h2>
+                <h2 style="color:#34d399; margin:0;">Casse Collaboratori</h2>
                 <button class="btn btn-dark w-auto" onclick="printGlobalLedger()">🖨️ Stampa Registro Generale</button>
             </div>
             
@@ -3515,7 +3517,12 @@
 
         // Menu laterale senza doppioni: nasconde le sezioni già nella barra visibile (in alto sul Mac, in basso sul telefono)
         function _aggiornaMenuDoppioni() {
-            const vis = el => !!el && el.getClientRects().length > 0;
+            // Visibile davvero: un pulsante della barra in alto tagliato fuori a destra resta anche nel menu (v224)
+            const vis = el => {
+                if (!el || !el.getClientRects().length) return false;
+                const c = el.parentElement.getBoundingClientRect(), r = el.getBoundingClientRect();
+                return r.left >= c.left - 1 && r.right <= c.right + 1;
+            };
             document.querySelectorAll('.sidebar .nav-link[data-nav-id]').forEach(b => {
                 const id = b.dataset.navId;
                 b.classList.toggle('nav-doppione', vis(document.querySelector(`#topbar-quicklinks .topbar-qbtn[data-view="${id}"]`)) || vis(document.querySelector(`#mob-tabbar button[data-view="${id}"]`)));
@@ -3572,12 +3579,12 @@
             });
         }
 
-        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Statistiche', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Prima Nota', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lavori Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto', garanzie:'🛡️ Garanzie', vendite:'📄 Vendite', 'nuova-app':'📅 Appuntamento', 'crea-prev':'📝 Preventivo', 'nuovo-cliente':'👤 Nuovo Cliente', usate:'🏷️ Moto Usate', schede:'🔧 Schede tecniche' };
+        const _viewLabels = { board:'📊 Officina', nuova:'➕ Nuova', archivio:'📁 Anagrafica', stats:'📈 Statistiche', preventivi:'📝 Preventivi', incidentate:'🚗 Incidentate', agenda:'📅 Agenda', ledger:'💸 Collaboratori', ordini:'📦 Ordini', rubrica:'📞 Rubrica', specials:'🕰️ Lavori Lunghi', magazzino:'📦 Magazzino', tagliandi:'🔧 Tagliandi', scadenze:'📅 Scadenze', 'lista-attesa':'🏍️ Lista Attesa Moto', garanzie:'🛡️ Garanzie', vendite:'📄 Vendite', 'nuova-app':'📅 Appuntamento', 'crea-prev':'📝 Preventivo', 'nuovo-cliente':'👤 Nuovo Cliente', usate:'🏷️ Moto Usate', schede:'🔧 Schede tecniche' };
         function switchView(viewId, el) {
             if (viewId !== 'nuova') _pendingSpecialCat = null;
             if (typeof _chiudiSuggerimentoMoto === 'function') { _chiudiSuggerimentoMoto(); _chiudiTendinaMoto(); }
             closeSidebar();
-            const ts = $('topbar-section'); if (ts) ts.textContent = _viewLabels[viewId] || '';
+            const ts = $('topbar-section'); if (ts) { ts.textContent = _viewLabels[viewId] || ''; ts.classList.toggle('ts-doppione', !!document.querySelector(`#topbar-quicklinks .topbar-qbtn[data-view="${viewId}"]`)); }
             if (viewId === 'magazzino') {
                 magInvAperto = false;
                 const sec = $('mag-inv-section'); if (sec && window.innerWidth <= 768) sec.style.display = 'none';
@@ -4509,7 +4516,7 @@
         // Backup manuale: le sezioni principali (come prima, così i vecchi file restano ripristinabili)
         // più tutte le altre lette dal cloud così come sono. Restano fuori solo i file dei libretti (pesanti).
         const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse', 'passaporti_idx', 'passaporti', 'marche_extra', 'schede_tecniche', 'casse_chat', 'casse_codici'];
-        const BACKUP_NOMI = { casse_chat: 'Messaggi con i collaboratori', casse_codici: 'Link delle casse dei collaboratori', db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Prima Nota', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse', passaporti_idx: 'Passaporti delle moto', passaporti: 'Pagine online dei passaporti' };
+        const BACKUP_NOMI = { casse_chat: 'Messaggi con i collaboratori', casse_codici: 'Link delle casse dei collaboratori', db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Casse dei collaboratori', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse', passaporti_idx: 'Passaporti delle moto', passaporti: 'Pagine online dei passaporti' };
         function _contaBackup(v) {
             if (v == null || typeof v !== 'object') return '';
             const n = (Array.isArray(v) ? v : Object.values(v)).filter(x => x != null).length;
@@ -5310,19 +5317,19 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (acc > 0) {
                 if (iL > -1) {
                     const m = ledgerDB[iL];
-                    if (m.importo !== acc || m.desc !== descL) { ledgerDB[iL] = { ...m, importo: acc, qta: 1, desc: descL }; ledgerCambiato = true; note.push('acconto aggiornato in Prima Nota'); }
+                    if (m.importo !== acc || m.desc !== descL) { ledgerDB[iL] = { ...m, importo: acc, qta: 1, desc: descL }; ledgerCambiato = true; note.push('acconto aggiornato nella cassa INTERNA'); }
                 } else if (acc !== doc.acconto_registrato) {
                     const id = genId();
                     ledgerDB.push({ id, data: getOggiLocale(), tipo: 'in', cat: 'vendita', collab: 'INTERNO', desc: descL, importo: acc, qta: 1 });
                     doc.acconto_ledger_id = id;
                     ledgerCambiato = true;
-                    note.push('acconto in Prima Nota');
+                    note.push('acconto nella cassa INTERNA');
                 }
             } else if (iL > -1) {
                 ledgerDB.splice(iL, 1);
                 doc.acconto_ledger_id = '';
                 ledgerCambiato = true;
-                note.push('acconto tolto dalla Prima Nota');
+                note.push('acconto tolto dalla cassa INTERNA');
             }
             doc.acconto_registrato = acc;
             if (ledgerCambiato) _diffSezione('ledger', ledgerDB, updates);
@@ -5354,7 +5361,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const o = v.ordine_chiave ? venditeDB.find(x => x.chiave === v.ordine_chiave && x.da_preventivo === v.chiave) : null;
             if (o) { updates['vendite/' + o.chiave + '/da_preventivo'] = null; updates['vendite/' + o.chiave + '/da_preventivo_id'] = null; }
             const iL = v.acconto_ledger_id ? ledgerDB.findIndex(m => m && String(m.id) === String(v.acconto_ledger_id)) : -1;
-            if (iL > -1 && confirm(`Togliere anche l'acconto di ${_eurIt(ledgerDB[iL].importo)} dalla Prima Nota?`)) { ledgerDB.splice(iL, 1); _diffSezione('ledger', ledgerDB, updates); }
+            if (iL > -1 && confirm(`Togliere anche l'acconto di ${_eurIt(ledgerDB[iL].importo)} dalla cassa INTERNA?`)) { ledgerDB.splice(iL, 1); _diffSezione('ledger', ledgerDB, updates); }
             const recA = v.anagrafica_id ? db.find(j => String(j.id) === String(v.anagrafica_id) && j.vendita_chiave === v.chiave && j.stato === 'cliente') : null;
             let dbCambiato = false;
             if (recA && confirm(`La moto ${v.consegna_targa || ''} è stata consegnata: togliere anche la sua scheda dall'Anagrafica e il primo tagliando dalle Scadenze?`)) {
@@ -6425,8 +6432,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const b = $('chat-badge');
             if (!b) return;
             const n = Object.keys(casseChat || {}).reduce((s, ck) => s + _chatNonLetti(ck), 0);
-            b.textContent = n;
-            b.style.display = n ? 'inline-block' : 'none';
+            [b, $('chat-badge-top')].forEach(e => { if (e) { e.textContent = n; e.style.display = n ? 'inline-block' : 'none'; } });
         }
         function _oraChat(t) {
             const d = new Date(Number(t) || 0), hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
@@ -6519,7 +6525,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const l = _linkCassa(nome), e = safeEncode(nome), pb = 'margin:0;';
             $('cl-nome').textContent = 'Cassa: ' + nome;
             const spiega = `<p style="margin:0 0 10px; line-height:1.5;">Con il link <b style="color:white;">${htmlEsc(nome)}</b> apre questa cassa dal telefono: vede tutti i movimenti, ne aggiunge di nuovi e corregge o cancella solo quelli scritti da lui. I tuoi li vede ma non li può toccare.</p>
-                <p style="margin:0 0 14px; color:var(--muted); font-size:0.9rem; line-height:1.5;">Per aprirla serve anche un PIN di 4 cifre. Quando scrive qualcosa, sulla cassa in Prima Nota compare "✍️ nuovi".</p>`;
+                <p style="margin:0 0 14px; color:var(--muted); font-size:0.9rem; line-height:1.5;">Per aprirla serve anche un PIN di 4 cifre. Quando scrive qualcosa, sulla sua cassa in Collaboratori compare "✍️ nuovi".</p>`;
             let html;
             if (l && l.attivo) {
                 const url = CASSA_URL + l.codice;
@@ -6576,7 +6582,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         function disattivaLinkCassa(encName) {
             const nome = _nomeCassa(safeDecode(encName)), l = _linkCassa(nome);
             if (!l || !l.attivo) return;
-            if (!confirm(`Disattivare il link di ${nome}?\n\nDa subito non potrà più aprire la cassa dal telefono. I movimenti restano nella Prima Nota.\nPuoi riattivarlo quando vuoi con lo stesso link e PIN.`)) return;
+            if (!confirm(`Disattivare il link di ${nome}?\n\nDa subito non potrà più aprire la cassa dal telefono. I movimenti restano nella sua cassa.\nPuoi riattivarlo quando vuoi con lo stesso link e PIN.`)) return;
             if (!_cloud.connesso) return mostraErrore('📴 Serve internet per disattivare il link.');
             if (!_puoSalvare('ledger', 'casse_codici', 'casse_condivise')) return;
             _sincronizzaCasse();   // prima arriva nella Prima Nota quello che ha appena scritto
