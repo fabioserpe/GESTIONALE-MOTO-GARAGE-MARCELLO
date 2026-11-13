@@ -10,7 +10,8 @@
         Cassa condivisa con un collaboratore (v221). Si apre con cassa.html#CODICE + PIN di 4 cifre, dati in
         /casse_condivise/{CODICE-PIN}: la regola Firebase permette di leggerli e di scrivere solo le voci con
         autore "collab" finché /casse_codici/{CODICE-PIN}/attivo è vero. Il gestionale riporta le modifiche
-        nella Prima Nota. "tipo" è quello del gestionale: out = l'officina deve al collaboratore (sua entrata),
+        nella Prima Nota. Chat (v223): chat/m{id} = { id, da: 'officina'|'collab', testo, t } (lui può solo aggiungere
+        i suoi), letto_collab scritto da qui quando legge, letto_officina dal gestionale (✓✓ sui suoi messaggi). "tipo" è quello del gestionale: out = l'officina deve al collaboratore (sua entrata),
         in = il collaboratore deve all'officina (sua uscita).
     -->
     <style>
@@ -93,6 +94,23 @@
         #f-pin { max-width: 200px; margin: 16px auto 10px; display: block; text-align: center; font-size: 1.8rem; letter-spacing: 10px; font-weight: 900; }
         .errore { color: var(--rosso); font-weight: 700; min-height: 1.3em; margin-bottom: 8px; }
 
+        /* Chat con l'officina */
+        .chat-testa { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .chat-testa h2 { font-size: 1.05rem; }
+        .chat-n { background: var(--giallo); color: #1e1e1e; border-radius: 10px; padding: 1px 8px; font-size: 0.78rem; font-weight: 900; }
+        .chat-lista { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; padding: 2px; margin-bottom: 8px; }
+        .chat-msg { max-width: 85%; padding: 8px 11px; border-radius: 14px; font-size: 0.95rem; line-height: 1.35; }
+        .chat-msg.mio { align-self: flex-end; background: #4c1d95; color: #ede9fe; border-bottom-right-radius: 4px; }
+        .chat-msg.suo { align-self: flex-start; background: var(--riga); border: 1px solid var(--bordo); border-bottom-left-radius: 4px; }
+        .chat-testo { white-space: pre-wrap; overflow-wrap: anywhere; }
+        .chat-ora { font-size: 0.72rem; opacity: 0.75; text-align: right; margin-top: 2px; }
+        .chat-letto.si { color: #38bdf8; font-weight: 800; opacity: 1; }
+        .chat-vuota { color: var(--tenue); text-align: center; font-size: 0.9rem; padding: 14px 6px; }
+        .chat-form { display: flex; gap: 8px; align-items: flex-end; }
+        .chat-form textarea { flex: 1; min-width: 0; padding: 10px 11px; background: var(--bg); border: 1px solid var(--bordo); border-radius: 9px; color: var(--testo); font: inherit; font-size: 1rem; resize: none; min-height: 46px; max-height: 140px; }
+        .chat-form textarea:focus { outline: none; border-color: var(--blu); box-shadow: 0 0 0 2px rgba(96,165,250,0.25); }
+        .chat-form .btn { flex: none; }
+
         .piede { margin-top: 26px; font-size: 0.82rem; color: var(--tenue); display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
         .piede button { background: none; border: none; color: var(--blu); text-decoration: underline; cursor: pointer; font-size: 0.82rem; }
 
@@ -171,6 +189,16 @@
             <div class="esito" id="mod-esito" role="status"></div>
         </form>
 
+        <section id="chat" class="card" aria-label="Messaggi con l'officina">
+            <div class="chat-testa"><h2>💬 Messaggi con l'officina</h2><span id="chat-n" class="chat-n hidden"></span></div>
+            <div id="chat-lista" class="chat-lista" role="log" aria-live="polite"></div>
+            <form id="chat-form" class="chat-form" autocomplete="off">
+                <textarea id="chat-testo" rows="2" maxlength="1000" placeholder="Scrivi un messaggio all'officina…" aria-label="Messaggio"></textarea>
+                <button type="submit" class="btn btn-verde">Invia</button>
+            </form>
+            <div class="esito" id="chat-esito" role="status"></div>
+        </section>
+
         <div class="elenco-testa">
             <h2>Movimenti</h2>
             <select id="f-mese" aria-label="Mese dei movimenti"></select>
@@ -206,6 +234,7 @@
     const MEM_PIN = 'mgmCassaPin_' + CODICE;
 
     let database = null, rif = null, chiave = '', nome = '', voci = {}, aperta = false, inModifica = null, meseScelto = '', appena = '';
+    let chat = {}, lettoOff = 0, lettoMio = 0, chatInFondo = true;
 
     function messaggio(icona, titolo, testo, conPin) {
         $('sch-cassa').classList.add('hidden'); $('sch-pin').classList.add('hidden');
@@ -241,7 +270,11 @@
             aperta = true;
             nome = String(d.nome || 'Collaboratore');
             voci = d.voci && typeof d.voci === 'object' ? d.voci : {};
+            chat = d.chat && typeof d.chat === 'object' ? d.chat : {};
+            lettoOff = Number(d.letto_officina) || 0;
+            lettoMio = Number(d.letto_collab) || 0;
             mostraCassa();
+            mostraChat();
         }, () => {
             const eraAperta = aperta;
             chiudi();
@@ -301,6 +334,41 @@
             </div>`;
         }).join('') : `<div class="vuoto">${meseScelto ? 'Nessun movimento in questo mese.' : 'Nessun movimento registrato.'}</div>`;
         appena = '';
+    }
+
+    // Chat con l'officina (v223)
+    const oraMsg = t => {
+        const d = new Date(Number(t) || 0), hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        const g = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        return g === oggi() ? hh : dataIt(g).slice(0, 5) + ' ' + hh;
+    };
+    function mostraChat() {
+        const el = $('chat-lista');
+        const lista = Object.keys(chat).map(k => Object.assign({ _k: k }, chat[k])).filter(m => m && String(m.testo || '').trim()).sort((a, b) => (Number(a.t) || 0) - (Number(b.t) || 0));
+        const inFondo = chatInFondo || el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+        el.innerHTML = lista.length ? lista.map(m => {
+            const mio = m.da === 'collab', letto = mio && (Number(m.t) || 0) <= lettoOff;
+            return `<div class="chat-msg ${mio ? 'mio' : 'suo'}"><div class="chat-testo">${esc(m.testo)}</div><div class="chat-ora">${esc(oraMsg(m.t))}${mio ? ` <span class="chat-letto${letto ? ' si' : ''}" title="${letto ? 'Letto dall\'officina' : 'Inviato'}">${letto ? '✓✓' : '✓'}</span>` : ''}</div></div>`;
+        }).join('') : '<div class="chat-vuota">Nessun messaggio. Scrivi qui sotto: lo leggono in officina.</div>';
+        if (inFondo) el.scrollTop = el.scrollHeight;
+        chatInFondo = false;
+        const nuovi = lista.filter(m => m.da !== 'collab' && (Number(m.t) || 0) > lettoMio).length;
+        $('chat-n').textContent = nuovi === 1 ? '1 nuovo' : nuovi + ' nuovi';
+        $('chat-n').classList.toggle('hidden', !nuovi);
+        // Letti: quando la pagina è davanti agli occhi
+        if (nuovi && aperta && document.visibilityState === 'visible') rif.child('letto_collab').set(Date.now()).catch(() => {});
+    }
+    function inviaMsg(ev) {
+        ev.preventDefault();
+        if (!aperta) return;
+        const testo = $('chat-testo').value.trim().slice(0, 1000);
+        if (!testo) return;
+        const id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+        $('chat-testo').value = '';
+        $('chat-esito').textContent = '';
+        chatInFondo = true;
+        rif.child('chat/m' + id).set({ id, da: 'collab', testo, t: Date.now() })
+            .catch(() => { $('chat-esito').textContent = '⚠️ Messaggio non inviato: il link è stato disattivato oppure il PIN è cambiato.'; $('chat-esito').style.color = 'var(--rosso)'; $('chat-testo').value = testo; });
     }
 
     function segnaTipo() {
@@ -387,6 +455,9 @@
 
     // Avvio
     $('modulo').addEventListener('submit', salva);
+    $('chat-form').addEventListener('submit', inviaMsg);
+    $('chat-testo').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); inviaMsg(e); } });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && aperta) mostraChat(); });
     document.querySelectorAll('input[name="tipo"]').forEach(r => r.addEventListener('change', segnaTipo));
     segnaTipo();
     $('btn-annulla').addEventListener('click', () => { svuotaModulo(); esito(''); });

@@ -19,12 +19,12 @@
   const campo = (id, v) => { const e = document.getElementById(id); if (!e) throw new Error('campo mancante ' + id); e.value = v; };
   async function passo(nome, fn) { try { await fn(); } catch (e) { ok(false, nome + ': eccezione ' + (e && e.message)); } }
 
-  for (let i = 0; i < 300 && fb.inAttesa.length < 23; i++) await attendi(20);
+  for (let i = 0; i < 300 && fb.inAttesa.length < 24; i++) await attendi(20);
   await attendi(50);
 
   await passo('Avvio', async () => {
     ok(document.getElementById('app-shell').style.display === 'flex', 'Avvio: accesso simulato, gestionale visibile');
-    ok(fb.inAttesa.length === 23, 'Avvio: tutte le 23 sezioni in ascolto (' + fb.inAttesa.length + ')');
+    ok(fb.inAttesa.length === 24, 'Avvio: tutte le 24 sezioni in ascolto (' + fb.inAttesa.length + ')');
     ok(ovVisibile() && ovTitolo() === 'Caricamento dati…', 'Avvio: pannello "Caricamento dati…" finché i dati non arrivano');
     const n = nScr(), a = fb.alerts.length;
     db.push({ id: 999, cognome: 'PRIMA DEL CARICAMENTO' });
@@ -2944,6 +2944,54 @@
     const cf = window.confirm; window.confirm = () => true;
     try { eliminaSchedaTecnica(); } finally { window.confirm = cf; }
     ok(!(fb.nodo('schede_tecniche') || {})[sc2.id], 'Schede: si può eliminare');
+    switchView('board');
+  });
+
+  await passo('Chat con il collaboratore', async () => {
+    const C = 'ELETTRAUTO CHAT', enc = safeEncode(C), sinc = () => attendi(1400);
+    ledgerDB.push({ id: 98001, data: oggi, tipo: 'in', cat: 'officina', collab: C, desc: 'PROVA', importo: 10, qta: 1 });
+    saveLedger();
+    switchView('ledger'); await attendi(60);
+    openCollabDetail(safeEncode('INTERNO')); await attendi(20);
+    ok(document.getElementById('modal-collab').classList.contains('mc-senza-chat'), 'Chat: nessuna chat per la cassa INTERNA');
+    openCollabDetail(enc); await attendi(20);
+    const m = document.getElementById('modal-collab');
+    ok(!m.classList.contains('mc-senza-chat') && getComputedStyle(document.getElementById('mc-chat')).display !== 'none', 'Chat: accanto alla scheda del collaboratore il pannello dei messaggi');
+    ok(document.getElementById('mc-chat-avviso').textContent.includes('Link per il collaboratore'), 'Chat: senza link avvisa che lui li vedrà quando attivi il link');
+    document.getElementById('mc-chat-testo').value = 'Domani passi a prendere la batteria?';
+    inviaMsgCassa();
+    const arch = () => Object.values((fb.leggi('casse_chat/ELETTRAUTO CHAT') || {}).m || {});
+    ok(arch().length === 1 && arch()[0].da === 'officina' && arch()[0].testo === 'Domani passi a prendere la batteria?', 'Chat: il messaggio si salva nell\'archivio della chat');
+    ok(document.getElementById('mc-chat-lista').querySelectorAll('.mcc-msg.mio').length === 1 && document.getElementById('mc-chat-testo').value === '', 'Chat: compare a destra e il campo si svuota');
+    attivaLinkCassa(enc); await attendi(30);
+    const K = Object.keys(fb.leggi('casse_codici') || {}).find(k => fb.leggi('casse_codici/' + k + '/nome') === C);
+    ok(K && Object.values(fb.leggi('casse_condivise/' + K + '/chat') || {}).length === 1, 'Chat: attivando il link il collaboratore trova già il messaggio');
+    closeModal('modal-collab');
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/chat/m777']: { id: 777, da: 'collab', testo: 'Sì, alle <b>9</b>', t: Date.now() + 5 } });
+    await sinc();
+    const a2 = arch();
+    ok(a2.length === 2 && a2.some(x => x.da === 'collab' && x.testo === 'Sì, alle <b>9</b>'), 'Chat: il messaggio del collaboratore arriva nell\'archivio');
+    refreshLedger();
+    const card = [...document.querySelectorAll('#collab-summary-grid .card')].find(c => c.textContent.includes(C));
+    ok(card && card.querySelector('.cassa-msg') && card.querySelector('.cassa-msg').textContent.includes('1 messaggio nuovo'), 'Chat: sulla cassa "💬 1 messaggio nuovo"');
+    ok(document.getElementById('chat-badge').textContent === '1', 'Chat: il numero dei messaggi nuovi anche nel menu, su Prima Nota');
+    openCollabDetail(enc); await attendi(30);
+    const lista = document.getElementById('mc-chat-lista');
+    ok(lista.querySelectorAll('.mcc-msg.suo').length === 1 && lista.innerHTML.includes('&lt;b&gt;9&lt;/b&gt;'), 'Chat: il suo messaggio a sinistra, testo protetto');
+    ok(_chatNonLetti(C) === 0 && fb.leggi('casse_chat/ELETTRAUTO CHAT/letto_officina') > 0 && document.getElementById('chat-badge').style.display === 'none', 'Chat: aprendo la chat i messaggi diventano letti');
+    await sinc();
+    ok(fb.leggi('casse_condivise/' + K + '/letto_officina') === fb.leggi('casse_chat/ELETTRAUTO CHAT/letto_officina'), 'Chat: anche lui vede che hai letto');
+    ok(!lista.querySelector('.mcc-letto.si'), 'Chat: il tuo messaggio ha una spunta finché non lo legge');
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/letto_collab']: Date.now() + 1000 });
+    await sinc();
+    ok(document.getElementById('mc-chat-lista').querySelector('.mcc-msg.mio .mcc-letto.si'), 'Chat: quando lo legge compaiono le due spunte ✓✓');
+    attivaLinkCassa(enc, true); await attendi(30);
+    const K2 = Object.keys(fb.leggi('casse_codici') || {}).find(k => fb.leggi('casse_codici/' + k + '/nome') === C && fb.leggi('casse_codici/' + k + '/attivo'));
+    ok(K2 && K2 !== K && Object.values(fb.leggi('casse_condivise/' + K2 + '/chat') || {}).length === 2, 'Chat: con link e PIN nuovi la conversazione resta');
+    closeModal('modal-cassa-link'); closeModal('modal-collab');
+    // pulizia: le prove della cassa condivisa partono senza link
+    fb.scritturaRemota({ ['casse_codici/' + K]: null, ['casse_codici/' + K2]: null, ['casse_condivise/' + K]: null, ['casse_condivise/' + K2]: null });
+    await attendi(30);
     switchView('board');
   });
 
