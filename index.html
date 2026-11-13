@@ -192,6 +192,35 @@
         .hamburger-btn { display: flex; align-items: center; background: none; border: none; color: var(--text); font-size: 1.4rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; line-height: 1; flex-shrink: 0; transition: background 0.15s; }
         .hamburger-btn:hover { background: rgba(255,255,255,0.07); }
         .sidebar .nav-link.nav-doppione { display: none !important; }
+        /* Chat della cassa con il collaboratore (v223) */
+        #mc-chat { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; background: rgba(0,0,0,0.22); border: 1px solid #334155; border-radius: 12px; padding: 12px; min-height: 0; gap: 8px; }
+        #modal-collab.mc-senza-chat #mc-chat, #modal-collab.mc-senza-chat #mc-btn-chat { display: none !important; }
+        .mcc-testa { display: flex; justify-content: space-between; align-items: center; color: #7dd3fc; font-size: 0.95rem; }
+        .mcc-chiudi { display: none; background: none; border: none; color: var(--muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+        .mcc-avviso { font-size: 0.78rem; color: var(--warning); }
+        .mcc-avviso:empty { display: none; }
+        #mc-chat-lista { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px; min-height: 0; }
+        .mcc-msg { max-width: 85%; padding: 7px 10px; border-radius: 12px; font-size: 0.9rem; line-height: 1.35; }
+        .mcc-msg.mio { align-self: flex-end; background: #4c1d95; color: #ede9fe; border-bottom-right-radius: 4px; }
+        .mcc-msg.suo { align-self: flex-start; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-bottom-left-radius: 4px; }
+        .mcc-testo { white-space: pre-wrap; overflow-wrap: anywhere; }
+        .mcc-ora { font-size: 0.7rem; opacity: 0.75; text-align: right; margin-top: 2px; }
+        .mcc-letto.si { color: #38bdf8; font-weight: 800; }
+        .mcc-vuota { color: var(--muted); font-size: 0.85rem; text-align: center; margin: auto 8px; }
+        .mcc-n { background: #fbbf24; color: #1e1e1e; border-radius: 10px; padding: 0 7px; font-size: 0.75rem; font-weight: 900; margin-left: 4px; }
+        #mc-chat-form { display: flex; gap: 6px; align-items: flex-end; }
+        #mc-chat-form textarea { flex: 1; margin: 0; resize: none; min-height: 44px; max-height: 120px; text-transform: none; }
+        #mc-chat-form .btn { margin: 0; padding: 10px 14px; }
+        #mc-btn-chat { display: none !important; }
+        /* Con la chat accanto il modulo della cassa va a capo, la descrizione resta leggibile */
+        #modal-collab:not(.mc-senza-chat) .mc-form-row { flex-wrap: wrap !important; }
+        #modal-collab:not(.mc-senza-chat) .mc-form-row #ld_desc { min-width: 260px; }
+        @media (max-width: 1100px) {
+            #mc-chat { display: none; position: absolute; inset: 70px 14px 14px 14px; width: auto; z-index: 6; background: var(--card); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+            #modal-collab.chat-aperta #mc-chat { display: flex; }
+            #mc-btn-chat { display: inline-flex !important; }
+            .mcc-chiudi { display: block; }
+        }
         #rete-striscia { position: fixed; left: 0; right: 0; margin: 0 auto; width: fit-content; bottom: 14px; z-index: 9990; padding: 7px 14px; border-radius: 20px; font-weight: 800; font-size: 0.85rem; box-shadow: 0 6px 18px rgba(0,0,0,0.45); max-width: calc(100vw - 24px); text-align: center; pointer-events: none; }
         #rete-striscia[hidden] { display: none; }
         #rete-striscia.off { background: #7c2d12; color: #fed7aa; border: 1px solid #f97316; }
@@ -698,7 +727,7 @@
         <button class="nav-link" data-nav-id="ordini" style="color:#fca5a5;" onclick="switchView('ordini', this)">📦 Ordini Ricambi</button>
         <button class="nav-link" data-nav-id="garanzie" style="color:#34d399;" onclick="switchView('garanzie', this)">🛡️ Garanzie <span id="gar-badge" title="Clienti da contattare" style="display:none; background:#34d399; color:#0f172a; border-radius:10px; padding:0 7px; font-size:0.7rem; font-weight:900; margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="tagliandi" style="color:#fb923c;" onclick="switchView('tagliandi', this)">🔧 Scad. Tagliando <span id="consigli-badge" title="Lavori consigliati da ricordare ai clienti" style="display:none;background:#facc15;color:#422006;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
-        <button class="nav-link" data-nav-id="ledger" style="color:#34d399;" onclick="switchView('ledger', this)">💸 Prima Nota</button>
+        <button class="nav-link" data-nav-id="ledger" style="color:#34d399;" onclick="switchView('ledger', this)">💸 Prima Nota <span id="chat-badge" title="Messaggi nuovi dai collaboratori" style="display:none;background:#38bdf8;color:#0c1a2b;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="scadenze" style="color:#f43f5e;" onclick="switchView('scadenze', this)">📅 Scadenzario <span id="scadenze-badge" style="display:none;background:#f43f5e;color:white;border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:900;margin-left:4px;"></span></button>
         <button class="nav-link" data-nav-id="magazzino" style="color:#14b8a6;" onclick="switchView('magazzino', this)">📦 Magazzino</button>
         <button class="nav-link" data-nav-id="schede" style="color:#f97316;" onclick="switchView('schede', this)">🔧 Schede tecniche</button>
@@ -2032,10 +2061,12 @@
     </div>
 
     <div id="modal-collab" class="modal hidden no-print">
-        <div class="modal-content" style="width: 95vw; max-width: 1400px; height: 95vh; display: flex; flex-direction: column; padding: 25px;">
+        <div class="modal-content" style="width: 95vw; max-width: 1400px; height: 95vh; display: flex; flex-direction: row; gap: 18px; padding: 25px; position: relative;">
+            <div id="mc-principale" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
             <div class="flex-between mb-15" style="flex-shrink: 0;">
                 <h2 id="mc-title" style="color:var(--purple); text-transform:uppercase; margin:0;">Estratto Conto</h2>
                 <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
+                    <button type="button" id="mc-btn-chat" class="btn w-auto" onclick="apriChiudiChatCassa()" style="margin:0; background:none; border:1px solid #38bdf8; color:#7dd3fc; padding:7px 12px; font-size:0.88rem;">💬 Chat</button>
                     <button type="button" id="mc-btn-link" class="btn w-auto" onclick="apriLinkCassa()" style="margin:0; background:none; border:1px solid var(--purple); color:#c4b5fd; padding:7px 12px; font-size:0.88rem;">🔗 Link per il collaboratore</button>
                     <button onclick="closeModal('modal-collab')" style="background:none; border:none; color:var(--muted); font-size:2rem; cursor:pointer; line-height: 1;">&times;</button>
                 </div>
@@ -2109,6 +2140,16 @@
                 <button class="btn btn-dark" onclick="closeModal('modal-collab')" style="flex:1; font-size: 1rem; padding: 15px;">Chiudi</button>
                 <button class="btn btn-purple" id="btn-print-collab" style="flex:2; font-size: 1rem; padding: 15px;">🖨️ Stampa Scheda Collaboratore</button>
             </div>
+            </div>
+            <aside id="mc-chat" aria-label="Messaggi con il collaboratore">
+                <div class="mcc-testa"><b>💬 Messaggi · <span id="mc-chat-nome"></span></b><button type="button" class="mcc-chiudi" onclick="apriChiudiChatCassa(false)" aria-label="Chiudi la chat">&times;</button></div>
+                <div id="mc-chat-avviso" class="mcc-avviso"></div>
+                <div id="mc-chat-lista" role="log" aria-live="polite"></div>
+                <form id="mc-chat-form" onsubmit="inviaMsgCassa(event)" autocomplete="off">
+                    <textarea id="mc-chat-testo" rows="2" maxlength="1000" placeholder="Scrivi un messaggio… (Invio per mandare)" aria-label="Messaggio" onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); inviaMsgCassa(event); }"></textarea>
+                    <button type="submit" class="btn btn-success w-auto">Invia</button>
+                </form>
+            </aside>
         </div>
     </div>
 
@@ -2957,6 +2998,15 @@
                 casseCondivise = snap.val() || {};
                 _dSincCasse();
             });
+            // Chat con i collaboratori (v223): archivio dei messaggi, privato
+            _ascolta('/casse_chat', (snap) => {
+                _segnaCaricato('casse_chat');
+                casseChat = snap.val() || {};
+                _dSincCasse();
+                _aggiornaBadgeChat();
+                if (!$('modal-collab').classList.contains('hidden')) _renderChatCassa();
+                if (currentView === 'ledger') refreshLedger();
+            });
 
             _ascolta('/garanzie', (snap) => {
                 _segnaCaricato('garanzie');
@@ -3029,7 +3079,7 @@
         // della rete, anche dopo aver chiuso il browser. Stessa voce cambiata su due dispositivi: vale l'ultima inviata.
         // =====================================================================
         const SEZIONI_OFFLINE = new Set(['db', 'agenda', 'tagliandi', 'schede_tecniche', 'marche_extra',
-            'ledger', 'ordini', 'lista_ordini', 'rubrica', 'note', 'billing', 'scadenze', 'lista_attesa', 'moto_usate', 'periti', 'vendite', 'garanzie', 'ordini_abb', 'magazzino']);   // v220: passo 3
+            'ledger', 'ordini', 'lista_ordini', 'rubrica', 'note', 'billing', 'scadenze', 'lista_attesa', 'moto_usate', 'periti', 'vendite', 'garanzie', 'ordini_abb', 'magazzino', 'casse_chat']);   // v220: passo 3 (v223: chat)
         const _locale = { idb: null, pronto: null, specchio: {}, ascolti: {}, dalServer: new Set(), coda: [], inCopia: false, aggiornato: 0, timer: {}, avvisaInvio: false };
         function _apriArchivioLocale() {
             if (_locale.pronto) return _locale.pronto;
@@ -4458,8 +4508,8 @@
         // =====================================================================
         // Backup manuale: le sezioni principali (come prima, così i vecchi file restano ripristinabili)
         // più tutte le altre lette dal cloud così come sono. Restano fuori solo i file dei libretti (pesanti).
-        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse', 'passaporti_idx', 'passaporti', 'marche_extra', 'schede_tecniche', 'casse_codici'];
-        const BACKUP_NOMI = { casse_codici: 'Link delle casse dei collaboratori', db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Prima Nota', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse', passaporti_idx: 'Passaporti delle moto', passaporti: 'Pagine online dei passaporti' };
+        const BACKUP_ALTRE = ['billing', 'scadenze', 'tagliandi', 'lista_attesa', 'moto_usate', 'ordini_abb', 'garanzie', 'vendite', 'periti', 'libretti_info', 'storico_casse', 'passaporti_idx', 'passaporti', 'marche_extra', 'schede_tecniche', 'casse_chat', 'casse_codici'];
+        const BACKUP_NOMI = { casse_chat: 'Messaggi con i collaboratori', casse_codici: 'Link delle casse dei collaboratori', db: 'Lavori, preventivi e clienti', agenda: 'Agenda', ledger: 'Prima Nota', ordini: 'Ordini ricambi', rubrica: 'Rubrica', note: 'Appunti rapidi', magazzino: 'Magazzino', lista_ordini: 'Lista da ordinare (magazzino)', billing: 'Dati di fatturazione', scadenze: 'Scadenzario', tagliandi: 'Tagliandi', lista_attesa: 'Lista attesa moto', moto_usate: 'Moto usate', ordini_abb: 'Ordini futuri abbigliamento', garanzie: 'Garanzie', vendite: 'Vendite', periti: 'Periti', libretti_info: 'Elenco dei libretti', storico_casse: 'Archivio delle casse', passaporti_idx: 'Passaporti delle moto', passaporti: 'Pagine online dei passaporti' };
         function _contaBackup(v) {
             if (v == null || typeof v !== 'object') return '';
             const n = (Array.isArray(v) ? v : Object.values(v)).filter(x => x != null).length;
@@ -6191,7 +6241,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const name = safeDecode(encName); currentCollabView = encName; 
             $('mc-title').innerText = "Cassa: " + name; if (!tieniModulo) cancelLedgerEdit(); 
             
-            if (!giaAperta || encName !== _mcCassa) { _mcCassa = encName; _mcMese = ''; _mcEvidenzia = new Set(); }
+            if (!giaAperta || encName !== _mcCassa) { _mcCassa = encName; _mcMese = ''; _mcEvidenzia = new Set(); _chatInFondo = true; $('modal-collab').classList.remove('chat-aperta'); }
             _aggiornaBottoneLinkCassa();
             const tutti = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === name.toUpperCase() && !_segnapostoCassa(x));
             const mesi = [...new Set(tutti.map(x => String(x.data || '').slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort().reverse();
@@ -6253,6 +6303,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const badge = $('mc-archivio-badge'); if(badge) badge.style.display='none';
             $('modal-collab').classList.remove('hidden');
             _segnaVistiCassa(tutti);
+            _renderChatCassa();
         }
 
         // =====================================================================
@@ -6331,16 +6382,115 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 Object.keys(voluti).forEach(vk => { if (_jsonStabile(restano[vk]) !== _jsonStabile(voluti[vk])) u[base + vk] = voluti[vk]; });
                 Object.keys(restano).forEach(vk => { if (!voluti[vk]) u[base + vk] = null; });
                 if (copia.nome !== nome) u['casse_condivise/' + k + '/nome'] = nome;
+                // 3) Chat (v223): i messaggi nuovi del collaboratore vanno nell'archivio della chat; la copia tiene gli ultimi 200
+                if (_cloud.caricati.has('casse_chat')) {
+                    const ck = _chiaveChat(nome), arch = _msgChat(nome), cm = (casseChat || {})[ck] || {};
+                    const chatCopia = copia.chat && typeof copia.chat === 'object' ? copia.chat : {}, nuovi = {};
+                    Object.keys(chatCopia).forEach(mk => {
+                        const p = chatCopia[mk];
+                        if (arch[mk] || !p || typeof p !== 'object' || p.da !== 'collab' || !String(p.testo || '').trim()) return;
+                        nuovi[mk] = { id: p.id != null ? p.id : mk.slice(1), da: 'collab', testo: String(p.testo).slice(0, 1000), t: Number(p.t) || Date.now() };
+                        u['casse_chat/' + ck + '/m/' + mk] = nuovi[mk];
+                    });
+                    const volute = _chatPerCopia(nome, nuovi);
+                    Object.keys(volute).forEach(mk => { if (_jsonStabile(chatCopia[mk]) !== _jsonStabile(volute[mk])) u['casse_condivise/' + k + '/chat/' + mk] = volute[mk]; });
+                    Object.keys(chatCopia).forEach(mk => { if (!volute[mk]) u['casse_condivise/' + k + '/chat/' + mk] = null; });
+                    if ((Number(copia.letto_collab) || 0) > (Number(cm.letto_collab) || 0)) u['casse_chat/' + ck + '/letto_collab'] = Number(copia.letto_collab);
+                    if ((Number(cm.letto_officina) || 0) !== (Number(copia.letto_officina) || 0)) u['casse_condivise/' + k + '/letto_officina'] = Number(cm.letto_officina) || null;
+                }
             });
             if (ledgerIntero) { Object.keys(u).forEach(k => { if (k.startsWith('ledger/')) delete u[k]; }); _diffSezione('ledger', ledgerDB, u); }
             if (Object.keys(u).length) _scrivi(u);
         }
         const _dSincCasse = debounce(_sincronizzaCasse, 1200);
 
+        // ── Chat con il collaboratore (v223) ──
+        // Archivio privato /casse_chat/{NOME}: { m: { m{id}: { id, da: 'officina'|'collab', testo, t } }, letto_officina, letto_collab }.
+        // Nella copia online /casse_condivise/{CODICE-PIN}: chat (ultimi 200), letto_officina (dal gestionale), letto_collab (scritto da lui).
+        // Il collaboratore può solo aggiungere messaggi suoi; _sincronizzaCasse li porta nell'archivio, che resta anche cambiando link o PIN.
+        let casseChat = {}, _chatInFondo = true;
+        const _chiaveChat = n => _nomeCassa(n).replace(/[.#$\[\]\/]/g, '_');
+        function _msgChat(nome) { const c = (casseChat || {})[_chiaveChat(nome)]; return c && c.m && typeof c.m === 'object' ? c.m : {}; }
+        function _chatOrdinata(m) { return Object.keys(m || {}).map(k => Object.assign({ _k: k }, m[k])).filter(x => x && String(x.testo || '').trim()).sort((a, b) => (Number(a.t) || 0) - (Number(b.t) || 0)); }
+        function _chatNonLetti(nome) {
+            const l = Number(((casseChat || {})[_chiaveChat(nome)] || {}).letto_officina) || 0;
+            return _chatOrdinata(_msgChat(nome)).filter(x => x.da === 'collab' && (Number(x.t) || 0) > l).length;
+        }
+        function _chatPerCopia(nome, extra) {
+            const o = {};
+            _chatOrdinata(Object.assign({}, _msgChat(nome), extra || {})).slice(-200).forEach(x => { o[x._k] = { id: x.id, da: x.da === 'collab' ? 'collab' : 'officina', testo: String(x.testo), t: Number(x.t) || 0 }; });
+            return o;
+        }
+        function _aggiornaBadgeChat() {
+            const b = $('chat-badge');
+            if (!b) return;
+            const n = Object.keys(casseChat || {}).reduce((s, ck) => s + _chatNonLetti(ck), 0);
+            b.textContent = n;
+            b.style.display = n ? 'inline-block' : 'none';
+        }
+        function _oraChat(t) {
+            const d = new Date(Number(t) || 0), hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+            return formatDateISO(d) === getOggiLocale() ? hh : formattaData(formatDateISO(d)).slice(0, 5) + ' ' + hh;
+        }
+        const _chatVisibile = () => window.innerWidth > 1100 || $('modal-collab').classList.contains('chat-aperta');
+        function apriChiudiChatCassa(apri) {
+            const m = $('modal-collab');
+            m.classList.toggle('chat-aperta', apri === undefined ? !m.classList.contains('chat-aperta') : apri);
+            _chatInFondo = true;
+            _renderChatCassa();
+            if (m.classList.contains('chat-aperta')) setTimeout(() => { const t = $('mc-chat-testo'); if (t) t.focus(); }, 30);
+        }
+        function _renderChatCassa() {
+            const m = $('modal-collab'), el = $('mc-chat-lista');
+            if (!m || !el || !currentCollabView) return;
+            const nome = _nomeCassa(safeDecode(currentCollabView));
+            m.classList.toggle('mc-senza-chat', nome === 'INTERNO');
+            if (nome === 'INTERNO') return;
+            const c = (casseChat || {})[_chiaveChat(nome)] || {}, lc = Number(c.letto_collab) || 0, lista = _chatOrdinata(_msgChat(nome)), l = _linkCassa(nome);
+            $('mc-chat-nome').textContent = nome;
+            $('mc-chat-avviso').textContent = l && l.attivo ? '' : 'Il collaboratore vedrà i messaggi quando attivi «🔗 Link per il collaboratore».';
+            const inFondo = _chatInFondo || el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+            el.innerHTML = lista.length ? lista.map(x => {
+                const mio = x.da !== 'collab', letto = mio && (Number(x.t) || 0) <= lc;
+                return `<div class="mcc-msg ${mio ? 'mio' : 'suo'}"><div class="mcc-testo">${htmlEsc(x.testo)}</div><div class="mcc-ora">${_oraChat(x.t)}${mio ? ` <span class="mcc-letto${letto ? ' si' : ''}" title="${letto ? 'Letto' : 'Inviato'}">${letto ? '✓✓' : '✓'}</span>` : ''}</div></div>`;
+            }).join('') : '<div class="mcc-vuota">Nessun messaggio. Scrivi qui sotto: lo vede nella sua pagina della cassa.</div>';
+            if (inFondo) el.scrollTop = el.scrollHeight;
+            _chatInFondo = false;
+            const n = _chatNonLetti(nome), b = $('mc-btn-chat');
+            if (b) b.innerHTML = '💬 Chat' + (n ? ` <span class="mcc-n">${n}</span>` : '');
+            if (n && !m.classList.contains('hidden') && _chatVisibile() && document.visibilityState === 'visible') _segnaLettaChat(nome);
+        }
+        function _segnaLettaChat(nome) {
+            if (!_puoSalvare('casse_chat')) return;
+            const ck = _chiaveChat(nome), t = Date.now();
+            casseChat = Object.assign({}, casseChat, { [ck]: Object.assign({}, casseChat[ck], { letto_officina: t }) });
+            _scrivi({ ['casse_chat/' + ck + '/letto_officina']: t });
+            _aggiornaBadgeChat();
+            if (currentView === 'ledger') refreshLedger();
+        }
+        function inviaMsgCassa(ev) {
+            if (ev && ev.preventDefault) ev.preventDefault();
+            const nome = _nomeCassa(safeDecode(currentCollabView || ''));
+            const ta = $('mc-chat-testo'), testo = String(ta.value || '').trim().slice(0, 1000);
+            if (nome === 'INTERNO' || !testo) return;
+            if (!_puoSalvare('casse_chat')) return;
+            const id = Date.now() * 1000 + Math.floor(Math.random() * 1000), mk = 'm' + id, msg = { id, da: 'officina', testo, t: Date.now() }, ck = _chiaveChat(nome);
+            const u = { ['casse_chat/' + ck + '/m/' + mk]: msg }, l = _linkCassa(nome);
+            if (l && l.attivo && _cloud.connesso) u['casse_condivise/' + l.chiave + '/chat/' + mk] = msg;
+            casseChat = Object.assign({}, casseChat, { [ck]: Object.assign({}, casseChat[ck], { m: Object.assign({}, _msgChat(nome), { [mk]: msg }) }) });
+            _scrivi(u);
+            ta.value = '';
+            _chatInFondo = true;
+            _renderChatCassa();
+        }
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('modal-collab') && !$('modal-collab').classList.contains('hidden')) _renderChatCassa(); });
+
         // Segni sulla scheda della cassa in Prima Nota
         function _segniCassa(nome, nuovi) {
             const l = _nomeCassa(nome) === 'INTERNO' ? null : _linkCassa(nome), p = [];
             if (l && l.attivo) p.push(`<span class="cassa-link-on" style="background:rgba(139,92,246,0.18); color:#c4b5fd; border:1px solid rgba(139,92,246,0.45); border-radius:12px; padding:2px 9px; font-size:0.75rem; font-weight:700;">🔗 Link attivo</span>`);
+            const msg = _nomeCassa(nome) === 'INTERNO' ? 0 : _chatNonLetti(nome);
+            if (msg) p.push(`<span class="cassa-msg" style="background:#38bdf8; color:#0c1a2b; border-radius:12px; padding:2px 9px; font-size:0.75rem; font-weight:800;">💬 ${msg} ${msg === 1 ? 'messaggio nuovo' : 'messaggi nuovi'}</span>`);
             if (nuovi) p.push(`<span class="cassa-nuovi" style="background:#fbbf24; color:#1e1e1e; border-radius:12px; padding:2px 9px; font-size:0.75rem; font-weight:800;">✍️ ${nuovi} ${nuovi === 1 ? 'nuovo' : 'nuovi'}</span>`);
             return p.length ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin:-4px 0 10px;">${p.join('')}</div>` : '';
         }
@@ -6415,7 +6565,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 rec = { nome, codice, pin, attivo: true, creato: getOggiLocale() };
             }
             u['casse_codici/' + k] = rec;
-            u['casse_condivise/' + k] = { nome, voci: _vociCassaCondivisa(nome) };
+            u['casse_condivise/' + k] = { nome, voci: _vociCassaCondivisa(nome), chat: _chatPerCopia(nome), letto_officina: Number(((casseChat || {})[_chiaveChat(nome)] || {}).letto_officina) || null };
             casseCodici[k] = rec;
             _scrivi(u);
             mostraToast(nuovo ? '🔄 Link e PIN nuovi: quelli vecchi non funzionano più' : vecchio ? '✅ Link riattivato' : '🔗 Link creato: mandalo al collaboratore');
@@ -11987,14 +12137,14 @@ A presto!`;
         function _aggiornaBadgeAltro() {
             const b = $('tb-badge-altro');
             if (!b) return;
-            const n = ['gar-badge', 'scadenze-badge', 'consigli-badge'].reduce((s, id) => { const e = $(id); return s + (e && e.style.display !== 'none' ? (parseInt(e.textContent) || 0) : 0); }, 0);
+            const n = ['gar-badge', 'scadenze-badge', 'consigli-badge', 'chat-badge'].reduce((s, id) => { const e = $(id); return s + (e && e.style.display !== 'none' ? (parseInt(e.textContent) || 0) : 0); }, 0);
             b.textContent = n;
             b.hidden = !n;
             b.title = n + (n === 1 ? ' avviso' : ' avvisi') + ' nel menu: garanzie da contattare, scadenze e consigli da ricordare';
         }
         (function () {
             const oss = new MutationObserver(_aggiornaBadgeAltro);
-            ['gar-badge', 'scadenze-badge', 'consigli-badge'].forEach(id => { const e = document.getElementById(id); if (e) oss.observe(e, { attributes: true, childList: true, characterData: true, subtree: true }); });
+            ['gar-badge', 'scadenze-badge', 'consigli-badge', 'chat-badge'].forEach(id => { const e = document.getElementById(id); if (e) oss.observe(e, { attributes: true, childList: true, characterData: true, subtree: true }); });
         })();
         function _aggiornaTabbar(viewId) {
             let trovato = false;
