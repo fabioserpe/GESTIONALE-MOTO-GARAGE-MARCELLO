@@ -2998,6 +2998,38 @@
     switchView('board');
   });
 
+  await passo('Elimina collaboratore', async () => {
+    const C = 'DA ELIMINARE', enc = safeEncode(C);
+    ledgerDB.push({ id: 98101, data: oggi, tipo: 'in', cat: 'officina', collab: C, desc: 'LAVORO', importo: 30, qta: 1 });
+    ledgerDB.push({ id: 98102, data: oggi, tipo: 'in', cat: 'officina', collab: 'ALTRO RESTA', desc: 'LAVORO', importo: 5, qta: 1 });
+    saveLedger();
+    fb.scritturaRemota({ 'storico_casse/DA ELIMINARE/a1': { data: oggi, collab: C, saldo: 0, voci: [] }, 'casse_chat/DA ELIMINARE': { m: { m1: { id: 1, da: 'collab', testo: 'ciao', t: 1 } } } });
+    switchView('ledger'); await attendi(40);
+    openCollabDetail(safeEncode('INTERNO')); await attendi(20);
+    ok(document.getElementById('btn-elimina-collab').style.display === 'none', 'Elimina: niente pulsante per la cassa INTERNA');
+    openCollabDetail(enc); await attendi(20);
+    attivaLinkCassa(enc); await attendi(30);
+    const K = Object.keys(fb.leggi('casse_codici') || {}).find(k => fb.leggi('casse_codici/' + k + '/nome') === C);
+    closeModal('modal-cassa-link');
+    const be = document.getElementById('btn-elimina-collab');
+    ok(be && be.style.display !== 'none' && be.textContent.includes('Elimina collaboratore'), 'Elimina: nella cassa il pulsante "🗑️ Elimina collaboratore"');
+    const domande = [], cf = window.confirm;
+    window.confirm = m => { domande.push(m); return true; };
+    try { eliminaCollaboratore(); } finally { window.confirm = cf; }
+    await attendi(40);
+    ok(domande.length === 2 && domande[1].includes('non è a zero'), 'Elimina: chiede conferma, e una seconda volta se il saldo non è a zero');
+    ok(!Object.values(fb.leggi('ledger') || {}).some(x => x && x.collab === C) && Object.values(fb.leggi('ledger') || {}).some(x => x && x.collab === 'ALTRO RESTA'), 'Elimina: spariscono i suoi movimenti, quelli degli altri restano');
+    ok(!fb.leggi('storico_casse/DA ELIMINARE') && !fb.leggi('casse_chat/DA ELIMINARE') && !fb.leggi('casse_codici/' + K) && !fb.leggi('casse_condivise/' + K), 'Elimina: spariscono archivio, chat e link della cassa');
+    ok(document.getElementById('modal-collab').classList.contains('hidden') && !document.getElementById('collab-summary-grid').textContent.includes(C), 'Elimina: la cassa si chiude e il collaboratore non è più nell\'elenco');
+    window.confirm = () => false;
+    ledgerDB.push({ id: 98103, data: oggi, tipo: 'in', cat: 'officina', collab: 'NON ELIMINARE', desc: 'X', importo: 0, qta: 1 }); saveLedger();
+    openCollabDetail(safeEncode('NON ELIMINARE'));
+    try { eliminaCollaboratore(); } finally { window.confirm = cf; }
+    ok(Object.values(fb.leggi('ledger') || {}).some(x => x && x.collab === 'NON ELIMINARE'), 'Elimina: rispondendo Annulla non cambia niente');
+    closeModal('modal-collab');
+    switchView('board');
+  });
+
   await passo('Senza internet', async () => {
     switchView('board');
     const striscia = document.getElementById('rete-striscia');

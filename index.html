@@ -2138,6 +2138,7 @@
 
             <div class="flex-row mt-15" style="flex-shrink: 0; gap:8px;">
                 
+                <button class="btn" id="btn-elimina-collab" style="flex:0.8; background:none; border:1px solid var(--accent); color:var(--accent);" onclick="eliminaCollaboratore()" title="Elimina il collaboratore con movimenti, archivio, chat e link">🗑️ Elimina collaboratore</button>
                 <button class="btn" id="btn-archivia-scheda" style="flex:1.2; background:none; border:1px solid var(--success); color:var(--success);" onclick="archiviaESaldaScheda()" title="Quando avete regolato i conti: la scheda va nell'Archivio come saldata e la cassa riparte da zero">✅ Archivia e salda</button>
                 <button class="btn btn-dark" onclick="closeModal('modal-collab')" style="flex:1; font-size: 1rem; padding: 15px;">Chiudi</button>
                 <button class="btn btn-purple" id="btn-print-collab" style="flex:2; font-size: 1rem; padding: 15px;">🖨️ Stampa Scheda Collaboratore</button>
@@ -6505,6 +6506,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             if (!b || !currentCollabView) return;
             const nome = _nomeCassa(safeDecode(currentCollabView)), l = _linkCassa(nome);
             b.style.display = nome === 'INTERNO' ? 'none' : '';
+            const be = $('btn-elimina-collab'); if (be) be.style.display = nome === 'INTERNO' ? 'none' : '';
             b.textContent = l && l.attivo ? '🔗 Link attivo' : '🔗 Link per il collaboratore';
             b.style.background = l && l.attivo ? 'rgba(139,92,246,0.22)' : 'none';
         }
@@ -6613,6 +6615,29 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         // Righe "segnaposto" senza importo (chiusura della scheda, vecchi "RESET SCHEDA"): servono solo a tenere il
         // collaboratore nell'elenco delle casse; nella scheda, nella stampa e nella cassa condivisa non si vedono
         const _segnapostoCassa = m => !!m && (!!m.chiusura_scheda || (/^RESET SCHEDA/.test(String(m.desc || '')) && !(Number(m.importo) || 0)));
+        // Elimina il collaboratore (v225, Fabio: "tutto"): movimenti, archivio delle schede, chat e link della cassa
+        function eliminaCollaboratore() {
+            const name = safeDecode(currentCollabView || ''), N = name.toUpperCase();
+            if (!N || N === 'INTERNO') return;
+            const voci = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() === N && !_segnapostoCassa(x));
+            const saldo = Math.round(voci.reduce((s, x) => s + (x.tipo === 'in' ? 1 : -1) * (parseFloat(x.importo) || 0) * (parseFloat(x.qta) || 1), 0) * 100) / 100;
+            if (!confirm(`Eliminare il collaboratore ${name}?\n\nSpariscono: ${voci.length} ${voci.length === 1 ? 'movimento' : 'movimenti'} della cassa, l'archivio delle schede saldate, la chat e il link della cassa (dal suo telefono non la apre più).\n\nNon si può annullare: se vuoi conservare qualcosa fai prima un 💾 Backup.`)) return;
+            if (Math.abs(saldo) > 0.004 && !confirm(`ATTENZIONE: il saldo di ${name} non è a zero.\n${saldo > 0 ? name + ' vi deve ' + _eurIt(saldo) : 'Dovete a ' + name + ' ' + _eurIt(-saldo)}.\n\nEliminare lo stesso?`)) return;
+            if (!_cloud.connesso) return mostraErrore('📴 Per eliminare un collaboratore serve internet (il suo link va spento subito).');
+            if (!_puoSalvare('ledger', 'casse_codici', 'casse_condivise', 'casse_chat')) return;
+            const ck = N.replace(/[.#$[\]/]/g, '_'), u = { ['storico_casse/' + ck]: null, ['casse_chat/' + _chiaveChat(N)]: null };
+            Object.keys(casseCodici || {}).forEach(k => { const c = casseCodici[k]; if (c && typeof c === 'object' && _nomeCassa(c.nome) === N) { u['casse_codici/' + k] = null; u['casse_condivise/' + k] = null; delete casseCodici[k]; } });
+            ledgerDB = ledgerDB.filter(x => (x.collab || 'INTERNO').toUpperCase() !== N);
+            _diffSezione('ledger', ledgerDB, u);
+            const cc = Object.assign({}, casseChat); delete cc[_chiaveChat(N)]; casseChat = cc;
+            _scrivi(u);
+            closeModal('modal-collab');
+            currentCollabView = null;
+            _aggiornaBadgeChat();
+            refreshLedger();
+            mostraToast(`🗑️ Collaboratore ${name} eliminato`);
+        }
+
         // Conti regolati con il collaboratore (v222, Fabio): la scheda va nell'Archivio segnata come saldata e il foglio
         // resta pulito (nessuna riga), in un'unica scrittura (anche senza rete)
         function archiviaESaldaScheda() {
