@@ -1539,11 +1539,10 @@
     salvaVendita();
     const v1 = fb.leggi('vendite/' + K1);
     ok(v1 && v1.cognome === 'ROSSI' && v1.marca === 'HONDA' && v1.prezzoVeicolo === '12.500' && v1.totale === 11049.9 && Object.values(v1.vociExtra || {})[0].desc === 'BAULETTO', 'Salvato nel gestionale: dati in maiuscolo, importi come scritti, totale 11.049,90');
-    const mov = led().find(m => String(m.id) === String(v1 && v1.acconto_ledger_id));
-    ok(mov && mov.importo === 1000 && mov.tipo === 'in' && mov.cat === 'vendita' && mov.collab === 'INTERNO' && mov.desc.includes('ACCONTO ORDINE ' + N1) && mov.desc.includes('ROSSI') && led().length === led0 + 1, 'Acconto di 1.000 € nella Prima Nota (Cassa INTERNA, vendita)');
-    ok(fb.scritture.length === n0 + 1 && uguali(ordina(sezioni(chiaviDa(n0))), ['ledger', 'vendite/' + K1]), 'Un solo salvataggio: documento + Prima Nota (' + chiaviDa(n0) + ')');
+    ok(v1 && !v1.acconto_ledger_id && v1.acconto_registrato === 1000 && led().length === led0, 'Acconto di 1.000 € scritto nell\'ordine, non più nella cassa INTERNA');
+    ok(fb.scritture.length === n0 + 1 && uguali(sezioni(chiaviDa(n0)), ['vendite/' + K1]), 'Un solo salvataggio: solo il documento (' + chiaviDa(n0) + ')');
     imp('vd-acconto', '1.500'); salvaVendita();
-    ok(led().length === led0 + 1 && led().find(m => String(m.id) === String(v1.acconto_ledger_id)).importo === 1500, 'Acconto cambiato in 1.500: stesso movimento aggiornato, nessun doppione');
+    ok(led().length === led0 && fb.leggi('vendite/' + K1).acconto_registrato === 1500, 'Acconto cambiato in 1.500: aggiornato nell\'ordine, Collaboratori non cambia');
 
     nuovaVendita('preventivo');
     ok(val('vd-numero') === anno + '/002' && txt('vd-titolo') === 'Preventivo' && txt('vd-note-legali').includes('15 giorni'), 'Nuovo preventivo: numero successivo, titolo e validità di 15 giorni');
@@ -1552,7 +1551,7 @@
     ok(nScr() === n1, 'Numero già usato da un altro documento: non si salva');
     campo('vd-numero', anno + '/002'); salvaVendita();
     const v2 = fb.leggi('vendite/' + K2);
-    ok(v2 && v2.tipoDocumento === 'preventivo' && !v2.acconto_ledger_id && led().length === led0 + 1, 'Preventivo salvato senza movimento in Prima Nota');
+    ok(v2 && v2.tipoDocumento === 'preventivo' && !v2.acconto_ledger_id && led().length === led0, 'Preventivo salvato senza movimento in Prima Nota');
     chiudiVendita();
     ok(currentVendTab === 'preventivo' && /Conferme d'ordine\s*1/.test(txt('vend-tabs')) && /Preventivi\s*1/.test(txt('vend-tabs')), 'Schede "Conferme d\'ordine" (1) e "Preventivi" (1); dopo un preventivo si torna sui Preventivi');
     let righe = [...document.querySelectorAll('#vend-lista .vend-riga')];
@@ -1603,9 +1602,9 @@
     ok(_vend && _vend.chiave === K3, 'Dalla stessa moto si riapre l\'ordine già fatto');
     eliminaVendita();
     ok(fb.leggi('vendite/' + K3) == null && fb.leggi('moto_usate/4242').stato === 'disponibile' && document.getElementById('vend-elenco').style.display === '', 'Elimina: documento tolto, moto di nuovo Disponibile, si torna all\'elenco');
-    apriVendita(K1); const idMov = _vend.acconto_ledger_id;
+    apriVendita(K1);
     eliminaVendita();
-    ok(fb.leggi('vendite/' + K1) == null && !led().some(m => String(m.id) === String(idMov)) && led().length === led0, 'Elimina l\'ordine con acconto: tolto anche il movimento dalla Prima Nota');
+    ok(fb.leggi('vendite/' + K1) == null && led().length === led0, 'Elimina l\'ordine con acconto: Collaboratori non cambia');
 
     _importaVendite({ '2025_007': { id: '2025/007', tipoDocumento: 'ordine', dataOrdine: '10/05/2025', nome: 'LUCA', cognome: 'BIANCHI', marca: 'KTM', modello: 'DUKE', stato: 'NUOVO', pagamento: 'CONTANTI', prezzoVeicolo: '9.800,00', acconto: '1000', vociExtra: [{ desc: 'CASCO', amount: '150' }] }, 'rotto': 'x' });
     const v7 = fb.leggi('vendite/2025_007');
@@ -1635,7 +1634,7 @@
     salvaVendita();
     const o3 = fb.leggi('vendite/' + K3), p2 = fb.leggi('vendite/' + K2);
     ok(o3 && o3.tipoDocumento === 'ordine' && o3.da_preventivo === K2 && p2 && p2.tipoDocumento === 'preventivo' && p2.ordine_chiave === K3 && p2.ordine_id === anno + '/003' && p2.cognome === 'BIANCHI', 'Salvata: il preventivo resta e ricorda l\'ordine ' + anno + '/003');
-    ok(led().length === ledT + 1 && led().some(m => String(m.id) === String(o3.acconto_ledger_id) && m.importo === 500), 'L\'acconto del preventivo accettato va in Prima Nota con l\'ordine');
+    ok(led().length === ledT && o3.acconto_registrato === 500, 'L\'acconto del preventivo accettato resta scritto nell\'ordine');
     setVendTab('preventivo');
     const rP = [...document.querySelectorAll('#vend-lista .vend-riga')].find(r => r.textContent.includes(anno + '/002'));
     ok(rP && rP.querySelector('.vg-esito').textContent.includes('→ ordine ' + anno + '/003'), 'Scheda Preventivi: esito "→ ordine ' + anno + '/003"');
@@ -1645,7 +1644,7 @@
     ok(_vend && _vend.chiave === K3 && txt('vd-legame').includes('preventivo N° ' + anno + '/002'), 'Trasformarlo di nuovo apre l\'ordine già fatto');
     eliminaVendita();
     const p2b = fb.leggi('vendite/' + K2);
-    ok(fb.leggi('vendite/' + K3) == null && p2b && !p2b.ordine_chiave && led().length === ledT, 'Eliminando l\'ordine il preventivo torna senza esito e l\'acconto esce dalla Prima Nota');
+    ok(fb.leggi('vendite/' + K3) == null && p2b && !p2b.ordine_chiave && led().length === ledT, 'Eliminando l\'ordine il preventivo torna senza esito');
     fb.scritturaRemota({ 'vendite/X_1': { id: 'X/1', cognome: '<img src=x onerror="window.__xssV=1">', marca: '<b>M</b>' } }, false);
     await attendi(30);
     ok(!window.__xssV && txt('vend-lista').includes('<b>M</b>'), 'Testi dei documenti mostrati come testo (nessun codice eseguito)');
@@ -2995,6 +2994,26 @@
     // pulizia: le prove della cassa condivisa partono senza link
     fb.scritturaRemota({ ['casse_codici/' + K]: null, ['casse_codici/' + K2]: null, ['casse_condivise/' + K]: null, ['casse_condivise/' + K2]: null });
     await attendi(30);
+    switchView('board');
+  });
+
+  await passo('Niente cassa INTERNO', async () => {
+    switchView('ledger'); await attendi(30);
+    ok(!document.querySelector('[onclick*="openCollabDetail(safeEncode(\'INTERNO\'))"]'), 'INTERNO: niente più "Apri Cassa INTERNA"');
+    const salvo = JSON.parse(JSON.stringify(ledgerDB));
+    fb.scritturaRemota({ 'vendite/OLD_1': { id: 'OLD/1', tipoDocumento: 'ordine', cognome: 'VECCHIO', acconto_ledger_id: 99501, chiave: 'OLD_1' } });
+    ledgerDB = ledgerDB.filter(m => _nomeCassa(m.collab) !== 'INTERNO').concat([
+      { id: 99501, data: oggi, tipo: 'in', cat: 'vendita', collab: 'INTERNO', desc: 'ACCONTO ORDINE OLD/1 - VECCHIO', importo: 300, qta: 1 },
+      { id: 99502, data: oggi, tipo: 'in', cat: 'vendita', collab: 'INTERNO', desc: 'ACCONTO ORDINE 2026/009 - ALTRO', importo: 200, qta: 1 }]);
+    saveLedger();
+    await attendi(1700);
+    ok(!Object.values(fb.leggi('ledger') || {}).some(m => m && _nomeCassa(m.collab) === 'INTERNO'), 'INTERNO: gli acconti delle vendite segnati in passato vengono tolti da soli');
+    refreshLedger();
+    ok(![...document.querySelectorAll('#collab-summary-grid .card')].some(c => c.textContent.includes('INTERNO')), 'INTERNO: senza movimenti la cassa INTERNO non compare più');
+    ledgerDB = salvo; saveLedger(); await attendi(30);
+    refreshLedger();
+    ok([...document.querySelectorAll('#collab-summary-grid .card')].some(c => c.textContent.includes('INTERNO')), 'INTERNO: se ha altri movimenti scritti a mano, la cassa resta visibile');
+    fb.scritturaRemota({ 'vendite/OLD_1': null });
     switchView('board');
   });
 
