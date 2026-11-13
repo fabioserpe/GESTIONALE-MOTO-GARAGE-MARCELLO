@@ -990,7 +990,7 @@
             <div class="section-dark mb-20 flex-row">
                 <input type="text" id="new_collab_name" placeholder="Cerca o crea nuovo collaboratore (es. Gommista, Elettrauto)..." style="flex:1; margin:0;">
                 <button class="btn btn-info w-auto" onclick="openNewCollab()">➕ Apri / Crea Cassa</button>
-                <button class="btn btn-dark w-auto" onclick="openCollabDetail(safeEncode('INTERNO'))">⚙️ Apri Cassa INTERNA</button>
+                
             </div>
 
             <div style="flex-grow:1; display:flex; flex-direction:column;">
@@ -2882,7 +2882,7 @@
 
             _ascolta('/ledger', (snap) => {
                 _segnaCaricato('ledger');
-                ledgerDB = _leggiSezione('ledger', snap); _idMancanti('ledger', ledgerDB);
+                ledgerDB = _leggiSezione('ledger', snap); _idMancanti('ledger', ledgerDB); _dTogliAccontiVendite();
                 _dSincCasse();
                 if (currentView === 'ledger') {
                     refreshLedger();
@@ -2967,6 +2967,7 @@
                 _segnaCaricato('vendite');
                 const v = snap.val() || {};
                 venditeDB = Object.keys(v).filter(k => v[k] && typeof v[k] === 'object').map(k => ({ ...v[k], chiave: v[k].chiave || k }));
+                _dTogliAccontiVendite();
                 if (currentView === 'vendite') refreshVendite();
             });
 
@@ -5288,7 +5289,7 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             if (!d.id) return mostraErrore('Scrivi il numero del documento');
             const chiave = _chiaveVendita(d.id);
             if (venditeDB.some(v => v.chiave === chiave && v.chiave !== _vend.chiave)) return mostraErrore(`Esiste già un documento con il N° ${d.id}: cambia il numero`);
-            if (!_puoSalvare('vendite', 'ledger', 'moto_usate')) return;
+            if (!_puoSalvare('vendite', 'moto_usate')) return;
             const ora = new Date().toISOString();
             const prec = _vend.chiave ? venditeDB.find(x => x.chiave === _vend.chiave) : null;   // i collegamenti più aggiornati sono sul cloud
             const doc = { ...d, chiave, totale: _tondo(_totaliVendita(d).totale), usata_id: _vend.usata_id || '', acconto_ledger_id: _vend.acconto_ledger_id || '',
@@ -5310,30 +5311,10 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
                 if (o) { updates['vendite/' + o.chiave + '/da_preventivo'] = chiave; updates['vendite/' + o.chiave + '/da_preventivo_id'] = d.id; }
             }
             const note = [];
-            // Acconto della conferma d'ordine → Prima Nota, Cassa INTERNA, entrata "vendita" (un solo movimento, aggiornato se l'acconto cambia)
+            // Acconto: resta scritto nella conferma d'ordine; dalla v226 non va più nella cassa INTERNA (Fabio: non gli serve)
             const acc = d.tipoDocumento === 'ordine' ? _tondo(_numIt(d.acconto)) : 0;
-            const iL = doc.acconto_ledger_id ? ledgerDB.findIndex(m => m && String(m.id) === String(doc.acconto_ledger_id)) : -1;
-            const descL = `ACCONTO ORDINE ${d.id} - ${`${d.cognome} ${d.nome}`.trim()}${(d.marca || d.modello) ? ' - ' + `${d.marca} ${d.modello}`.trim() : ''}`;
-            let ledgerCambiato = false;
-            if (acc > 0) {
-                if (iL > -1) {
-                    const m = ledgerDB[iL];
-                    if (m.importo !== acc || m.desc !== descL) { ledgerDB[iL] = { ...m, importo: acc, qta: 1, desc: descL }; ledgerCambiato = true; note.push('acconto aggiornato nella cassa INTERNA'); }
-                } else if (acc !== doc.acconto_registrato) {
-                    const id = genId();
-                    ledgerDB.push({ id, data: getOggiLocale(), tipo: 'in', cat: 'vendita', collab: 'INTERNO', desc: descL, importo: acc, qta: 1 });
-                    doc.acconto_ledger_id = id;
-                    ledgerCambiato = true;
-                    note.push('acconto nella cassa INTERNA');
-                }
-            } else if (iL > -1) {
-                ledgerDB.splice(iL, 1);
-                doc.acconto_ledger_id = '';
-                ledgerCambiato = true;
-                note.push('acconto tolto dalla cassa INTERNA');
-            }
+            doc.acconto_ledger_id = '';
             doc.acconto_registrato = acc;
-            if (ledgerCambiato) _diffSezione('ledger', ledgerDB, updates);
             // Moto usata: la conferma d'ordine la rende Riservata
             const u = doc.usata_id ? motoUsateDB.find(m => String(m.id) === String(doc.usata_id)) : null;
             if (u && d.tipoDocumento === 'ordine' && u.stato === 'disponibile') {
@@ -5355,14 +5336,12 @@ Per info chiamaci al ${MGM_INFO.tel}. A presto! 🏍️`;
             const v = _vend && _vend.chiave ? venditeDB.find(x => x.chiave === _vend.chiave) : null;
             if (!v) return;
             if (!confirm(`Eliminare per sempre ${v.tipoDocumento === 'preventivo' ? 'il preventivo' : "l'ordine"} N° ${v.id}?`)) return;
-            if (!_puoSalvare('vendite', 'ledger', 'moto_usate', 'db', 'tagliandi')) return;
+            if (!_puoSalvare('vendite', 'moto_usate', 'db', 'tagliandi')) return;
             const updates = { ['vendite/' + v.chiave]: null };
             const p = v.da_preventivo ? venditeDB.find(x => x.chiave === v.da_preventivo && x.ordine_chiave === v.chiave) : null;
             if (p) { updates['vendite/' + p.chiave + '/ordine_chiave'] = null; updates['vendite/' + p.chiave + '/ordine_id'] = null; }
             const o = v.ordine_chiave ? venditeDB.find(x => x.chiave === v.ordine_chiave && x.da_preventivo === v.chiave) : null;
             if (o) { updates['vendite/' + o.chiave + '/da_preventivo'] = null; updates['vendite/' + o.chiave + '/da_preventivo_id'] = null; }
-            const iL = v.acconto_ledger_id ? ledgerDB.findIndex(m => m && String(m.id) === String(v.acconto_ledger_id)) : -1;
-            if (iL > -1 && confirm(`Togliere anche l'acconto di ${_eurIt(ledgerDB[iL].importo)} dalla cassa INTERNA?`)) { ledgerDB.splice(iL, 1); _diffSezione('ledger', ledgerDB, updates); }
             const recA = v.anagrafica_id ? db.find(j => String(j.id) === String(v.anagrafica_id) && j.vendita_chiave === v.chiave && j.stato === 'cliente') : null;
             let dbCambiato = false;
             if (recA && confirm(`La moto ${v.consegna_targa || ''} è stata consegnata: togliere anche la sua scheda dall'Anagrafica e il primo tagliando dalle Scadenze?`)) {
@@ -6188,8 +6167,21 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             }
         }
 
+        // v226: gli acconti delle conferme d'ordine non vanno più nella cassa INTERNA; quelli segnati prima si tolgono
+        // (movimenti INTERNO di categoria "vendita" collegati a un ordine o con la descrizione "ACCONTO ORDINE …")
+        function _togliAccontiVendite() {
+            if (_locale.inCopia || !_cloud.connesso || !['ledger', 'vendite'].every(n => _cloud.caricati.has(n))) return;
+            const ids = new Set(venditeDB.map(v => String(v.acconto_ledger_id || '')).filter(Boolean));
+            const via = m => m && _nomeCassa(m.collab) === 'INTERNO' && m.cat === 'vendita' && (ids.has(String(m.id)) || /^ACCONTO ORDINE /.test(String(m.desc || '')));
+            if (!ledgerDB.some(via)) return;
+            ledgerDB = ledgerDB.filter(m => !via(m));
+            _scriviSezioni(['ledger', ledgerDB]);
+            if (currentView === 'ledger') refreshLedger();
+        }
+        const _dTogliAccontiVendite = debounce(_togliAccontiVendite, 1500);
+
         function refreshLedger() {
-            let ti = 0, to = 0; const cStats = { "INTERNO": { in: 0, out: 0 } }; 
+            let ti = 0, to = 0; const cStats = {};   // v226: niente cassa INTERNO fissa (compare solo se ha movimenti)
             ledgerDB.forEach(m => {
                 const total = (m.importo || 0) * (m.qta || 1);
                 if(m.tipo === 'in') ti += total; else to += total;
@@ -6197,7 +6189,9 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 if(!cStats[cName]) cStats[cName] = { in: 0, out: 0 };
                 if(m.tipo === 'in') cStats[cName].in += total; else cStats[cName].out += total;
                 if (m.da_vedere) cStats[cName].nuovi = (cStats[cName].nuovi || 0) + 1;
+                if (!_segnapostoCassa(m)) cStats[cName].veri = true;
             });
+            if (cStats.INTERNO && !cStats.INTERNO.veri) delete cStats.INTERNO;
 
             if($('ledger-tot-in')) $('ledger-tot-in').innerText = "€ " + ti.toFixed(2); 
             if($('ledger-tot-out')) $('ledger-tot-out').innerText = "€ " + to.toFixed(2);
