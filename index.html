@@ -2100,7 +2100,7 @@
                     </select>
                     <input id="ld_qta" type="number" placeholder="Q.tà" value="1" style="width:80px; margin:0;">
                     <input type="text" id="ld_desc" placeholder="Descrizione..." style="flex:1; margin:0;">
-                    <input type="number" id="ld_importo" placeholder="Importo €" title="Importo (facoltativo)" step="0.01" style="width:150px; margin:0;">
+                    <input type="text" inputmode="decimal" id="ld_importo" placeholder="Importo €" title="Importo (facoltativo): 1.153,97 oppure 1153,97" style="width:150px; margin:0;">
                     <button id="btn-save-ledger" class="btn btn-success w-auto" onclick="saveLedgerEntry()" style="margin:0;">➕ Aggiungi</button>
                     <button id="btn-cancel-ledger" class="btn btn-dark w-auto hidden" onclick="cancelLedgerEdit()" style="margin:0;">❌</button>
                 </div>
@@ -6141,7 +6141,8 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         function saveLedgerEntry() {
             const d = $('ld_data').value, t = $('ld_tipo').value, c = $('ld_cat').value, ds = $('ld_desc').value.trim();
             const col = safeDecode(currentCollabView) || 'INTERNO'; 
-            const i = parseFloat($('ld_importo').value) || 0, q = parseFloat($('ld_qta').value) || 1, e = $('ld_edit_id').value;
+            // v229: importo scritto all'italiana ("1.153,97"): la casella numerica di Chrome lo leggeva 1,15
+            const i = _tondo(_numIt($('ld_importo').value)), q = parseFloat($('ld_qta').value) || 1, e = $('ld_edit_id').value;
             if(!d || !ds) return mostraErrore("Data e Descrizione obbligatori!");
             if (_mcMese && !d.startsWith(_mcMese)) _mcMese = '';   // movimento di un altro mese: si torna a "Tutti i mesi" così si vede
             if(e) { const idx = ledgerDB.findIndex(x => String(x.id) === String(e)); if(idx > -1) { const prima = ledgerDB[idx]; ledgerDB[idx] = { id: prima.id != null ? prima.id : parseInt(e), data: d, tipo: t, cat: c, collab: col, desc: ds.toUpperCase(), importo: i, qta: q }; if (prima.autore === 'collab') ledgerDB[idx].autore = 'collab'; } } 
@@ -6152,7 +6153,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         function editLedgerEntry(id) {
             const m = ledgerDB.find(x => String(x.id) === String(id)); if(!m) return;
             $('ld_edit_id').value = m.id; $('ld_data').value = m.data; $('ld_tipo').value = m.tipo; $('ld_cat').value = m.cat || 'officina';
-            $('ld_desc').value = m.desc; $('ld_importo').value = m.importo || ''; $('ld_qta').value = m.qta || 1;
+            $('ld_desc').value = m.desc; $('ld_importo').value = Number(m.importo) ? String(m.importo).replace('.', ',') : ''; $('ld_qta').value = m.qta || 1;
             $('btn-save-ledger').className = "btn btn-warning w-auto"; $('btn-save-ledger').innerHTML = "💾 Salva Modifica"; 
             $('btn-cancel-ledger').classList.remove('hidden');
         }

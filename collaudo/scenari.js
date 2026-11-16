@@ -3164,6 +3164,15 @@
     closeModal('modal-cassa-link');
 
     // Movimenti scritti in officina → copia online
+    // v229: importi scritti all'italiana (prima la casella numerica leggeva "1.153,97" come 1,15)
+    campo('ld_desc', 'PROVA MIGLIAIA'); campo('ld_importo', '1.153,97'); saveLedgerEntry(); await attendi(20);
+    const migl = ledgerDB.find(x => x.desc === 'PROVA MIGLIAIA');
+    ok(migl && migl.importo === 1153.97 && document.getElementById('ld_importo').type === 'text', 'Cassa: "1.153,97" si salva come 1153,97 €');
+    editLedgerEntry(migl.id);
+    ok(document.getElementById('ld_importo').value === '1153,97', 'Cassa: correggendo, l\'importo compare con la virgola (1153,97)');
+    campo('ld_importo', '2.398'); saveLedgerEntry(); await attendi(20);
+    ok(ledgerDB.find(x => x.id === migl.id).importo === 2398, 'Cassa: "2.398" vale 2398 €, non 2,40');
+    deleteLedgerEntry(migl.id); await attendi(20);
     campo('ld_tipo', 'in'); campo('ld_desc', 'bulloni'); campo('ld_importo', '5'); saveLedgerEntry(); await sinc();
     v = voci(K);
     const bul = Object.values(v).find(x => x.desc === 'BULLONI');
@@ -3371,6 +3380,11 @@
 
     suaRiga().querySelector('button.mod').click(); await attendi(20);
     ok(d.getElementById('mod-titolo').textContent === 'Correggi movimento' && d.getElementById('f-importo').value === '120,5', 'Pagina: ✏️ riempie il modulo per correggere');
+    d.getElementById('f-importo').value = '1.100,50'; d.getElementById('modulo').requestSubmit(); await attendi(1450);
+    ok(Object.values(fb.leggi('ledger') || {}).some(x => x && x.desc === 'RIPARAZIONE IMPIANTO' && x.importo === 1100.5), 'Pagina: "1.100,50" si salva come 1100,50 € (v229)');
+    suaRiga().querySelector('button.mod').click(); await attendi(20);
+    d.getElementById('f-importo').value = 'cento'; d.getElementById('modulo').requestSubmit(); await attendi(20);
+    ok(d.getElementById('mod-esito').textContent.includes('Importo non valido'), 'Pagina: un importo scritto in lettere viene rifiutato');
     d.getElementById('f-importo').value = '100'; d.getElementById('modulo').requestSubmit(); await attendi(1450);
     ok(Object.values(fb.leggi('ledger') || {}).some(x => x && x.desc === 'RIPARAZIONE IMPIANTO' && x.importo === 100) && sue().length === 1, 'Pagina → gestionale: la correzione arriva nella Prima Nota');
     let rifiutato = false;
