@@ -3426,6 +3426,14 @@
     d.getElementById('chat-testo').value = 'Sì, alle 9'; d.getElementById('chat-form').requestSubmit(); await attendi(1450);
     ok(_chatOrdinata(_msgChat(C)).some(x => x.da === 'collab' && x.testo === 'Sì, alle 9'), 'Pagina → gestionale: il suo messaggio arriva nella chat della cassa');
     d.getElementById('chat-chiudi').click(); await attendi(20);
+    // v230: stampa del foglio (come "Stampa Scheda Collaboratore" nel gestionale)
+    let stampato = false; f.contentWindow.print = () => { stampato = true; };
+    d.getElementById('btn-stampa').click(); await attendi(200);
+    { const pa = d.getElementById('print-area'), pr = [...pa.querySelectorAll('tbody tr')], tt = pa.textContent;
+      const attese = Object.values(fb.leggi('casse_condivise/' + K + '/voci') || {}).filter(x => !x.eliminata);
+      ok(stampato && tt.includes('ESTRATTO CONTO: ' + C) && tt.includes('MOTO GARAGE MARCELLO') && pr.length === attese.length, 'Pagina: "🖨️ Stampa" prepara il foglio con tutti i movimenti (' + pr.length + '/' + attese.length + ') e apre la stampa');
+      ok(tt.includes("Entrate (l'officina ti deve)") && /L'officina ti deve|Devi all'officina|Saldo/.test(pa.querySelectorAll('.p-box h4')[2].textContent) && !pa.querySelector('img, script'), 'Pagina: il foglio ha i tre riquadri dal suo punto di vista, solo testo');
+      ok(getComputedStyle(pa).display === 'none', 'Pagina: a schermo il foglio di stampa non si vede'); }
     ok(getComputedStyle(d.getElementById('chat')).display === 'none', 'Pagina (telefono): la chat si chiude con ×');
     chiudiPagine();
 
