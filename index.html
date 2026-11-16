@@ -2111,6 +2111,7 @@
                 <span id="mc-archivio-badge" style="display:none; background:#8b5cf6; color:white; border-radius:20px; padding:2px 8px; font-size:0.72rem; align-self:center;"></span>
                 <select id="mc-mese" aria-label="Mese dei movimenti" onchange="_mcMese = this.value; openCollabDetail(currentCollabView, true)" style="width:auto; margin:0 0 0 auto; padding:5px 10px; font-size:0.85rem;"></select>
             </div>
+            <div id="mc-cancellati" style="display:none;"></div>
             <div id="mc-cat-totali" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; flex-shrink:0;"></div>
 
             <div id="mc-table-section" style="flex-grow: 1; overflow-y: auto; overflow-x: hidden; background:white; border-radius:10px; border:1px solid #cbd5e1;">
@@ -6253,6 +6254,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             const list = tutti.filter(x => !_mcMese || String(x.data || '').startsWith(_mcMese))
                 .sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || (Number(b.id) || 0) - (Number(a.id) || 0));
             _totaliCategorieCassa(list);
+            _renderCancellatiCassa(name);
             
             let ti = 0, to = 0; const tb = $('mc-rows'); if(!tb) return; tb.innerHTML = '';
             const isMob = window.innerWidth <= 768;
@@ -6266,10 +6268,14 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                 const rowBgLedger = nuova ? '#fef9c3' : m.tipo==='in' ? 'white' : '#fff8f8';
                 const chipCollab = m.autore === 'collab' ? `<span class="mc-dal-collab" style="background:#ede9fe; color:#5b21b6; border-radius:4px; padding:1px 6px; font-size:0.72rem; margin-left:6px; font-weight:700; white-space:nowrap;">✍️ dal collaboratore${nuova ? ' · nuovo' : ''}</span>` : '';
                 const chipCollabMob = m.autore === 'collab' ? `<span class="mc-dal-collab" style="background:rgba(139,92,246,0.22); color:#c4b5fd; border-radius:4px; padding:1px 6px; font-size:0.72rem; margin-left:6px; font-weight:700; white-space:nowrap;">✍️ dal collaboratore${nuova ? ' · nuovo' : ''}</span>` : '';
+                const corr = !!m.corretto_collab && m.autore !== 'collab', pr = m.prima || {};
+                const primaTxt = corr ? `Prima: ${formattaData(pr.data)} · ${Number(pr.qta) > 1 ? pr.qta + '× ' : ''}${pr.desc || ''} · ${pr.tipo === 'out' ? '−' : '+'} € ${((Number(pr.importo) || 0) * (Number(pr.qta) || 1)).toFixed(2)}` : '';
+                const chipCorr = corr ? `<span class="mc-corretto" title="${htmlEsc(primaTxt)}" style="background:#ffedd5; color:#9a3412; border-radius:4px; padding:1px 6px; font-size:0.72rem; margin-left:6px; font-weight:700; white-space:nowrap;">✏️ corretto dal collaboratore${nuova ? ' · nuovo' : ''}</span>${nuova ? `<div class="mc-prima" style="font-size:0.75rem; color:#9a3412; font-weight:600; margin-top:2px;">${htmlEsc(primaTxt)}</div>` : ''}` : '';
+                const chipCorrMob = corr ? `<span class="mc-corretto" style="background:rgba(251,146,60,0.2); color:#fdba74; border-radius:4px; padding:1px 6px; font-size:0.72rem; margin-left:6px; font-weight:700; white-space:nowrap;">✏️ corretto dal collaboratore${nuova ? ' · nuovo' : ''}</span>${nuova ? `<div class="mc-prima" style="font-size:0.75rem; color:#fdba74; margin-top:2px;">${htmlEsc(primaTxt)}</div>` : ''}` : '';
                 tb.innerHTML += `<tr style="border-bottom:2px solid #94a3b8; background:${rowBgLedger};">
                     <td style="padding:9px 14px; background:#f1f5f9; border-right:1px solid #cbd5e1; color:#1e293b; font-family:monospace; font-size:0.88rem; font-weight:700; white-space:nowrap;">${formattaData(m.data)}</td>
                     <td style="padding:9px 14px; background:#cbd5e1; border-right:1px solid #b0bec5; font-weight:700; color:#1e293b; font-size:0.8rem;"><span class="cat-badge">${htmlEsc(m.cat || 'OFF')}</span></td>
-                    <td style="padding:9px 14px; background:#f8fafc; border-right:1px solid #cbd5e1; font-weight:600; color:#1e293b;">${m.qta>1?'<span style=\'background:#e0e7ef;border-radius:4px;padding:1px 6px;font-size:0.78rem;margin-right:5px;\'>' + m.qta + '×</span>':''}${htmlEsc(m.desc)}${chipCollab}</td>
+                    <td style="padding:9px 14px; background:#f8fafc; border-right:1px solid #cbd5e1; font-weight:600; color:#1e293b;">${m.qta>1?'<span style=\'background:#e0e7ef;border-radius:4px;padding:1px 6px;font-size:0.78rem;margin-right:5px;\'>' + m.qta + '×</span>':''}${htmlEsc(m.desc)}${chipCollab}${chipCorr}</td>
                     <td style="padding:9px 14px; text-align:right; border-right:1px solid #cbd5e1; font-weight:800; font-size:1rem; color:#16a34a;">${m.tipo==='in'?'+ '+pTxt:''}</td>
                     <td style="padding:9px 14px; text-align:right; border-right:1px solid #cbd5e1; font-weight:800; font-size:1rem; color:#dc2626;">${m.tipo==='out'?'− '+pTxt:''}</td>
                     <td style="padding:9px 10px; text-align:center;"><div style="display:flex; gap:5px; justify-content:center;"><button style="background:transparent; color:#f59e0b; border:1px solid #f59e0b; padding:5px 9px; border-radius:6px; cursor:pointer; font-size:0.8rem;" onclick="editLedgerEntry(${m.id})">✏️</button><button style="background:transparent; color:#ef4444; border:1px solid #ef4444; padding:5px 9px; border-radius:6px; cursor:pointer; font-size:0.8rem;" onclick="deleteLedgerEntry(${m.id})">🗑️</button></div></td>
@@ -6288,7 +6294,7 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                                 <button onclick="deleteLedgerEntry(${m.id})" style="background:transparent; border:1px solid var(--accent); color:var(--accent); padding:4px 8px; border-radius:6px; font-size:0.8rem; cursor:pointer;">🗑️</button>
                             </div>
                         </div>
-                        <div style="font-size:0.88rem; color:white; margin-bottom:4px;">${m.qta>1?m.qta+'x ':''}${htmlEsc(m.desc)}${chipCollabMob}</div>
+                        <div style="font-size:0.88rem; color:white; margin-bottom:4px;">${m.qta>1?m.qta+'x ':''}${htmlEsc(m.desc)}${chipCollabMob}${chipCorrMob}</div>
                         <div style="font-weight:900; font-size:1.05rem; color:${colore};">${segno} ${pTxt}</div>
                     </div>`;
                 }
@@ -6327,8 +6333,10 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         }
         // Come appare un movimento della Prima Nota nella copia online
         function _voceCassaCondivisa(m) {
-            return { id: m.id, data: String(m.data || ''), tipo: m.tipo === 'out' ? 'out' : 'in', cat: String(m.cat || 'officina'), desc: String(m.desc || ''),
+            const v = { id: m.id, data: String(m.data || ''), tipo: m.tipo === 'out' ? 'out' : 'in', cat: String(m.cat || 'officina'), desc: String(m.desc || ''),
                 importo: Number(m.importo) || 0, qta: Number(m.qta) || 1, autore: m.autore === 'collab' ? 'collab' : 'officina', sinc: true };
+            if (m.corretto_collab && m.autore !== 'collab') v.corretto = true;
+            return v;
         }
         function _vociCassaCondivisa(nome) {
             const voci = {};
@@ -6368,11 +6376,25 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
                     const i = ledgerDB.findIndex(x => x && String(x.id) === String(id));
                     const es = i > -1 ? ledgerDB[i] : null;
                     u[base + vk] = null;   // se la voce resta nella Prima Nota, il punto 2 la riscrive com'è lì
-                    if (es && (es.autore !== 'collab' || _nomeCassa(es.collab) !== nome)) return;   // non è una sua voce: non si tocca
-                    if (p.eliminata) { if (es) { ledgerDB.splice(i, 1); scriviLedger(id, null); } return; }
+                    if (vk !== _chiaveVoceCassa(id)) return;   // voce scritta in un posto diverso dal suo: non vale
+                    if (es && (_nomeCassa(es.collab) !== nome || _segnapostoCassa(es))) return;   // movimento di un'altra cassa o segnaposto: non si tocca
+                    // v227 (Fabio): può correggere e cancellare anche i movimenti dell'officina, che restano segnalati
+                    const suo = !es || es.autore === 'collab';
+                    if (p.eliminata) {
+                        if (!es) return;
+                        if (suo) { ledgerDB.splice(i, 1); scriviLedger(id, null); return; }
+                        const segno = { id: es.id, data: String(es.data || getOggiLocale()), tipo: 'in', cat: String(es.cat || 'officina'), collab: nome, desc: 'CANCELLATO DAL COLLABORATORE', importo: 0, qta: 1, da_vedere: true,
+                            cancellato_collab: { data: String(es.data || ''), tipo: es.tipo === 'out' ? 'out' : 'in', cat: String(es.cat || 'officina'), desc: String(es.desc || ''), importo: Number(es.importo) || 0, qta: Number(es.qta) || 1, il: getOggiLocale() } };
+                        ledgerDB[i] = segno; scriviLedger(id, segno); return;
+                    }
                     const nv = { id, data: /^\d{4}-\d{2}-\d{2}$/.test(p.data) ? p.data : getOggiLocale(), tipo: p.tipo === 'out' ? 'out' : 'in',
                         cat: catOrder.includes(p.cat) ? p.cat : 'officina', collab: nome, desc: String(p.desc || '').trim().toUpperCase().slice(0, 200) || 'MOVIMENTO',
-                        importo: Number(p.importo) || 0, qta: Math.max(1, Number(p.qta) || 1), autore: 'collab' };
+                        importo: Number(p.importo) || 0, qta: Math.max(1, Number(p.qta) || 1) };
+                    if (suo) nv.autore = 'collab';
+                    else {
+                        nv.corretto_collab = true;
+                        nv.prima = es.prima || { data: String(es.data || ''), tipo: es.tipo === 'out' ? 'out' : 'in', cat: String(es.cat || 'officina'), desc: String(es.desc || ''), importo: Number(es.importo) || 0, qta: Number(es.qta) || 1 };
+                    }
                     const cambiato = !es || ['data', 'tipo', 'cat', 'desc', 'importo', 'qta'].some(f => String(es[f]) !== String(nv[f]));
                     if (cambiato || (es && es.da_vedere)) nv.da_vedere = true;
                     if (!cambiato) return;
@@ -6513,6 +6535,42 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             saveLedger();
             refreshLedger();
         }
+        // v227: movimenti dell'officina cancellati dal collaboratore → riquadro giallo nella cassa finché non premi "Ho visto"
+        function _renderCancellatiCassa(nome) {
+            const box = $('mc-cancellati');
+            if (!box) return;
+            const N = _nomeCassa(nome), lista = ledgerDB.filter(x => x && x.cancellato_collab && _nomeCassa(x.collab) === N);
+            if (!lista.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+            box.style.cssText = 'display:block; background:#fef3c7; border:2px solid #f59e0b; border-radius:10px; padding:10px 12px; margin-bottom:8px; flex-shrink:0; color:#78350f;';
+            box.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:4px;">
+                    <b>🗑️ Il collaboratore ha cancellato ${lista.length === 1 ? 'un movimento scritto da te' : lista.length + ' movimenti scritti da te'}</b>
+                    <button type="button" class="btn w-auto" onclick="vistiCancellatiCollab('${safeEncode(N)}')" style="margin:0; background:#f59e0b; color:#1e1e1e; padding:6px 12px; font-size:0.85rem;">✓ Ho visto</button>
+                </div>` + lista.map(x => {
+                const c = x.cancellato_collab, tot = (Number(c.importo) || 0) * (Number(c.qta) || 1);
+                return `<div class="mc-canc-riga" style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:5px 0; border-top:1px solid rgba(120,53,15,0.2); flex-wrap:wrap;">
+                    <span>${formattaData(c.data)} · ${Number(c.qta) > 1 ? htmlEsc(c.qta) + '× ' : ''}<b>${htmlEsc(c.desc)}</b> · <b style="color:${c.tipo === 'out' ? '#b91c1c' : '#15803d'};">${c.tipo === 'out' ? '−' : '+'} € ${tot.toFixed(2)}</b> <span style="font-size:0.78rem; opacity:0.8;">(cancellato il ${formattaData(c.il)})</span></span>
+                    <button type="button" class="btn w-auto" onclick="rimettiCancellatoCollab('${safeEncode(String(x.id))}')" style="margin:0; background:white; color:#78350f; border:1px solid #f59e0b; padding:5px 10px; font-size:0.82rem;">↩️ Rimetti</button>
+                </div>`;
+            }).join('');
+        }
+        function rimettiCancellatoCollab(encId) {
+            const id = safeDecode(encId), i = ledgerDB.findIndex(x => x && x.cancellato_collab && String(x.id) === String(id));
+            if (i < 0) return;
+            const s = ledgerDB[i], c = s.cancellato_collab;
+            ledgerDB[i] = { id: s.id, data: c.data || s.data, tipo: c.tipo === 'out' ? 'out' : 'in', cat: c.cat || 'officina', collab: s.collab, desc: String(c.desc || ''), importo: Number(c.importo) || 0, qta: Number(c.qta) || 1 };
+            saveLedger();
+            mostraToast('↩️ Movimento rimesso nella cassa: lo rivede anche il collaboratore');
+            refreshLedger();
+            if (currentCollabView) openCollabDetail(currentCollabView, true);
+        }
+        function vistiCancellatiCollab(encName) {
+            const N = _nomeCassa(safeDecode(encName)), n = ledgerDB.length;
+            ledgerDB = ledgerDB.filter(x => !(x && x.cancellato_collab && _nomeCassa(x.collab) === N));
+            if (ledgerDB.length === n) return;
+            saveLedger();
+            refreshLedger();
+            if (currentCollabView) openCollabDetail(currentCollabView, true);
+        }
         function _pinCassa() { const r = new Uint32Array(1); crypto.getRandomValues(r); return String(r[0] % 10000).padStart(4, '0'); }
 
         function apriLinkCassa(encName) {
@@ -6520,8 +6578,8 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
             if (nome === 'INTERNO') return;
             const l = _linkCassa(nome), e = safeEncode(nome), pb = 'margin:0;';
             $('cl-nome').textContent = 'Cassa: ' + nome;
-            const spiega = `<p style="margin:0 0 10px; line-height:1.5;">Con il link <b style="color:white;">${htmlEsc(nome)}</b> apre questa cassa dal telefono: vede tutti i movimenti, ne aggiunge di nuovi e corregge o cancella solo quelli scritti da lui. I tuoi li vede ma non li può toccare.</p>
-                <p style="margin:0 0 14px; color:var(--muted); font-size:0.9rem; line-height:1.5;">Per aprirla serve anche un PIN di 4 cifre. Quando scrive qualcosa, sulla sua cassa in Collaboratori compare "✍️ nuovi".</p>`;
+            const spiega = `<p style="margin:0 0 10px; line-height:1.5;">Con il link <b style="color:white;">${htmlEsc(nome)}</b> apre questa cassa dal telefono: vede tutti i movimenti, ne aggiunge di nuovi e può correggere o cancellare anche quelli scritti da te.</p>
+                <p style="margin:0 0 14px; color:var(--muted); font-size:0.9rem; line-height:1.5;">Per aprirla serve anche un PIN di 4 cifre. Quando scrive, corregge o cancella qualcosa, sulla sua cassa in Collaboratori compare "✍️ nuovi": un tuo movimento corretto resta segnato con com'era prima, uno cancellato resta in un riquadro giallo finché non lo vedi (e lo puoi rimettere).</p>`;
             let html;
             if (l && l.attivo) {
                 const url = CASSA_URL + l.codice;
@@ -6607,8 +6665,9 @@ Moto Garage Marcello — ${MGM_INFO.tel}. A presto! 🏍️`;
         }
 
         // Righe "segnaposto" senza importo (chiusura della scheda, vecchi "RESET SCHEDA"): servono solo a tenere il
-        // collaboratore nell'elenco delle casse; nella scheda, nella stampa e nella cassa condivisa non si vedono
-        const _segnapostoCassa = m => !!m && (!!m.chiusura_scheda || (/^RESET SCHEDA/.test(String(m.desc || '')) && !(Number(m.importo) || 0)));
+        // collaboratore nell'elenco delle casse; nella scheda, nella stampa e nella cassa condivisa non si vedono.
+        // v227: anche un movimento dell'officina cancellato dal collaboratore (cancellato_collab = com'era), finché non lo vedi
+        const _segnapostoCassa = m => !!m && (!!m.chiusura_scheda || !!m.cancellato_collab || (/^RESET SCHEDA/.test(String(m.desc || '')) && !(Number(m.importo) || 0)));
         // Elimina il collaboratore (v225, Fabio: "tutto"): movimenti, archivio delle schede, chat e link della cassa
         function eliminaCollaboratore() {
             const name = safeDecode(currentCollabView || ''), N = name.toUpperCase();
