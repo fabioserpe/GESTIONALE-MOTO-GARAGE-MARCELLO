@@ -18,6 +18,9 @@
         v228 (Fabio: "a schermo intero e come la mia"): stessa impaginazione della cassa nel gestionale (#modal-collab):
         riquadri Entrate/Uscite/Saldo, modulo su una riga, totali per categoria, tabella bianca, chat a destra
         (sotto i 1100 px dietro il pulsante "💬 Chat"); sul telefono le righe della tabella diventano schede.
+        v230 (Fabio: "permetti al collaboratore di stampare il foglio"): "🖨️ Stampa" = stesso foglio di
+        printCollabLedger nel gestionale (intestazione, tre riquadri, movimenti per categoria), dal suo punto di vista
+        e solo il mese scelto se c'è un filtro; si stampa #print-area, il resto della pagina in stampa è nascosto.
     -->
     <style>
         :root {
@@ -135,6 +138,34 @@
         .chat-form .btn { padding: 10px 14px; }
         #chat-esito:empty { display: none; }
 
+        #btn-stampa { border-color: var(--viola); color: #c4b5fd; }
+
+        /* Foglio da stampare (come "Stampa Scheda Collaboratore" nel gestionale) */
+        #print-area { display: none; }
+        @media print {
+            @page { size: A4 portrait; margin: 1cm; }
+            html, body { background: white !important; color: black !important; height: auto !important; min-height: 0 !important; }
+            body > *:not(#print-area) { display: none !important; }
+            #print-area { display: block !important; max-width: 19cm; margin: 0 auto; color: black; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11pt; }
+            #print-area .p-header { border-bottom: 3px solid black; padding-bottom: 15px; margin-bottom: 25px; }
+            #print-area .p-header h1 { color: black; font-size: 22pt; text-transform: none; margin: 0; }
+            #print-area .p-header p { margin: 5px 0 0; color: #555; }
+            #print-area .p-title-bar { background: #f4f4f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 10px 15px; font-weight: bold; border: 1px solid #000; margin-bottom: 20px; border-radius: 5px; display: flex; justify-content: space-between; gap: 10px; }
+            #print-area .p-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+            #print-area .p-box { border: 1px solid #000; padding: 15px; border-radius: 8px; }
+            #print-area .p-box h4 { margin: 0; color: #555; font-size: 10pt; }
+            #print-area .p-box p { font-size: 1.3rem; margin-top: 5px; font-weight: bold; }
+            #print-area h3 { margin: 20px 0 10px; font-size: 13pt; }
+            #print-area table { width: 100%; border-collapse: collapse; }
+            #print-area thead { display: table-header-group; }
+            #print-area tr { page-break-inside: avoid; }
+            #print-area th { text-align: left; padding: 8px; border-bottom: 2px solid black; font-size: 10pt; }
+            #print-area td { padding: 8px; border-bottom: 1px solid #ccc; vertical-align: top; }
+            #print-area .dx { text-align: right; white-space: nowrap; }
+            #print-area .verde { color: green; } #print-area .rosso { color: red; }
+            #print-area .p-piede { text-align: center; margin-top: 40px; font-size: 9pt; color: #666; }
+        }
+
         @media (prefers-reduced-motion: no-preference) {
             tr.riga.appena td { animation: lampo 1.8s ease-out; }
             @keyframes lampo { from { box-shadow: inset 0 0 0 999px rgba(139,92,246,0.25); } to { box-shadow: inset 0 0 0 999px rgba(139,92,246,0); } }
@@ -225,6 +256,7 @@
             <div class="cs-testa-dx">
                 <span id="rete">⏳ Collegamento…</span>
                 <button type="button" id="btn-chat" class="btn-bordo">💬 Chat</button>
+                <button type="button" id="btn-stampa" class="btn-bordo" title="Stampa il foglio della cassa">🖨️ Stampa</button>
                 <button type="button" id="btn-cambia-pin" class="btn-bordo hidden">Cambia PIN</button>
             </div>
         </div>
@@ -286,6 +318,8 @@
         <div class="esito" id="chat-esito" role="status"></div>
     </aside>
 </div>
+
+<div id="print-area" aria-hidden="true"></div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -468,6 +502,34 @@
             .catch(() => { $('chat-esito').textContent = '⚠️ Messaggio non inviato: il link è stato disattivato oppure il PIN è cambiato.'; $('chat-esito').style.color = 'var(--rosso)'; $('chat-testo').value = testo; });
     }
 
+    // Foglio da stampare: come printCollabLedger nel gestionale (per categoria, poi data), dal suo punto di vista
+    function stampa() {
+        if (!aperta) return;
+        const lista = elencoVoci().filter(v => !meseScelto || String(v.data || '').startsWith(meseScelto))
+            .sort((a, b) => (CAT.indexOf(a.cat || 'officina') - CAT.indexOf(b.cat || 'officina')) || String(b.data || '').localeCompare(String(a.data || '')));
+        let entrate = 0, uscite = 0;
+        const righe = lista.map(v => {
+            const t = (Number(v.importo) || 0) * (Number(v.qta) || 1), entra = v.tipo === 'out';
+            if (entra) entrate += t; else uscite += t;
+            const imp = t > 0 ? eur(t) : 'DA DEF.';
+            return `<tr><td>${esc(dataIt(v.data))}</td><td>[${esc(String(v.cat || 'officina').toUpperCase())}]</td><td>${Number(v.qta) > 1 ? esc(v.qta) + 'x ' : ''}${esc(v.desc)}</td>`
+                + `<td class="dx verde">${entra ? '+ ' + imp : ''}</td><td class="dx rosso">${entra ? '' : '− ' + imp}</td></tr>`;
+        }).join('');
+        const saldo = entrate - uscite;
+        const sEt = saldo > 0.004 ? 'L\'officina ti deve' : saldo < -0.004 ? 'Devi all\'officina' : 'Saldo';
+        const sVal = Math.abs(saldo) > 0.004 ? eur(Math.abs(saldo)) : 'In pari';
+        const mese = meseScelto && $('f-mese').selectedOptions[0] ? ' · ' + $('f-mese').selectedOptions[0].textContent.toUpperCase() : '';
+        $('print-area').innerHTML = `<div class="p-header"><h1>MOTO GARAGE MARCELLO</h1><p>Ragusa (RG) | Tel: 0932 644902 | P.IVA: 01622620886</p></div>`
+            + `<div class="p-title-bar"><span>ESTRATTO CONTO: ${esc(nome.toUpperCase())}${esc(mese)}</span><span>Data: ${esc(dataIt(oggi()))}</span></div>`
+            + `<div class="p-grid"><div class="p-box"><h4>Entrate (l'officina ti deve)</h4><p class="verde">${eur(entrate)}</p></div>`
+            + `<div class="p-box"><h4>Uscite (devi all'officina)</h4><p class="rosso">${eur(uscite)}</p></div>`
+            + `<div class="p-box" style="background:#f4f4f5;"><h4>${sEt}</h4><p class="${saldo < -0.004 ? 'rosso' : ''}">${sVal}</p></div></div>`
+            + `<h3>Dettaglio movimenti</h3><table><thead><tr><th style="width:95px;">Data</th><th style="width:150px;">Cat.</th><th>Descrizione</th><th class="dx" style="width:115px;">Entrata</th><th class="dx" style="width:115px;">Uscita</th></tr></thead>`
+            + `<tbody>${righe || '<tr><td colspan="5" style="text-align:center;">Nessun movimento.</td></tr>'}</tbody></table>`
+            + `<div class="p-piede">Documento generato da Moto Garage Marcello</div>`;
+        setTimeout(() => window.print(), 100);
+    }
+
     function svuotaModulo() {
         inModifica = null;
         $('modulo').reset();
@@ -559,6 +621,7 @@
     $('chat-testo').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); inviaMsg(e); } });
     $('btn-chat').addEventListener('click', () => apriChiudiChat(!$('sch-cassa').classList.contains('chat-aperta')));
     $('chat-chiudi').addEventListener('click', () => apriChiudiChat(false));
+    $('btn-stampa').addEventListener('click', stampa);
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('sch-cassa').classList.contains('chat-aperta')) apriChiudiChat(false); });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && aperta) mostraChat(); });
     window.addEventListener('resize', () => { if (aperta) mostraChat(); });
