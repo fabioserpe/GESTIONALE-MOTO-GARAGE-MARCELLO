@@ -1,4 +1,4 @@
-const CACHE = 'garage-v227';
+const CACHE = 'garage-v228';
 const APP_SHELL = [
   '/GESTIONALE-MOTO-GARAGE-MARCELLO/',
   '/GESTIONALE-MOTO-GARAGE-MARCELLO/index.html'

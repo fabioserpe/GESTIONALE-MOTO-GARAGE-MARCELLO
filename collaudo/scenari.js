@@ -3139,6 +3139,8 @@
     openCollabDetail(safeEncode('INTERNO')); await attendi(20);
     ok(document.getElementById('mc-btn-link').style.display === 'none', 'Cassa condivisa: niente link per la cassa INTERNA');
     openCollabDetail(enc); await attendi(20);
+    { const mc = document.querySelector('#modal-collab > .modal-content').getBoundingClientRect();
+      ok(Math.abs(mc.width - innerWidth) < 2 && Math.abs(mc.height - innerHeight) < 2 && mc.left === 0 && mc.top === 0, 'Cassa: la finestra occupa tutto lo schermo (v228)'); }
     const bl = document.getElementById('mc-btn-link');
     ok(bl.style.display !== 'none' && bl.textContent.includes('Link per il collaboratore'), 'Cassa condivisa: pulsante "🔗 Link per il collaboratore" nella cassa');
     bl.click(); await attendi(20);
@@ -3290,6 +3292,8 @@
     const puoLeggere = p => { const s = p.split('/').filter(Boolean); return p === '.info/connected' || (s[0] === 'casse_condivise' && s.length >= 2 && attivo(s[1])); };
     const puoScrivere = (p, x) => {
       const s = p.split('/').filter(Boolean);
+      if (s[0] === 'casse_condivise' && s.length === 4 && s[2] === 'chat' && attivo(s[1])) return !fb.leggi(p) && !!x && x.da === 'collab' && typeof x.testo === 'string' && x.testo.length > 0 && x.testo.length <= 1000 && typeof x.t === 'number';
+      if (s[0] === 'casse_condivise' && s.length === 3 && s[2] === 'letto_collab' && attivo(s[1])) return typeof x === 'number';
       if (!(s[0] === 'casse_condivise' && s.length === 4 && s[2] === 'voci' && attivo(s[1]))) return false;
       const prima = fb.leggi(p);
       if (!x || 'sinc' in x) return false;
@@ -3315,10 +3319,10 @@
     };
     window.__firebaseCollab = { initializeApp: () => ({}), database: () => ({ ref: refCollab }) };
     const riquadri = [];
-    const apriPagina = async hash => {
+    const apriPagina = async (hash, larg = 390, alt = 800) => {
       window.__cassaHash = hash;
       const f = document.createElement('iframe');
-      f.style.cssText = 'position:fixed; left:0; top:0; width:390px; height:800px; border:0; z-index:99999; background:#0f172a;';
+      f.style.cssText = `position:fixed; left:0; top:0; width:${larg}px; height:${alt}px; border:0; z-index:99999; background:#0f172a;`;
       f.srcdoc = window.__cassaHtml;
       document.body.appendChild(f); riquadri.push(f);
       for (let i = 0; i < 150 && !(f.contentDocument && f.contentDocument.readyState === 'complete' && f.contentDocument.getElementById('rete')); i++) await attendi(20);
@@ -3348,7 +3352,7 @@
     d.getElementById('f-pin').value = l.pin; d.getElementById('sch-pin').requestSubmit(); await attendi(80);
     ok(vis(d, 'sch-cassa') && d.getElementById('titolo').textContent === 'Cassa: ' + C, 'Pagina: con il PIN giusto si apre la cassa');
     let righe = () => [...d.querySelectorAll('#elenco .riga')];
-    ok(righe().length === 1 && righe()[0].textContent.includes('BATTERIA DATA') && righe()[0].textContent.includes('scritto dall\'officina') && righe()[0].querySelectorAll('button').length === 2, 'Pagina: vede i movimenti dell\'officina, con ✏️ e 🗑️ anche su quelli (v227)');
+    ok(righe().length === 1 && righe()[0].textContent.includes('BATTERIA DATA') && !righe()[0].textContent.includes('scritto da te') && !righe()[0].classList.contains('mia') && righe()[0].querySelectorAll('button').length === 2, 'Pagina: vede i movimenti dell\'officina (senza "scritto da te"), con ✏️ e 🗑️ anche su quelli (v227)');
     ok(d.getElementById('saldo-et').textContent === 'Devi all\'officina' && d.getElementById('saldo-val').textContent === '€ 80,00' && d.getElementById('tot-out').textContent === '€ 80,00', 'Pagina: saldo dal suo punto di vista (quello che noi chiamiamo "ci devono" per lui è un\'uscita)');
     let pinSalvato = null; try { pinSalvato = localStorage.getItem('mgmCassaPin_' + l.codice); } catch (e) {}
     ok(pinSalvato === l.pin, 'Pagina: il telefono ricorda il PIN');
@@ -3397,10 +3401,29 @@
     const sel = d.getElementById('f-mese');
     ok(sel.options[0].textContent === 'Tutti i mesi' && sel.options.length >= 2, 'Pagina: filtro per mese');
     ok(d.documentElement.scrollWidth <= 390, 'Pagina: sul telefono (390 px) niente scorrimento di lato (' + d.documentElement.scrollWidth + ')');
+    // v228 (Fabio: "a schermo intero e come la mia"): sul telefono righe a schede e chat dietro "💬 Chat"
+    ok(getComputedStyle(d.querySelector('.tab-mov thead')).display === 'none' && righe().length && getComputedStyle(righe()[0]).display === 'grid', 'Pagina (telefono): le righe della tabella diventano schede');
+    openCollabDetail(enc); await attendi(20);
+    document.getElementById('mc-chat-testo').value = 'Ciao, passi domani?'; inviaMsgCassa(); await attendi(40);
+    closeModal('modal-collab');
+    ok(d.getElementById('chat-lista').textContent.includes('passi domani') && getComputedStyle(d.getElementById('chat')).display === 'none' && /Chat\s*1/.test(d.getElementById('btn-chat').textContent) && !fb.leggi('casse_condivise/' + K + '/letto_collab'), 'Pagina (telefono): la chat sta dietro "💬 Chat 1" e il messaggio non risulta letto finché non la apre');
+    d.getElementById('btn-chat').click(); await attendi(40);
+    ok(getComputedStyle(d.getElementById('chat')).display === 'flex' && fb.leggi('casse_condivise/' + K + '/letto_collab') > 0, 'Pagina (telefono): aperta la chat il messaggio risulta letto');
+    d.getElementById('chat-testo').value = 'Sì, alle 9'; d.getElementById('chat-form').requestSubmit(); await attendi(1450);
+    ok(_chatOrdinata(_msgChat(C)).some(x => x.da === 'collab' && x.testo === 'Sì, alle 9'), 'Pagina → gestionale: il suo messaggio arriva nella chat della cassa');
+    d.getElementById('chat-chiudi').click(); await attendi(20);
+    ok(getComputedStyle(d.getElementById('chat')).display === 'none', 'Pagina (telefono): la chat si chiude con ×');
     chiudiPagine();
 
-    f = await apriPagina('#' + l.codice); d = f.contentDocument;
+    f = await apriPagina('#' + l.codice, 1300, 800); d = f.contentDocument;
     ok(vis(d, 'sch-cassa') && !vis(d, 'sch-pin'), 'Pagina: riaprendo il link il PIN non serve più');
+    {
+      const st = [...d.querySelectorAll('.stat')].map(x => Math.round(x.getBoundingClientRect().top)), cs = d.getElementById('sch-cassa').getBoundingClientRect();
+      ok(Math.abs(cs.width - 1300) < 2 && Math.abs(cs.height - 800) < 2, 'Pagina (computer): la cassa occupa tutto lo schermo (' + Math.round(cs.width) + '×' + Math.round(cs.height) + ')');
+      ok(st.length === 3 && new Set(st).size === 1 && getComputedStyle(d.querySelector('.tab-mov thead')).display !== 'none' && getComputedStyle(d.querySelector('#elenco .riga')).display === 'table-row', 'Pagina (computer): come la cassa del gestionale, tre riquadri in fila e tabella a colonne');
+      ok(getComputedStyle(d.getElementById('chat')).display === 'flex' && getComputedStyle(d.getElementById('btn-chat')).display === 'none' && d.getElementById('chat').getBoundingClientRect().left > d.querySelector('.tab-box').getBoundingClientRect().right, 'Pagina (computer): la chat sempre a destra della tabella');
+      ok(d.querySelector('.tab-mov th.th-in').textContent.includes('ENTRATA') && d.querySelector('.tab-mov th.th-out').textContent.includes('USCITA') && d.getElementById('f-tipo').options[0].textContent.includes("l'officina ti deve"), 'Pagina (computer): colonne e modulo dal suo punto di vista (Entrata = l\'officina ti deve)');
+    }
     disattivaLinkCassa(enc); await attendi(60);
     ok(vis(d, 'sch-msg') && d.getElementById('msg-titolo').textContent === 'Cassa non disponibile' && !vis(d, 'sch-cassa'), 'Pagina: con il link disattivato la cassa sparisce dal telefono');
     let negato = false;

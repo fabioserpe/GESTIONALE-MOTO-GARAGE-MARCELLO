@@ -628,6 +628,8 @@
 .p-qty::-webkit-inner-spin-button, .p-qty::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
 .r-qty::-webkit-inner-spin-button, .r-qty::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
         #mag-inventory-table .mag-item-row { border-bottom: 2px solid #94a3b8 !important; }
+        /* v228 (Fabio: "porta anche la mia a schermo intero"): la cassa del collaboratore occupa tutto lo schermo, su Mac e telefono */
+        #modal-collab > .modal-content { width: 100vw !important; max-width: none !important; height: 100vh !important; height: 100dvh !important; max-height: none !important; border-radius: 0 !important; border: none !important; box-shadow: none !important; }
     </style>
     <script>
         /* Applica tema salvato prima del primo render per evitare flash */

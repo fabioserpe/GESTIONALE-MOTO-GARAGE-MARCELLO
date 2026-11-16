@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#1e293b">
     <title>Cassa collaboratore · Moto Garage Marcello</title>
     <!--
         Cassa condivisa con un collaboratore (v221). Si apre con cassa.html#CODICE + PIN di 4 cifre, dati in
@@ -12,205 +12,279 @@
         /casse_codici/{CODICE-PIN}/attivo è vero (v227: anche correggere/cancellare le voci dell'officina, senza
         cambiarne l'autore; le voci nuove hanno autore "collab"). Il gestionale riporta le modifiche
         nella Prima Nota. Chat (v223): chat/m{id} = { id, da: 'officina'|'collab', testo, t } (lui può solo aggiungere
-        i suoi), letto_collab scritto da qui quando legge, letto_officina dal gestionale (✓✓ sui suoi messaggi). "tipo" è quello del gestionale: out = l'officina deve al collaboratore (sua entrata),
-        in = il collaboratore deve all'officina (sua uscita).
+        i suoi), letto_collab scritto da qui quando legge, letto_officina dal gestionale (✓✓ sui suoi messaggi).
+        "tipo" è quello del gestionale: out = l'officina deve al collaboratore (sua entrata), in = il collaboratore
+        deve all'officina (sua uscita).
+        v228 (Fabio: "a schermo intero e come la mia"): stessa impaginazione della cassa nel gestionale (#modal-collab):
+        riquadri Entrate/Uscite/Saldo, modulo su una riga, totali per categoria, tabella bianca, chat a destra
+        (sotto i 1100 px dietro il pulsante "💬 Chat"); sul telefono le righe della tabella diventano schede.
     -->
     <style>
         :root {
             --bg: #0f172a; --card: #1e293b; --riga: #172033; --bordo: #334155;
-            --testo: #f1f5f9; --tenue: #94a3b8; --viola: #a78bfa; --viola-scuro: #7c3aed;
-            --verde: #22c55e; --rosso: #f87171; --giallo: #fbbf24; --blu: #60a5fa;
+            --testo: #f1f5f9; --tenue: #94a3b8; --viola: #8b5cf6; --viola-chiaro: #a78bfa;
+            --verde: #22c55e; --rosso: #ef4444; --giallo: #fbbf24; --blu: #3b82f6;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { -webkit-text-size-adjust: 100%; }
-        body { background: var(--bg); color: var(--testo); font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; font-size: 16px; line-height: 1.4; min-height: 100vh; }
-        .pagina { max-width: 760px; margin: 0 auto; padding: 18px 16px 40px; }
+        body { background: var(--card); color: var(--testo); font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; font-size: 16px; line-height: 1.4; min-height: 100vh; }
         .hidden { display: none !important; }
-        button, input, select { font: inherit; }
-
-        .testa { margin-bottom: 16px; }
-        .marchio { font-size: 0.72rem; font-weight: 800; letter-spacing: 2px; color: var(--tenue); text-transform: uppercase; }
-        h1 { font-size: 1.45rem; color: var(--viola); text-transform: uppercase; text-wrap: balance; margin-top: 2px; }
-
-        .card { background: var(--card); border: 1px solid var(--bordo); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
-
-        /* Saldo */
-        .saldo-et { font-size: 0.85rem; color: var(--tenue); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-        .saldo-val { font-size: 2rem; font-weight: 900; margin: 2px 0 8px; font-variant-numeric: tabular-nums; }
-        .saldo-sub { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.92rem; color: var(--tenue); }
-        .saldo-sub b { font-variant-numeric: tabular-nums; }
+        button, input, select, textarea { font: inherit; }
+        input, select, textarea { width: 100%; min-width: 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--bordo); border-radius: 10px; color: var(--testo); font-size: 1rem; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blu); box-shadow: 0 0 0 2px rgba(59,130,246,0.25); }
+        .btn { border: none; border-radius: 8px; padding: 10px 14px; font-weight: 800; cursor: pointer; color: white; background: var(--bordo); white-space: nowrap; }
+        .btn:focus-visible, .btn-bordo:focus-visible, .r-az button:focus-visible { outline: 2px solid var(--blu); outline-offset: 2px; }
+        .btn-verde { background: var(--verde); }
+        .btn-giallo { background: #f59e0b; color: #1e1e1e; }
+        .btn-bordo { background: none; border: 1px solid; border-radius: 8px; padding: 7px 12px; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
         .pos { color: var(--verde); } .neg { color: var(--rosso); } .pari { color: var(--blu); }
 
-        /* Modulo */
-        .mod-titolo { font-weight: 800; margin-bottom: 10px; }
-        .tipo-scelta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        .tipo-scelta label { position: relative; display: flex; flex-direction: column; gap: 2px; border: 2px solid var(--bordo); border-radius: 10px; padding: 9px 10px; cursor: pointer; font-weight: 800; }
-        .tipo-scelta label small { font-weight: 500; color: var(--tenue); font-size: 0.8rem; }
-        .tipo-scelta input { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; padding: 0; opacity: 0; pointer-events: none; }
-        .tipo-scelta label.sel-out { border-color: var(--verde); background: rgba(34,197,94,0.12); }
-        .tipo-scelta label.sel-in { border-color: var(--rosso); background: rgba(248,113,113,0.12); }
-        .tipo-scelta label:focus-within { outline: 2px solid var(--blu); outline-offset: 2px; }
-        .griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .griglia .intero { grid-column: 1 / -1; }
-        .campo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-        .campo span { font-size: 0.78rem; color: var(--tenue); font-weight: 700; }
-        input, select { width: 100%; min-width: 0; padding: 10px 11px; background: var(--bg); border: 1px solid var(--bordo); border-radius: 9px; color: var(--testo); font-size: 1rem; }
-        input:focus, select:focus { outline: none; border-color: var(--blu); box-shadow: 0 0 0 2px rgba(96,165,250,0.25); }
-        #f-desc { text-transform: uppercase; }
-        .azioni { display: flex; gap: 8px; margin-top: 12px; }
-        .btn { border: none; border-radius: 10px; padding: 12px 16px; font-weight: 800; cursor: pointer; color: white; background: var(--bordo); }
-        .btn:focus-visible { outline: 2px solid var(--blu); outline-offset: 2px; }
-        .btn-verde { background: #16a34a; flex: 1; }
-        .btn-giallo { background: #d97706; flex: 1; }
-        .btn:disabled { opacity: 0.6; cursor: default; }
-        .esito { font-size: 0.9rem; margin-top: 8px; min-height: 1.2em; }
-
-        /* Elenco */
-        .elenco-testa { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 18px 0 8px; }
-        .elenco-testa h2 { font-size: 1.05rem; }
-        .elenco-testa select { width: auto; padding: 6px 10px; font-size: 0.9rem; }
-        .riga { display: flex; gap: 10px; align-items: flex-start; background: var(--riga); border: 1px solid var(--bordo); border-radius: 12px; padding: 11px 12px; margin-bottom: 8px; }
-        .riga.mia { border-color: rgba(167,139,250,0.45); }
-        .r-sx { flex: 1; min-width: 0; }
-        .r-data { font-size: 0.8rem; color: var(--tenue); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-        .chip { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; background: var(--bordo); color: white; border-radius: 4px; padding: 1px 6px; letter-spacing: 0.3px; }
-        .r-desc { font-weight: 700; margin: 3px 0; overflow-wrap: anywhere; }
-        .r-qta { background: var(--bordo); border-radius: 4px; padding: 0 5px; font-size: 0.8rem; margin-right: 4px; }
-        .r-chi { font-size: 0.78rem; color: var(--tenue); }
-        .r-chi.mia { color: var(--viola); }
-        .r-dx { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
-        .r-imp { font-weight: 900; font-size: 1.05rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
-        .r-def { color: var(--giallo); font-size: 0.8rem; }
-        .r-az { display: flex; gap: 6px; }
-        .r-az button { background: transparent; border: 1px solid var(--bordo); color: var(--testo); border-radius: 8px; padding: 6px 9px; cursor: pointer; font-size: 0.9rem; }
-        .r-az button.mod { border-color: #d97706; }
-        .r-az button.canc { border-color: #dc2626; }
-        .vuoto { text-align: center; color: var(--tenue); padding: 26px 10px; }
-
-        /* PIN e messaggi */
-        .centro { text-align: center; padding: 26px 18px; }
+        /* Schermate del PIN e dei messaggi */
+        .schermo { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--bg); }
+        .card { background: var(--card); border: 1px solid var(--bordo); border-radius: 16px; width: 100%; max-width: 440px; }
+        .centro { text-align: center; padding: 28px 20px; }
         .centro .icona { font-size: 2.4rem; }
+        .centro .marchio { margin-top: 6px; }
         .centro h2 { margin: 6px 0 8px; font-size: 1.2rem; }
         .centro p { color: var(--tenue); line-height: 1.5; max-width: 46ch; margin: 0 auto; }
         #f-pin { max-width: 200px; margin: 16px auto 10px; display: block; text-align: center; font-size: 1.8rem; letter-spacing: 10px; font-weight: 900; }
         .errore { color: var(--rosso); font-weight: 700; min-height: 1.3em; margin-bottom: 8px; }
 
-        /* Chat con l'officina */
-        .chat-testa { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
-        .chat-testa h2 { font-size: 1.05rem; }
-        .chat-n { background: var(--giallo); color: #1e1e1e; border-radius: 10px; padding: 1px 8px; font-size: 0.78rem; font-weight: 900; }
-        .chat-lista { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; padding: 2px; margin-bottom: 8px; }
-        .chat-msg { max-width: 85%; padding: 8px 11px; border-radius: 14px; font-size: 0.95rem; line-height: 1.35; }
+        /* Cassa: come la finestra della cassa nel gestionale, a schermo intero */
+        .cassa { display: flex; gap: 18px; height: 100vh; height: 100dvh; padding: 22px 25px; }
+        #cs-principale { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .cs-testa { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; flex-shrink: 0; }
+        .marchio { font-size: 0.7rem; font-weight: 800; letter-spacing: 2px; color: var(--tenue); text-transform: uppercase; }
+        h1 { font-size: 1.5rem; color: var(--viola); text-transform: uppercase; text-wrap: balance; margin-top: 1px; }
+        .cs-testa-dx { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+        #rete { font-size: 0.82rem; color: var(--tenue); }
+        #btn-chat { display: none; border-color: #38bdf8; color: #7dd3fc; }
+        #btn-cambia-pin { border-color: var(--bordo); color: var(--tenue); }
+
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 15px; flex-shrink: 0; }
+        .stat { background: var(--card); padding: 15px; border-radius: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25); border-top: 4px solid var(--tenue); border-left: 1px solid rgba(255,255,255,0.03); }
+        .stat small { font-size: 0.7rem; color: var(--tenue); }
+        .stat.verde { border-top-color: var(--verde); } .stat.rosso { border-top-color: var(--rosso); } .stat.blu { border-top-color: var(--blu); }
+        .stat-val { font-size: 1.5rem; font-weight: 900; margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+        .section-dark { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 15px; margin-bottom: 15px; flex-shrink: 0; }
+        .mod-testa { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; min-height: 1.4em; flex-wrap: wrap; }
+        .mod-testa b { font-size: 0.9rem; }
+        .esito { font-size: 0.88rem; font-weight: 700; }
+        .mod-riga { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        #f-data { width: 150px; }
+        #f-tipo { width: 270px; }
+        #f-cat { width: 180px; }
+        #f-qta { width: 80px; }
+        #f-desc { flex: 1; min-width: 240px; text-transform: uppercase; }
+        #f-importo { width: 150px; }
+
+        .cs-barra { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-shrink: 0; }
+        .tab-on { padding: 6px 18px; border-radius: 6px; background: var(--viola); color: white; font-weight: 700; font-size: 0.85rem; }
+        #f-mese { width: auto; margin-left: auto; padding: 5px 10px; font-size: 0.85rem; }
+        .cat-totali { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; flex-shrink: 0; }
+        .cat-chip { background: rgba(255,255,255,0.05); border: 1px solid var(--bordo); border-radius: 14px; padding: 3px 10px; font-size: 0.82rem; font-weight: 700; }
+        .cat-chip .n { color: var(--tenue); }
+
+        .tab-box { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; background: white; border-radius: 10px; border: 1px solid #cbd5e1; }
+        .tab-mov { width: 100%; border-collapse: collapse; font-size: 1rem; }
+        .tab-mov thead { position: sticky; top: 0; z-index: 2; }
+        .tab-mov th { background: var(--card); text-align: left; padding: 10px 14px; font-size: 0.72rem; color: var(--tenue); font-weight: 800; letter-spacing: 0.5px; border-bottom: 2px solid var(--bordo); }
+        .tab-mov th.th-in, .tab-mov th.th-out { text-align: right; width: 150px; }
+        .tab-mov th.th-in { color: #22c55e; } .tab-mov th.th-out { color: #ef4444; }
+        .tab-mov th.th-data { width: 120px; } .tab-mov th.th-cat { width: 170px; } .tab-mov th.th-az { width: 104px; }
+        tr.riga { border-bottom: 2px solid #94a3b8; background: white; }
+        tr.riga.r-in { background: #fff8f8; }
+        tr.riga td { padding: 9px 14px; vertical-align: middle; }
+        td.c-data { background: #f1f5f9; border-right: 1px solid #cbd5e1; color: #1e293b; font-family: ui-monospace, Menlo, monospace; font-size: 0.88rem; font-weight: 700; white-space: nowrap; }
+        td.c-cat { background: #cbd5e1; border-right: 1px solid #b0bec5; }
+        td.c-desc { background: #f8fafc; border-right: 1px solid #cbd5e1; font-weight: 600; color: #1e293b; overflow-wrap: anywhere; }
+        td.c-in, td.c-out { text-align: right; border-right: 1px solid #cbd5e1; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        td.c-in { color: #16a34a; } td.c-out { color: #dc2626; }
+        td.c-az { text-align: center; }
+        .chip { display: inline-block; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; background: var(--bordo); color: white; border-radius: 4px; padding: 2px 6px; letter-spacing: 0.3px; }
+        .r-qta { background: #e0e7ef; border-radius: 4px; padding: 1px 6px; font-size: 0.78rem; margin-right: 5px; }
+        .r-def { color: #d97706; font-size: 0.8rem; }
+        .ch { display: inline-block; border-radius: 4px; padding: 1px 6px; font-size: 0.72rem; margin-left: 6px; font-weight: 700; white-space: nowrap; }
+        .ch-mia { background: #ede9fe; color: #5b21b6; }
+        .ch-off { background: #e2e8f0; color: #475569; }
+        .ch-corr { background: #ffedd5; color: #9a3412; }
+        .ch-attesa { background: #fef3c7; color: #92400e; }
+        .r-az { display: flex; gap: 5px; justify-content: center; }
+        .r-az button { background: transparent; border: 1px solid; border-radius: 6px; padding: 5px 9px; cursor: pointer; font-size: 0.8rem; }
+        .r-az button.mod { color: #f59e0b; border-color: #f59e0b; }
+        .r-az button.canc { color: #ef4444; border-color: #ef4444; }
+        td.vuoto { text-align: center; padding: 20px; color: #64748b; }
+
+        /* Chat a destra, come nel gestionale */
+        #chat { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; background: rgba(0,0,0,0.22); border: 1px solid var(--bordo); border-radius: 12px; padding: 12px; min-height: 0; gap: 8px; }
+        .chat-testa { display: flex; align-items: center; gap: 8px; color: #7dd3fc; font-size: 0.95rem; }
+        .chat-testa b { flex: 1; }
+        .chat-n { background: var(--giallo); color: #1e1e1e; border-radius: 10px; padding: 0 7px; font-size: 0.75rem; font-weight: 900; }
+        .chat-chiudi { display: none; background: none; border: none; color: var(--tenue); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+        .chat-lista { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px; min-height: 0; }
+        .chat-msg { max-width: 85%; padding: 7px 10px; border-radius: 12px; font-size: 0.9rem; line-height: 1.35; }
         .chat-msg.mio { align-self: flex-end; background: #4c1d95; color: #ede9fe; border-bottom-right-radius: 4px; }
-        .chat-msg.suo { align-self: flex-start; background: var(--riga); border: 1px solid var(--bordo); border-bottom-left-radius: 4px; }
+        .chat-msg.suo { align-self: flex-start; background: var(--card); color: #e2e8f0; border: 1px solid var(--bordo); border-bottom-left-radius: 4px; }
         .chat-testo { white-space: pre-wrap; overflow-wrap: anywhere; }
-        .chat-ora { font-size: 0.72rem; opacity: 0.75; text-align: right; margin-top: 2px; }
+        .chat-ora { font-size: 0.7rem; opacity: 0.75; text-align: right; margin-top: 2px; }
         .chat-letto.si { color: #38bdf8; font-weight: 800; opacity: 1; }
-        .chat-vuota { color: var(--tenue); text-align: center; font-size: 0.9rem; padding: 14px 6px; }
-        .chat-form { display: flex; gap: 8px; align-items: flex-end; }
-        .chat-form textarea { flex: 1; min-width: 0; padding: 10px 11px; background: var(--bg); border: 1px solid var(--bordo); border-radius: 9px; color: var(--testo); font: inherit; font-size: 1rem; resize: none; min-height: 46px; max-height: 140px; }
-        .chat-form textarea:focus { outline: none; border-color: var(--blu); box-shadow: 0 0 0 2px rgba(96,165,250,0.25); }
-        .chat-form .btn { flex: none; }
+        .chat-vuota { color: var(--tenue); font-size: 0.85rem; text-align: center; margin: auto 8px; }
+        .chat-form { display: flex; gap: 6px; align-items: flex-end; }
+        .chat-form textarea { flex: 1; resize: none; min-height: 44px; max-height: 120px; }
+        .chat-form .btn { padding: 10px 14px; }
+        #chat-esito:empty { display: none; }
 
-        .piede { margin-top: 26px; font-size: 0.82rem; color: var(--tenue); display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
-        .piede button { background: none; border: none; color: var(--blu); text-decoration: underline; cursor: pointer; font-size: 0.82rem; }
-
-        @media (max-width: 420px) {
-            .saldo-val { font-size: 1.7rem; }
-            .tipo-scelta label { padding: 8px; font-size: 0.92rem; }
-        }
         @media (prefers-reduced-motion: no-preference) {
-            .riga.appena { animation: lampo 1.6s ease-out; }
-            @keyframes lampo { from { background: rgba(167,139,250,0.35); } to { background: var(--riga); } }
+            tr.riga.appena td { animation: lampo 1.8s ease-out; }
+            @keyframes lampo { from { box-shadow: inset 0 0 0 999px rgba(139,92,246,0.25); } to { box-shadow: inset 0 0 0 999px rgba(139,92,246,0); } }
+        }
+
+        /* Sotto i 1100 px la chat si apre con il pulsante "💬 Chat" (come nel gestionale) */
+        @media (max-width: 1100px) {
+            #btn-chat { display: inline-block; }
+            #chat { display: none; position: fixed; inset: 12px; width: auto; z-index: 20; background: var(--card); box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+            .cassa.chat-aperta #chat { display: flex; }
+            .chat-chiudi { display: block; }
+            #f-desc { min-width: 200px; }
+        }
+
+        /* Telefono: pagina che scorre, modulo su due colonne, righe come schede */
+        @media (max-width: 760px) {
+            .cassa { display: block; height: auto; padding: 14px 12px 30px; }
+            h1 { font-size: 1.2rem; }
+            .stats { gap: 6px; margin-bottom: 10px; }
+            .stat { padding: 8px 10px; border-radius: 12px; font-size: 0.85rem; }
+            .stat small { display: block; }
+            .stat-val { font-size: 1.05rem; }
+            .section-dark { padding: 10px; margin-bottom: 10px; }
+            .mod-riga { gap: 8px; }
+            .mod-riga > * { flex: 1 1 calc(50% - 4px) !important; width: auto !important; min-width: 0 !important; }
+            .mod-riga #f-desc { flex-basis: 100% !important; }
+            .mod-riga #f-qta { flex: 0 0 70px !important; }
+            .mod-riga #f-cat { flex: 1 1 calc(100% - 78px) !important; }
+            .tab-box { background: transparent; border: none; border-radius: 0; overflow: visible; }
+            .tab-mov thead { display: none; }
+            .tab-mov, .tab-mov tbody { display: block; }
+            tr.riga { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "data cat imp" "desc desc az"; align-items: center; gap: 4px 8px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--bordo); border-radius: 12px; background: var(--riga); }
+            tr.riga.r-in { background: var(--riga); }
+            tr.riga.mia { border-color: rgba(167,139,250,0.5); }
+            tr.riga td { padding: 0; border: none; background: transparent; }
+            td.c-data { grid-area: data; color: var(--tenue); font-family: inherit; font-size: 0.78rem; font-weight: 600; }
+            td.c-cat { grid-area: cat; }
+            td.c-in, td.c-out { grid-area: imp; justify-self: end; font-size: 1.05rem; font-weight: 900; }
+            td.c-in { color: #4ade80; } td.c-out { color: #f87171; }
+            td.c-in:empty, td.c-out:empty { display: none; }
+            td.c-desc { grid-area: desc; color: var(--testo); font-weight: 700; }
+            td.c-az { grid-area: az; }
+            .r-qta { background: var(--bordo); }
+            .ch { margin: 3px 6px 0 0; }
+            .ch-mia { background: rgba(139,92,246,0.22); color: #c4b5fd; }
+            .ch-off { background: rgba(148,163,184,0.18); color: #cbd5e1; }
+            .ch-corr { background: rgba(251,146,60,0.2); color: #fdba74; }
+            .ch-attesa { background: rgba(251,191,36,0.18); color: #fcd34d; }
+            .tab-mov tbody tr:not(.riga) { display: block; }
+            td.vuoto { display: block; color: var(--tenue); background: var(--riga); border-radius: 12px; }
         }
     </style>
 </head>
 <body>
-<div class="pagina">
-    <header class="testa">
-        <div class="marchio">Moto Garage Marcello</div>
-        <h1 id="titolo">Cassa collaboratore</h1>
-    </header>
 
-    <!-- Messaggi: link incompleto, caricamento, link disattivato -->
-    <section id="sch-msg" class="card centro">
+<!-- Messaggi: link incompleto, caricamento, link disattivato -->
+<div id="sch-msg" class="schermo">
+    <section class="card centro">
         <div class="icona" id="msg-icona">⏳</div>
+        <div class="marchio">Moto Garage Marcello</div>
         <h2 id="msg-titolo">Caricamento…</h2>
         <p id="msg-testo">Sto aprendo la cassa.</p>
-        <button type="button" id="msg-pin" class="btn btn-verde hidden" style="margin-top:16px; flex:none;">Scrivi il PIN</button>
+        <button type="button" id="msg-pin" class="btn btn-verde hidden" style="margin-top:16px;">Scrivi il PIN</button>
     </section>
+</div>
 
-    <!-- PIN -->
-    <form id="sch-pin" class="card centro hidden" autocomplete="off">
+<!-- PIN -->
+<form id="sch-pin" class="schermo hidden" autocomplete="off">
+    <section class="card centro">
         <div class="icona">🔒</div>
+        <div class="marchio">Moto Garage Marcello</div>
         <h2>Scrivi il PIN</h2>
         <p>Il PIN di 4 cifre te l'ha dato l'officina. Su questo telefono basta scriverlo una volta.</p>
         <input type="password" id="f-pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" aria-label="PIN di 4 cifre" autocomplete="off">
         <div class="errore" id="pin-errore"></div>
-        <button type="submit" class="btn btn-verde" style="flex:none; min-width:160px;">Apri la cassa</button>
-    </form>
+        <button type="submit" class="btn btn-verde" style="min-width:160px;">Apri la cassa</button>
+    </section>
+</form>
 
-    <!-- Cassa -->
-    <section id="sch-cassa" class="hidden">
-        <div class="card">
-            <div class="saldo-et" id="saldo-et">Saldo</div>
-            <div class="saldo-val" id="saldo-val">€ 0,00</div>
-            <div class="saldo-sub">
-                <span>🟢 Entrate <b id="tot-in" class="pos">€ 0,00</b></span>
-                <span>🔴 Uscite <b id="tot-out" class="neg">€ 0,00</b></span>
+<!-- Cassa -->
+<div id="sch-cassa" class="cassa hidden">
+    <main id="cs-principale">
+        <div class="cs-testa">
+            <div>
+                <div class="marchio">Moto Garage Marcello</div>
+                <h1 id="titolo">Cassa collaboratore</h1>
+            </div>
+            <div class="cs-testa-dx">
+                <span id="rete">⏳ Collegamento…</span>
+                <button type="button" id="btn-chat" class="btn-bordo">💬 Chat</button>
+                <button type="button" id="btn-cambia-pin" class="btn-bordo hidden">Cambia PIN</button>
             </div>
         </div>
 
-        <form id="modulo" class="card" autocomplete="off">
-            <div class="mod-titolo" id="mod-titolo">Nuovo movimento</div>
-            <div class="tipo-scelta" role="radiogroup" aria-label="Tipo di movimento">
-                <label><input type="radio" name="tipo" value="out" checked>🟢 Entrata (+)<small>l'officina ti deve</small></label>
-                <label><input type="radio" name="tipo" value="in">🔴 Uscita (−)<small>devi all'officina</small></label>
-            </div>
-            <div class="griglia">
-                <label class="campo"><span>Data</span><input type="date" id="f-data" required></label>
-                <label class="campo"><span>Categoria</span>
-                    <select id="f-cat">
-                        <option value="officina">OFFICINA</option>
-                        <option value="vendita">VENDITA</option>
-                        <option value="pre-consegna">PRE CONSEGNA</option>
-                        <option value="garanzia">GARANZIA</option>
-                        <option value="assemblaggio">ASSEMBLAGGIO</option>
-                        <option value="accessori">ACCESSORI/RICAMBI</option>
-                    </select>
-                </label>
-                <label class="campo intero"><span>Descrizione</span><input type="text" id="f-desc" maxlength="200" placeholder="Es. cambio gomme Honda CB500" required></label>
-                <label class="campo"><span>Importo €</span><input type="text" id="f-importo" inputmode="decimal" placeholder="0,00"></label>
-                <label class="campo"><span>Quantità</span><input type="number" id="f-qta" min="1" step="1" value="1"></label>
-            </div>
-            <div class="azioni">
+        <div class="stats">
+            <div class="stat verde"><div>Entrate <small>(l'officina ti deve)</small></div><div id="tot-in" class="stat-val pos">€ 0,00</div></div>
+            <div class="stat rosso"><div>Uscite <small>(devi all'officina)</small></div><div id="tot-out" class="stat-val neg">€ 0,00</div></div>
+            <div class="stat blu"><div id="saldo-et">Saldo</div><div id="saldo-val" class="stat-val pari">In pari</div></div>
+        </div>
+
+        <form id="modulo" class="section-dark" autocomplete="off">
+            <div class="mod-testa"><b id="mod-titolo">Nuovo movimento</b><span class="esito" id="mod-esito" role="status"></span></div>
+            <div class="mod-riga">
+                <input type="date" id="f-data" required aria-label="Data">
+                <select id="f-tipo" aria-label="Tipo di movimento">
+                    <option value="out">🟢 Entrata — l'officina ti deve</option>
+                    <option value="in">🔴 Uscita — devi all'officina</option>
+                </select>
+                <select id="f-cat" aria-label="Categoria">
+                    <option value="officina">OFFICINA</option>
+                    <option value="vendita">VENDITA</option>
+                    <option value="pre-consegna">PRE CONSEGNA</option>
+                    <option value="garanzia">GARANZIA</option>
+                    <option value="assemblaggio">ASSEMBLAGGIO</option>
+                    <option value="accessori">ACCESSORI/RICAMBI</option>
+                </select>
+                <input type="number" id="f-qta" min="1" step="1" value="1" aria-label="Quantità" title="Quantità">
+                <input type="text" id="f-desc" maxlength="200" placeholder="Descrizione..." aria-label="Descrizione" required>
+                <input type="text" id="f-importo" inputmode="decimal" placeholder="Importo €" aria-label="Importo in euro">
                 <button type="submit" id="btn-salva" class="btn btn-verde">➕ Aggiungi</button>
-                <button type="button" id="btn-annulla" class="btn hidden">Annulla</button>
+                <button type="button" id="btn-annulla" class="btn hidden" aria-label="Annulla la correzione">❌</button>
             </div>
-            <div class="esito" id="mod-esito" role="status"></div>
         </form>
 
-        <section id="chat" class="card" aria-label="Messaggi con l'officina">
-            <div class="chat-testa"><h2>💬 Messaggi con l'officina</h2><span id="chat-n" class="chat-n hidden"></span></div>
-            <div id="chat-lista" class="chat-lista" role="log" aria-live="polite"></div>
-            <form id="chat-form" class="chat-form" autocomplete="off">
-                <textarea id="chat-testo" rows="2" maxlength="1000" placeholder="Scrivi un messaggio all'officina…" aria-label="Messaggio"></textarea>
-                <button type="submit" class="btn btn-verde">Invia</button>
-            </form>
-            <div class="esito" id="chat-esito" role="status"></div>
-        </section>
-
-        <div class="elenco-testa">
-            <h2>Movimenti</h2>
+        <div class="cs-barra">
+            <span class="tab-on">📋 Movimenti</span>
             <select id="f-mese" aria-label="Mese dei movimenti"></select>
         </div>
-        <div id="elenco"></div>
-    </section>
+        <div id="cat-totali" class="cat-totali"></div>
 
-    <footer class="piede">
-        <span id="rete">⏳ Collegamento…</span>
-        <button type="button" id="btn-cambia-pin" class="hidden">Cambia PIN</button>
-    </footer>
+        <div class="tab-box">
+            <table class="tab-mov">
+                <thead><tr>
+                    <th class="th-data">DATA</th><th class="th-cat">CATEGORIA</th><th>DESCRIZIONE</th>
+                    <th class="th-in">ENTRATA (ti deve)</th><th class="th-out">USCITA (devi)</th><th class="th-az"></th>
+                </tr></thead>
+                <tbody id="elenco"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <aside id="chat" aria-label="Messaggi con l'officina">
+        <div class="chat-testa"><b>💬 Messaggi con l'officina</b><span id="chat-n" class="chat-n hidden"></span><button type="button" class="chat-chiudi" id="chat-chiudi" aria-label="Chiudi la chat">&times;</button></div>
+        <div id="chat-lista" class="chat-lista" role="log" aria-live="polite"></div>
+        <form id="chat-form" class="chat-form" autocomplete="off">
+            <textarea id="chat-testo" rows="2" maxlength="1000" placeholder="Scrivi un messaggio all'officina…" aria-label="Messaggio"></textarea>
+            <button type="submit" class="btn btn-verde">Invia</button>
+        </form>
+        <div class="esito" id="chat-esito" role="status"></div>
+    </aside>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -291,6 +365,22 @@
             .sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || (Number(b.id) || 0) - (Number(a.id) || 0));
     }
 
+    // Totali per categoria (come nella cassa del gestionale), dal suo punto di vista
+    function totaliCategorie(lista) {
+        const cat = {};
+        lista.forEach(v => {
+            const c = String(v.cat || 'officina').toUpperCase(), t = (Number(v.importo) || 0) * (Number(v.qta) || 1);
+            if (!cat[c]) cat[c] = { e: 0, u: 0 };
+            cat[c][v.tipo === 'out' ? 'e' : 'u'] += t;
+        });
+        $('cat-totali').innerHTML = Object.keys(cat).sort((a, b) => CAT.indexOf(a.toLowerCase()) - CAT.indexOf(b.toLowerCase()) || a.localeCompare(b)).map(c => {
+            const x = cat[c], p = [];
+            if (x.e > 0.004) p.push(`<span class="pos">+ ${eur(x.e)}</span>`);
+            if (x.u > 0.004) p.push(`<span class="neg">− ${eur(x.u)}</span>`);
+            return p.length ? `<span class="cat-chip"><span class="n">${esc(c)}</span> ${p.join(' ')}</span>` : '';
+        }).join('') + (meseScelto ? `<span class="cat-chip" style="color:#93c5fd;">📅 Solo ${esc($('f-mese').selectedOptions[0] ? $('f-mese').selectedOptions[0].textContent : meseScelto)}</span>` : '');
+    }
+
     function mostraCassa() {
         $('sch-msg').classList.add('hidden'); $('sch-pin').classList.add('hidden');
         $('sch-cassa').classList.remove('hidden');
@@ -300,44 +390,45 @@
         if (!$('f-data').value) $('f-data').value = oggi();
 
         const tutte = elencoVoci();
-        let entrate = 0, uscite = 0;
-        tutte.forEach(v => { const t = (Number(v.importo) || 0) * (Number(v.qta) || 1); if (v.tipo === 'out') entrate += t; else uscite += t; });
-        const saldo = entrate - uscite;
-        $('tot-in').textContent = eur(entrate);
-        $('tot-out').textContent = eur(uscite);
-        $('saldo-et').textContent = saldo > 0.004 ? 'L\'officina ti deve' : saldo < -0.004 ? 'Devi all\'officina' : 'Saldo';
-        $('saldo-val').textContent = Math.abs(saldo) > 0.004 ? eur(Math.abs(saldo)) : 'In pari';
-        $('saldo-val').className = 'saldo-val ' + (saldo > 0.004 ? 'pos' : saldo < -0.004 ? 'neg' : 'pari');
-
         const mesi = [...new Set(tutte.map(v => String(v.data || '').slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort().reverse();
         if (meseScelto && !mesi.includes(meseScelto)) meseScelto = '';
         $('f-mese').innerHTML = '<option value="">Tutti i mesi</option>' + mesi.map(m => {
             const [a, n] = m.split('-');
             return `<option value="${m}"${m === meseScelto ? ' selected' : ''}>${MESI[parseInt(n, 10) - 1] || n} ${a}</option>`;
         }).join('');
-
         const lista = tutte.filter(v => !meseScelto || String(v.data || '').startsWith(meseScelto));
+
+        // Riquadri: come nel gestionale seguono il mese scelto
+        let entrate = 0, uscite = 0;
+        lista.forEach(v => { const t = (Number(v.importo) || 0) * (Number(v.qta) || 1); if (v.tipo === 'out') entrate += t; else uscite += t; });
+        const saldo = entrate - uscite;
+        $('tot-in').textContent = eur(entrate);
+        $('tot-out').textContent = eur(uscite);
+        $('saldo-et').textContent = saldo > 0.004 ? 'L\'officina ti deve' : saldo < -0.004 ? 'Devi all\'officina' : 'Saldo';
+        $('saldo-val').textContent = Math.abs(saldo) > 0.004 ? eur(Math.abs(saldo)) : 'In pari';
+        $('saldo-val').className = 'stat-val ' + (saldo > 0.004 ? 'pos' : saldo < -0.004 ? 'neg' : 'pari');
+        totaliCategorie(lista);
+
         $('elenco').innerHTML = lista.length ? lista.map(v => {
-            const mia = v.autore === 'collab';
+            const mia = v.autore === 'collab', entra = v.tipo === 'out';
             const tot = (Number(v.importo) || 0) * (Number(v.qta) || 1);
-            const imp = tot > 0 ? `<span class="${v.tipo === 'out' ? 'pos' : 'neg'}">${v.tipo === 'out' ? '+' : '−'} ${eur(tot)}</span>` : '<span class="r-def">DA DEFINIRE</span>';
-            const chi = (mia ? '✍️ scritto da te' : '🏍️ scritto dall\'officina' + (v.corretto ? ' · ✏️ corretto da te' : '')) + (v.sinc ? '' : ' · ⏳ in arrivo all\'officina');
-            return `<div class="riga${mia ? ' mia' : ''}${v._k === appena ? ' appena' : ''}" data-voce="${esc(v._k)}">
-                <div class="r-sx">
-                    <div class="r-data">${esc(dataIt(v.data))} <span class="chip">${esc(v.cat || 'officina')}</span></div>
-                    <div class="r-desc">${Number(v.qta) > 1 ? `<span class="r-qta">${esc(v.qta)}×</span>` : ''}${esc(v.desc)}</div>
-                    <div class="r-chi${mia ? ' mia' : ''}">${chi}</div>
-                </div>
-                <div class="r-dx">
-                    <div class="r-imp">${imp}</div>
-                    <div class="r-az"><button type="button" class="mod" data-mod="${esc(v._k)}" aria-label="Correggi">✏️</button><button type="button" class="canc" data-canc="${esc(v._k)}" aria-label="Cancella">🗑️</button></div>
-                </div>
-            </div>`;
-        }).join('') : `<div class="vuoto">${meseScelto ? 'Nessun movimento in questo mese.' : 'Nessun movimento registrato.'}</div>`;
+            const imp = tot > 0 ? `${entra ? '+' : '−'} ${eur(tot)}` : `<span class="r-def">${entra ? '+' : '−'} DA DEF.</span>`;
+            // come nella cassa del gestionale: l'etichetta solo sulle righe sue (le altre sono dell'officina)
+            const chi = (mia ? '<span class="ch ch-mia">✍️ scritto da te</span>' : (v.corretto ? '<span class="ch ch-corr">✏️ corretto da te</span>' : ''))
+                + (v.sinc ? '' : '<span class="ch ch-attesa">⏳ in arrivo all\'officina</span>');
+            return `<tr class="riga${entra ? '' : ' r-in'}${mia ? ' mia' : ''}${v._k === appena ? ' appena' : ''}" data-voce="${esc(v._k)}">`
+                + `<td class="c-data">${esc(dataIt(v.data))}</td>`
+                + `<td class="c-cat"><span class="chip">${esc(v.cat || 'officina')}</span></td>`
+                + `<td class="c-desc">${Number(v.qta) > 1 ? `<span class="r-qta">${esc(v.qta)}×</span>` : ''}${esc(v.desc)} ${chi}</td>`
+                + `<td class="c-in">${entra ? imp : ''}</td><td class="c-out">${entra ? '' : imp}</td>`
+                + `<td class="c-az"><div class="r-az"><button type="button" class="mod" data-mod="${esc(v._k)}" aria-label="Correggi" title="Correggi">✏️</button><button type="button" class="canc" data-canc="${esc(v._k)}" aria-label="Cancella" title="Cancella">🗑️</button></div></td>`
+                + `</tr>`;
+        }).join('') : `<tr><td colspan="6" class="vuoto">${meseScelto ? 'Nessun movimento in questo mese.' : 'Nessun movimento registrato.'}</td></tr>`;
         appena = '';
     }
 
-    // Chat con l'officina (v223)
+    // Chat con l'officina (v223); sotto i 1100 px si apre con "💬 Chat"
+    const chatVisibile = () => window.innerWidth > 1100 || $('sch-cassa').classList.contains('chat-aperta');
     const oraMsg = t => {
         const d = new Date(Number(t) || 0), hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
         const g = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -356,8 +447,13 @@
         const nuovi = lista.filter(m => m.da !== 'collab' && (Number(m.t) || 0) > lettoMio).length;
         $('chat-n').textContent = nuovi === 1 ? '1 nuovo' : nuovi + ' nuovi';
         $('chat-n').classList.toggle('hidden', !nuovi);
-        // Letti: quando la pagina è davanti agli occhi
-        if (nuovi && aperta && document.visibilityState === 'visible') rif.child('letto_collab').set(Date.now()).catch(() => {});
+        $('btn-chat').innerHTML = '💬 Chat' + (nuovi ? ` <span class="chat-n">${nuovi}</span>` : '');
+        // Letti solo quando la chat si vede e la pagina è davanti agli occhi
+        if (nuovi && aperta && chatVisibile() && document.visibilityState === 'visible') rif.child('letto_collab').set(Date.now()).catch(() => {});
+    }
+    function apriChiudiChat(apri) {
+        $('sch-cassa').classList.toggle('chat-aperta', apri);
+        if (apri) { chatInFondo = true; mostraChat(); setTimeout(() => { try { $('chat-testo').focus(); } catch (e) {} }, 30); }
     }
     function inviaMsg(ev) {
         ev.preventDefault();
@@ -372,23 +468,16 @@
             .catch(() => { $('chat-esito').textContent = '⚠️ Messaggio non inviato: il link è stato disattivato oppure il PIN è cambiato.'; $('chat-esito').style.color = 'var(--rosso)'; $('chat-testo').value = testo; });
     }
 
-    function segnaTipo() {
-        document.querySelectorAll('.tipo-scelta label').forEach(l => {
-            const r = l.querySelector('input');
-            l.classList.toggle('sel-out', r.checked && r.value === 'out');
-            l.classList.toggle('sel-in', r.checked && r.value === 'in');
-        });
-    }
     function svuotaModulo() {
         inModifica = null;
         $('modulo').reset();
         $('f-data').value = oggi();
+        $('f-tipo').value = 'out';
         $('f-qta').value = '1';
         $('mod-titolo').textContent = 'Nuovo movimento';
         $('btn-salva').textContent = '➕ Aggiungi';
         $('btn-salva').className = 'btn btn-verde';
         $('btn-annulla').classList.add('hidden');
-        segnaTipo();
     }
     function esito(testo, errore) {
         const e = $('mod-esito');
@@ -402,7 +491,7 @@
         if (!aperta) return;
         const data = $('f-data').value, desc = $('f-desc').value.trim().toUpperCase().slice(0, 200);
         const importo = numero($('f-importo').value), qta = Math.max(1, parseInt($('f-qta').value, 10) || 1);
-        const tipo = (document.querySelector('input[name="tipo"]:checked') || {}).value === 'in' ? 'in' : 'out';
+        const tipo = $('f-tipo').value === 'in' ? 'in' : 'out';
         const cat = CAT.includes($('f-cat').value) ? $('f-cat').value : 'officina';
         if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return esito('Scrivi la data.', true);
         if (!desc) return esito('Scrivi la descrizione.', true);
@@ -429,8 +518,7 @@
         const v = voci[k];
         if (!v || v.eliminata) return;
         inModifica = k;
-        const r = document.querySelector(`input[name="tipo"][value="${v.tipo === 'in' ? 'in' : 'out'}"]`); if (r) r.checked = true;
-        segnaTipo();
+        $('f-tipo').value = v.tipo === 'in' ? 'in' : 'out';
         $('f-data').value = v.data || oggi();
         $('f-cat').value = CAT.includes(v.cat) ? v.cat : 'officina';
         $('f-desc').value = v.desc || '';
@@ -442,6 +530,7 @@
         $('btn-annulla').classList.remove('hidden');
         esito('');
         try { $('modulo').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+        try { $('f-desc').focus({ preventScroll: true }); } catch (e) {}
     }
 
     function cancella(k) {
@@ -459,9 +548,11 @@
     $('modulo').addEventListener('submit', salva);
     $('chat-form').addEventListener('submit', inviaMsg);
     $('chat-testo').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); inviaMsg(e); } });
+    $('btn-chat').addEventListener('click', () => apriChiudiChat(!$('sch-cassa').classList.contains('chat-aperta')));
+    $('chat-chiudi').addEventListener('click', () => apriChiudiChat(false));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('sch-cassa').classList.contains('chat-aperta')) apriChiudiChat(false); });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && aperta) mostraChat(); });
-    document.querySelectorAll('input[name="tipo"]').forEach(r => r.addEventListener('change', segnaTipo));
-    segnaTipo();
+    window.addEventListener('resize', () => { if (aperta) mostraChat(); });
     $('btn-annulla').addEventListener('click', () => { svuotaModulo(); esito(''); });
     $('f-mese').addEventListener('change', e => { meseScelto = e.target.value; mostraCassa(); });
     $('elenco').addEventListener('click', e => {
