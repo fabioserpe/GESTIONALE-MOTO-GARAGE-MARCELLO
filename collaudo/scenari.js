@@ -3205,11 +3205,33 @@
     await sinc();
     ok(!nelLedger(555) && !voci(K).v555, 'Collaboratore cancella: il movimento sparisce dalla Prima Nota e dalla copia');
 
-    // Le voci dell'officina non si toccano dalla pagina del collaboratore
-    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/v97001']: { id: 97001, data: oggi, tipo: 'out', cat: 'officina', desc: 'MANOMESSO', importo: 1, qta: 1, autore: 'collab' }, ['casse_condivise/' + K + '/voci/v999']: { id: 97001, data: oggi, tipo: 'out', cat: 'officina', desc: 'MANOMESSO 2', importo: 1, qta: 1, autore: 'collab' } });
+    // v227: il collaboratore corregge e cancella anche i movimenti dell'officina, segnalati come nuovi
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/v97001']: { id: 97001, data: oggi, tipo: 'in', cat: 'officina', desc: 'ricambi dati (2 pezzi)', importo: 45, qta: 1, autore: 'officina', agg: 7 }, ['casse_condivise/' + K + '/voci/v999']: { id: 97001, data: oggi, tipo: 'out', cat: 'officina', desc: 'MANOMESSO 2', importo: 1, qta: 1, autore: 'collab' } });
     await sinc();
     L = nelLedger(97001);
-    ok(L && L.desc === 'RICAMBI DATI CORRETTO' && !L.autore && voci(K).v97001.desc === 'RICAMBI DATI CORRETTO' && voci(K).v97001.autore === 'officina' && !voci(K).v999, 'Sicurezza: un movimento dell\'officina riscritto dalla pagina del collaboratore torna com\'era');
+    ok(L && L.desc === 'RICAMBI DATI (2 PEZZI)' && L.importo === 45 && !L.autore && L.corretto_collab === true && L.da_vedere === true && L.prima && L.prima.desc === 'RICAMBI DATI CORRETTO' && L.prima.importo === 40, 'Collaboratore corregge un tuo movimento: entra nella cassa segnato "corretto", da vedere, con com\'era prima');
+    ok(voci(K).v97001 && voci(K).v97001.sinc === true && voci(K).v97001.autore === 'officina' && voci(K).v97001.corretto === true && !voci(K).v999 && nelLedger(97001).desc !== 'MANOMESSO 2', 'Collaboratore corregge un tuo movimento: resta tuo ("corretto da te" nella sua pagina); una voce scritta nel posto sbagliato non vale');
+    const kBul = Object.keys(voci(K)).find(k => voci(K)[k].desc === 'BULLONI'), vBul = voci(K)[kBul];
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/' + kBul]: { id: vBul.id, autore: 'officina', eliminata: true, agg: 8 } });
+    await sinc();
+    const segnoBul = () => nelLedger(vBul.id);
+    ok(segnoBul() && segnoBul().cancellato_collab && segnoBul().cancellato_collab.desc === 'BULLONI' && segnoBul().cancellato_collab.importo === 5 && segnoBul().importo === 0 && segnoBul().da_vedere === true && !voci(K)[kBul], 'Collaboratore cancella un tuo movimento: esce dai conti e dalla sua pagina, ma resta un avviso da vedere');
+    refreshLedger();
+    ok(card() && card().querySelector('.cassa-nuovi') && card().querySelector('.cassa-nuovi').textContent.includes('2 nuovi'), 'Collaboratori: correzione e cancellazione contano come "✍️ 2 nuovi"');
+    openCollabDetail(enc); await attendi(40);
+    const rCorr = [...document.querySelectorAll('#mc-rows tr')].find(tr => tr.textContent.includes('RICAMBI DATI (2 PEZZI)'));
+    ok(rCorr && rCorr.textContent.includes('corretto dal collaboratore · nuovo') && rCorr.textContent.includes('Prima:') && rCorr.textContent.includes('RICAMBI DATI CORRETTO') && getComputedStyle(rCorr).backgroundColor === 'rgb(254, 249, 195)', 'Cassa: la riga corretta è gialla, "✏️ corretto dal collaboratore" e com\'era prima');
+    const boxC = document.getElementById('mc-cancellati');
+    ok(boxC.style.display !== 'none' && boxC.textContent.includes('ha cancellato un movimento scritto da te') && boxC.textContent.includes('BULLONI') && boxC.querySelectorAll('.mc-canc-riga').length === 1 && ![...document.querySelectorAll('#mc-rows tr')].some(tr => tr.textContent.includes('CANCELLATO DAL COLLABORATORE')), 'Cassa: riquadro giallo con il movimento cancellato (non compare tra le righe)');
+    ok(!nelLedger(97001).da_vedere && segnoBul().da_vedere === true && card() && card().querySelector('.cassa-nuovi') && card().querySelector('.cassa-nuovi').textContent.includes('1 nuovo'), 'Cassa: aperta la cassa la correzione è vista, la cancellazione resta finché non premi "Ho visto"');
+    boxC.querySelector('.mc-canc-riga button').click(); await sinc();
+    ok(nelLedger(vBul.id) && nelLedger(vBul.id).desc === 'BULLONI' && nelLedger(vBul.id).importo === 5 && !nelLedger(vBul.id).cancellato_collab && Object.values(voci(K)).some(x => x.desc === 'BULLONI') && boxC.style.display === 'none', '↩️ Rimetti: il movimento torna nella cassa e nella sua pagina');
+    fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/' + kBul]: { id: vBul.id, autore: 'officina', eliminata: true, agg: 9 } });
+    await sinc();
+    ok(boxC.style.display !== 'none', 'Cassa aperta: una cancellazione nuova compare subito nel riquadro');
+    [...boxC.querySelectorAll('button')].find(b => b.textContent.includes('Ho visto')).click(); await attendi(30);
+    ok(!nelLedger(vBul.id) && boxC.style.display === 'none' && !(card() && card().querySelector('.cassa-nuovi')), '✓ Ho visto: l\'avviso sparisce e il movimento resta cancellato');
+    closeModal('modal-collab');
 
     // Un movimento del collaboratore corretto in officina resta suo
     fb.scritturaRemota({ ['casse_condivise/' + K + '/voci/v556']: { id: 556, data: oggi, tipo: 'in', cat: 'accessori', desc: 'CATENA', importo: 30, qta: 1, autore: 'collab', agg: 5 } });
@@ -3270,8 +3292,8 @@
       const s = p.split('/').filter(Boolean);
       if (!(s[0] === 'casse_condivise' && s.length === 4 && s[2] === 'voci' && attivo(s[1]))) return false;
       const prima = fb.leggi(p);
-      if (prima && prima.autore !== 'collab') return false;
-      if (!x || x.autore !== 'collab' || 'sinc' in x) return false;
+      if (!x || 'sinc' in x) return false;
+      if (prima ? x.autore !== prima.autore : x.autore !== 'collab') return false;   // v227: l'autore non cambia, le voci nuove sono sue
       if (x.eliminata === true) return true;
       return typeof x.desc === 'string' && x.desc.length <= 200 && typeof x.data === 'string' && x.data.length === 10 && typeof x.importo === 'number' && typeof x.qta === 'number' && (x.tipo === 'in' || x.tipo === 'out');
     };
@@ -3326,7 +3348,7 @@
     d.getElementById('f-pin').value = l.pin; d.getElementById('sch-pin').requestSubmit(); await attendi(80);
     ok(vis(d, 'sch-cassa') && d.getElementById('titolo').textContent === 'Cassa: ' + C, 'Pagina: con il PIN giusto si apre la cassa');
     let righe = () => [...d.querySelectorAll('#elenco .riga')];
-    ok(righe().length === 1 && righe()[0].textContent.includes('BATTERIA DATA') && righe()[0].textContent.includes('scritto dall\'officina') && !righe()[0].querySelector('button'), 'Pagina: vede i movimenti dell\'officina, senza pulsanti per correggerli');
+    ok(righe().length === 1 && righe()[0].textContent.includes('BATTERIA DATA') && righe()[0].textContent.includes('scritto dall\'officina') && righe()[0].querySelectorAll('button').length === 2, 'Pagina: vede i movimenti dell\'officina, con ✏️ e 🗑️ anche su quelli (v227)');
     ok(d.getElementById('saldo-et').textContent === 'Devi all\'officina' && d.getElementById('saldo-val').textContent === '€ 80,00' && d.getElementById('tot-out').textContent === '€ 80,00', 'Pagina: saldo dal suo punto di vista (quello che noi chiamiamo "ci devono" per lui è un\'uscita)');
     let pinSalvato = null; try { pinSalvato = localStorage.getItem('mgmCassaPin_' + l.codice); } catch (e) {}
     ok(pinSalvato === l.pin, 'Pagina: il telefono ricorda il PIN');
@@ -3349,7 +3371,16 @@
     ok(Object.values(fb.leggi('ledger') || {}).some(x => x && x.desc === 'RIPARAZIONE IMPIANTO' && x.importo === 100) && sue().length === 1, 'Pagina → gestionale: la correzione arriva nella Prima Nota');
     let rifiutato = false;
     await f.contentWindow.firebase.database().ref('casse_condivise/' + K + '/voci/v96001').set({ id: 96001, data: oggi, tipo: 'out', cat: 'officina', desc: 'X', importo: 0, qta: 1, autore: 'collab' }).catch(() => { rifiutato = true; });
-    ok(rifiutato && fb.leggi('casse_condivise/' + K + '/voci/v96001/desc') === 'BATTERIA DATA', 'Regole: dalla pagina non si può riscrivere un movimento dell\'officina');
+    ok(rifiutato && fb.leggi('casse_condivise/' + K + '/voci/v96001/desc') === 'BATTERIA DATA', 'Regole: un movimento dell\'officina non può diventare "scritto dal collaboratore"');
+    rifiutato = false;
+    await f.contentWindow.firebase.database().ref('casse_condivise/' + K + '/voci/v96001').remove().catch(() => { rifiutato = true; });
+    ok(rifiutato && fb.leggi('casse_condivise/' + K + '/voci/v96001'), 'Regole: dalla pagina non si cancella niente di nascosto (cancellare lascia sempre l\'avviso)');
+    const offRiga = () => righe().find(r => r.textContent.includes('BATTERIA'));
+    offRiga().querySelector('button.mod').click(); await attendi(20);
+    d.getElementById('f-importo').value = '90'; d.getElementById('modulo').requestSubmit(); await attendi(1450);
+    const batt = () => Object.values(fb.leggi('ledger') || {}).find(x => x && x.id === 96001);
+    ok(batt() && batt().importo === 90 && batt().corretto_collab === true && !batt().autore && fb.leggi('casse_condivise/' + K + '/voci/v96001/autore') === 'officina', 'Pagina → gestionale: corregge anche un movimento dell\'officina (resta dell\'officina, segnato come corretto)');
+    ok(offRiga() && offRiga().textContent.includes('corretto da te'), 'Pagina: la riga dice "✏️ corretto da te"');
 
     d.getElementById('f-desc').value = '<img src=x onerror="parent.__xssCassa=1">'; d.getElementById('f-importo').value = '1';
     d.getElementById('modulo').requestSubmit(); await attendi(1450);
@@ -3361,6 +3392,8 @@
     const daCanc = righe().find(r => r.textContent.includes('<IMG'));
     daCanc.querySelector('button.canc').click(); await attendi(1450);
     ok(!righe().some(r => r.textContent.includes('<IMG')) && !Object.values(fb.leggi('ledger') || {}).some(x => x && String(x.desc).includes('<IMG')), 'Pagina: 🗑️ cancella il suo movimento, anche dalla Prima Nota');
+    offRiga().querySelector('button.canc').click(); await attendi(1450);
+    ok(!offRiga() && batt() && batt().cancellato_collab && batt().cancellato_collab.importo === 90, 'Pagina → gestionale: cancella anche un movimento dell\'officina; nel gestionale resta l\'avviso');
     const sel = d.getElementById('f-mese');
     ok(sel.options[0].textContent === 'Tutti i mesi' && sel.options.length >= 2, 'Pagina: filtro per mese');
     ok(d.documentElement.scrollWidth <= 390, 'Pagina: sul telefono (390 px) niente scorrimento di lato (' + d.documentElement.scrollWidth + ')');
