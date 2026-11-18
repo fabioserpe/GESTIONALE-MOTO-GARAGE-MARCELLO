@@ -2400,6 +2400,7 @@
                     <div><label>Al (anno)</label><input id="st_anno_a" type="number" inputmode="numeric" min="1950" max="2100" placeholder="opz." style="margin:0;"></div>
                 </div>
                 <div style="color:var(--muted); font-size:0.78rem; margin:6px 0 12px;">Gli anni servono solo se lo stesso modello ha pezzi diversi negli anni: lasciali vuoti per una scheda unica.</div>
+                <div id="st-appreso-avviso"></div>
                 <div style="color:#fdba74; font-size:0.8rem; font-weight:800; letter-spacing:0.5px; margin:4px 0 6px;">🔩 CODICI RICAMBI <span style="color:var(--muted); font-weight:600; letter-spacing:0;">· le righe senza codice non si salvano</span></div>
                 <div class="st-codici-testa" style="display:grid; grid-template-columns:1.2fr 1fr 1fr 34px; gap:6px; color:var(--muted); font-size:0.72rem; font-weight:800; margin-bottom:4px;"><span>RICAMBIO</span><span>CODICE</span><span>ALTERNATIVO</span><span></span></div>
                 <div id="st-codici-righe"></div>
@@ -2878,6 +2879,7 @@
                 else if (v === 'stats') refreshStats();
                 else if (v === 'preventivi') refreshPreventivi();
                 else if (v === 'specials') refreshSpecials();
+                else if (v === 'schede') refreshSchedeTecniche();
                 else _dRefreshBoard();
             });
 
@@ -4258,9 +4260,11 @@
             const righe = lista.map(sc => {
                 const n = new Set(_schedeMotoDiModello(sc).map(j => chiaveTarga(j.targa)).filter(Boolean)).size;
                 const pill = [_olioTesto(sc) && '🛢️ ' + _olioTesto(sc), ..._ricambiScheda(sc).slice(0, 3).map(x => `${x.nome || 'Ricambio'} ${x.codice}`)].filter(Boolean);
+                const np = _proposteScheda(sc).length;
                 return `<div class="st-riga" role="button" tabindex="0" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}')" style="cursor:pointer; background:var(--card); border:1px solid #334155; border-left:4px solid #f97316; border-radius:10px; padding:10px 14px; margin-bottom:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                     <div style="flex:1 1 220px; min-width:0;"><b style="color:white;">${htmlEsc(_maiusc(sc.marca))} ${htmlEsc(_maiusc(sc.modello))}</b>${_anniScheda(sc) ? ` <span style="color:var(--muted); font-size:0.82rem; font-weight:700;">${_anniScheda(sc)}</span>` : ''}
                         <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">${pill.map(x => `<span style="font-size:0.75rem; color:var(--text); background:#1e293b; border-radius:6px; padding:1px 7px;">${htmlEsc(x)}</span>`).join('') || '<span style="font-size:0.75rem; color:var(--muted);">Scheda ancora vuota</span>'}</div></div>
+                    ${np ? `<span class="st-da-confermare" style="font-size:0.75rem; color:#7dd3fc; border:1px solid rgba(56,189,248,0.5); border-radius:10px; padding:1px 8px; white-space:nowrap;">🤖 ${np} da confermare</span>` : ''}
                     <span style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">🏍️ ${n} moto in archivio</span>
                 </div>`;
             }).join('');
@@ -4302,6 +4306,7 @@
                 ${codici ? `<div style="color:#fdba74; font-size:0.78rem; font-weight:800; letter-spacing:0.5px; margin:4px 0 2px;">🔩 CODICI RICAMBI</div>${codici}` : ''}
                 ${righe ? `<div style="margin-top:${codici ? '12px' : '0'};">${righe}</div>` : ''}
                 ${!codici && !righe ? '<p style="color:var(--muted); margin:10px 0;">Scheda ancora vuota: premi ✏️ Modifica per compilarla.</p>' : ''}
+                ${_htmlAppreso(sc)}
                 <div class="flex-row mt-15"><button type="button" class="btn btn-dark" style="flex:1;" onclick="closeModal('modal-scheda-tecnica')">Chiudi</button><button type="button" class="btn w-auto" style="flex:1; background:#f97316; color:#1c1917;" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}', true)">✏️ Modifica</button></div>`;
         }
         function _rigaCodice(r) {
@@ -4353,6 +4358,8 @@
             $('st-campi').innerHTML = olio + gomme + ST_CAMPI.map(([k, lbl, ph]) => `<div style="margin-bottom:8px;"><label for="st_${k}">${lbl}</label>${k === 'note'
                 ? `<textarea id="st_${k}" rows="3" placeholder="${htmlEsc(ph)}" style="margin:0;">${htmlEsc(sc ? sc[k] || '' : '')}</textarea>`
                 : `<input id="st_${k}" value="${htmlEsc(sc ? sc[k] || '' : '')}" placeholder="${htmlEsc(ph)}" style="margin:0;">`}</div>`).join('');
+            if (sc) { if ($('st-appreso-avviso')) $('st-appreso-avviso').innerHTML = ''; }
+            else _compilaModuloDaiLavori(p.marca, p.modello);
         }
         function annullaModuloScheda() {
             const sc = _listaSchede().find(x => String(x.id) === String($('st_id').value));
@@ -4397,6 +4404,177 @@
             closeModal('modal-scheda-tecnica');
             if (currentView === 'schede') refreshSchedeTecniche();
         }
+        // ── Le schede tecniche imparano dai lavori (v232, Fabio: "si possono produrre da sole apprendendo gli interventi fatti") ──
+        // Scelte di Fabio: impara i codici dei ricambi e l'olio motore; propone e lui conferma (niente entra nella scheda senza ✓);
+        // pressioni, coppie, regolazioni, liquidi e note non si ricavano dai conti: li scrive lui.
+        // Fonte: righe del conto dei lavori chiusi (done/archived) dello stesso modello (e degli anni della scheda), contate al momento,
+        // così un lavoro appena chiuso vale subito. Codice esatto se la riga viene dal Magazzino, altrimenti quello scritto nella descrizione.
+        const ST_IMPARA = [
+            ['Filtro olio', /FILTRO\s+(DELL['’]\s*)?OLIO/],
+            ['Filtro aria', /FILTRO\s+(DELL['’]\s*)?ARIA/],
+            ['Candela', /\bCANDEL/],
+            ['Pastiglie anteriori', /(PASTIGLI|PASTICCH).*\bANT/],
+            ['Pastiglie posteriori', /(PASTIGLI|PASTICCH).*\bPOST/],
+            ['Pastiglie freno', /PASTIGLI|PASTICCH/],
+            ['Cinghia trasmissione', /\bCINGHIA/],
+            ['Rulli variatore', /\bRULLI/],
+            ['Batteria', /\bBATTERI/],
+        ];
+        const ST_MAG_RICAMBI = ['ARIA E CARBURANTE', 'MOTORE', 'FRENI', 'TRASMISSIONE', 'ELETTRONICA', 'SOSPENSIONI'];   // "altri ricambi" dal magazzino
+        const ST_NON_OLIO = /FILTRO|FORCELL|FRENI|FRENO|TRASMISS|CARDANO|MOZZO|CATENA|SPRAY|MISCELA|ADDITIV|TAPPO|GUARNIZ|PARAOLIO|POMPA|RADIATOR|SENSORE|CAMBIO OLIO|MANODOPERA|SMALTIMENTO/;
+        // Codice scritto nella descrizione della riga (HF204, CR8E, YTX9-BS…), non il modello né misure come 10W40 o 1L
+        function _codiceDaDescrizione(desc, modello) {
+            const mod = _chiaveNome(modello);
+            const c = _maiusc(desc).replace(/[(),;:"]/g, ' ').split(/\s+/).map(p => p.replace(/^[-.\/]+|[-.\/]+$/g, '')).filter(p => {
+                const k = _chiaveNome(p);
+                if (p.length < 4 || p.length > 22 || !/^[A-Z0-9][A-Z0-9.\/-]*$/.test(p)) return false;
+                if (/^\d+W-?\d+$/.test(p) || /^\d+([.,]\d+)?(ML|LT?|LITRI?|CC|PZ|NM|MM|KM|V|AH|T|GR?|KG)$/.test(p) || /^\d+([.,]\d+)?X\d+([.,]\d+)?$/.test(p) || /^(19|20)\d{2}$/.test(p)) return false;   // 10W40, 1L, 12V, 12GR, 20X17, anni
+                if (mod && (k === mod || (mod.length >= 4 && k.includes(mod)))) return false;   // il modello stesso (SH125, SH125I)
+                if (/[A-Z]/.test(p) && /\d/.test(p)) return true;
+                return /^\d[\d-]{3,}$/.test(p);                            // codici solo numerici (DAYCO 8186)
+            });
+            return c.length ? c[c.length - 1] : '';
+        }
+        function _lavoriChiusiModello(marca, modello, sc) {
+            const base = sc ? _schedeMotoDiModello(sc) : db.filter(j => j && j.stato !== 'preventivo' && _stessoModello({ marca, modello }, j.marca, j.modello));
+            return base.filter(j => j && (j.stato === 'done' || j.stato === 'archived'));
+        }
+        const _numeroVirgola = n => String(Math.round(n * 10) / 10).replace('.', ',');
+        // Quello che i conti dicono del modello: { lavori, ricambi: [{ nome, codice, volte, ultimo, daMag, altro, esempio, anche }], olio: { tipo, volte, ultimo, qta, qtaVolte } | null }
+        function _appresoDaiLavori(marca, modello, sc) {
+            const lavori = _lavoriChiusiModello(marca, modello, sc), ricambi = {}, oli = {};
+            const magPer = cod => (inventarioMag || []).find(i => i && String(i.codice) === String(cod)) || null;
+            lavori.forEach(j => {
+                const quando = String(j.data_chiusura || j.data || ''), visti = new Set(), olioJob = {};
+                (Array.isArray(j.conto) ? j.conto : Object.values(j.conto || {})).forEach(c => {
+                    if (!c || typeof c !== 'object') return;
+                    const desc = _maiusc(c.desc), it = c.mag_codice ? magPer(c.mag_codice) : null, cat = it ? String(it.categoria || '') : '';
+                    if (!desc && !it) return;
+                    if (it && MAG_CAT_ABB.includes(cat)) return;
+                    const testo = (desc + ' ' + _maiusc(it && it.nome)).trim();
+                    // Olio motore: viscosità (10W40) o lubrificante del magazzino con "olio" nel nome
+                    if (!ST_NON_OLIO.test(testo) && (/\b\d{1,2}W-?\d{2}\b/.test(testo) || (cat === 'LUBRIFICANTI' && /\bOLIO\b/.test(testo)))) {
+                        const tipo = ((it ? _maiusc(it.nome) : desc).replace(/^OLIO\s+(MOTORE\s+)?/, '').trim()) || desc;
+                        const k = _chiaveNome(tipo), n = Number(c.qty) || 1, m = /(\d+(?:[.,]\d+)?)\s*(L|LT|LITRI?)\b/.exec(testo);
+                        olioJob[k] = olioJob[k] || { tipo, litri: 0 };
+                        olioJob[k].litri += m ? n * parseFloat(m[1].replace(',', '.')) : n;
+                        return;
+                    }
+                    let nome = (ST_IMPARA.find(([, re]) => re.test(testo)) || [])[0];
+                    if (!nome && it && ST_MAG_RICAMBI.includes(cat)) nome = _maiusc(it.nome);
+                    if (!nome) return;
+                    const codice = it ? _maiusc(_skuMag(it)) : c.mag_codice ? _maiusc(c.mag_codice) : _codiceDaDescrizione(desc, modello);
+                    if (!codice) return;
+                    const k = nome + '|' + _chiaveNome(codice);
+                    if (visti.has(k)) return;
+                    visti.add(k);
+                    const r = ricambi[k] = ricambi[k] || { nome, codice, volte: 0, ultimo: '', daMag: false, altro: !ST_IMPARA.some(([x]) => x === nome), esempio: desc };
+                    r.volte++;
+                    if (c.mag_codice) r.daMag = true;
+                    if (quando > r.ultimo) r.ultimo = quando;
+                });
+                Object.keys(olioJob).forEach(k => {
+                    const o = oli[k] = oli[k] || { tipo: olioJob[k].tipo, volte: 0, ultimo: '', qte: {} }, q = _numeroVirgola(olioJob[k].litri);
+                    o.volte++;
+                    o.qte[q] = (o.qte[q] || 0) + 1;
+                    if (quando > o.ultimo) o.ultimo = quando;
+                });
+            });
+            const meglio = (a, b) => b.volte - a.volte || String(b.ultimo).localeCompare(String(a.ultimo));
+            const perNome = {};
+            Object.values(ricambi).forEach(r => { (perNome[r.nome] = perNome[r.nome] || []).push(r); });
+            const lista = Object.values(perNome).map(g => { g.sort(meglio); return Object.assign({}, g[0], { anche: g.slice(1).map(x => x.codice) }); })
+                .filter(r => !r.altro || r.volte >= 2)
+                .sort((a, b) => { const ia = ST_IMPARA.findIndex(([x]) => x === a.nome), ib = ST_IMPARA.findIndex(([x]) => x === b.nome); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.nome.localeCompare(b.nome); });
+            const o = Object.values(oli).sort(meglio)[0] || null;
+            let olio = null;
+            if (o) { const q = Object.entries(o.qte).sort((a, b) => b[1] - a[1])[0]; olio = { tipo: o.tipo, volte: o.volte, ultimo: o.ultimo, qta: q ? q[0] : '', qtaVolte: q ? q[1] : 0 }; }
+            return { lavori: lavori.length, ricambi: lista, olio };
+        }
+        // Proposte per una scheda: solo quello che manca (o un codice diverso usato almeno 2 volte); quello scritto da Fabio non si tocca
+        function _proposteScheda(sc, appreso) {
+            const a = appreso || _appresoDaiLavori(sc.marca, sc.modello, sc), out = [], righe = _ricambiScheda(sc);
+            a.ricambi.forEach(r => {
+                const gia = righe.find(x => _maiusc(x.nome) === _maiusc(r.nome));
+                if (!gia) out.push(Object.assign({}, r, { chiave: 'r|' + r.nome, tipo: 'ricambio', azione: 'aggiungi' }));
+                else if (r.volte >= 2 && ![gia.codice, gia.alternativo].some(x => _chiaveNome(x) === _chiaveNome(r.codice))) out.push(Object.assign({}, r, { chiave: 'r|' + r.nome, tipo: 'ricambio', azione: 'cambia', attuale: gia.codice }));
+            });
+            if (a.olio) {
+                if (!String(sc.olio_tipo || '').trim() && !String(sc.olio || '').trim()) out.push({ chiave: 'olio_tipo', tipo: 'olio_tipo', azione: 'aggiungi', valore: a.olio.tipo, volte: a.olio.volte, ultimo: a.olio.ultimo });
+                if (!String(sc.olio_qta || '').trim() && !String(sc.olio || '').trim() && a.olio.qta) out.push({ chiave: 'olio_qta', tipo: 'olio_qta', azione: 'aggiungi', valore: a.olio.qta, volte: a.olio.qtaVolte, ultimo: a.olio.ultimo });
+            }
+            return out;
+        }
+        function _htmlAppreso(sc) {
+            const a = _appresoDaiLavori(sc.marca, sc.modello, sc), prop = _proposteScheda(sc, a);
+            if (!prop.length) return '';
+            const e = safeEncode(String(sc.id));
+            const righe = prop.map(p => {
+                const lbl = p.tipo === 'olio_tipo' ? '🛢️ Olio motore' : p.tipo === 'olio_qta' ? '🛢️ Quantità olio' : p.nome;
+                const val = p.tipo === 'ricambio' ? p.codice : p.tipo === 'olio_qta' ? _litri(p.valore) : p.valore;
+                const info = `${p.tipo === 'olio_qta' ? 'messa' : 'usato'} ${p.volte === 1 ? '1 volta' : p.volte + ' volte'}${p.ultimo ? ', ultimo ' + formattaData(p.ultimo) : ''}${p.daMag ? ' · dal magazzino' : ''}${p.anche && p.anche.length ? ' · visti anche: ' + p.anche.slice(0, 3).join(', ') : ''}`;
+                const diverso = p.azione === 'cambia' ? `<div style="color:var(--warning); font-size:0.78rem;">Nella scheda c'è ${htmlEsc(p.attuale)}: resterà come alternativo.</div>` : '';
+                return `<div class="st-prop" style="display:flex; gap:10px; align-items:center; padding:7px 0; border-top:1px solid rgba(56,189,248,0.2); flex-wrap:wrap;">
+                    <div style="flex:1 1 240px; min-width:0;"${p.esempio ? ` title="Nel conto: ${htmlEsc(p.esempio)}"` : ''}><span style="color:var(--muted); font-weight:700;">${htmlEsc(lbl)}:</span> <b style="color:white;">${htmlEsc(val)}</b>
+                        <div style="color:var(--muted); font-size:0.78rem;">${htmlEsc(info)}</div>${diverso}</div>
+                    <button type="button" class="btn w-auto" style="margin:0; padding:5px 12px; font-size:0.82rem; background:transparent; color:#7dd3fc; border:1px solid rgba(56,189,248,0.6);" onclick="applicaPropostaScheda('${e}', '${safeEncode(p.chiave)}')">${p.azione === 'cambia' ? '↔ Usa questo' : '✓ Metti nella scheda'}</button>
+                </div>`;
+            }).join('');
+            return `<div class="st-appreso" style="margin-top:14px; border:1px dashed rgba(56,189,248,0.55); background:rgba(56,189,248,0.06); border-radius:10px; padding:10px 12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:2px;"><b style="color:#7dd3fc;">🤖 Dai lavori <span style="color:var(--muted); font-weight:600; font-size:0.82rem;">· ${a.lavori} ${a.lavori === 1 ? 'lavoro chiuso' : 'lavori chiusi'} su questo modello</span></b>
+                    ${prop.length > 1 ? `<button type="button" class="btn w-auto" style="margin:0; padding:5px 12px; font-size:0.82rem; background:#0ea5e9; color:#06233a;" onclick="applicaPropostaScheda('${e}', 'tutte')">✓ Metti tutto</button>` : ''}</div>
+                ${righe}
+                <div style="color:var(--muted); font-size:0.75rem; margin-top:6px;">Entra nella scheda solo quello che confermi. Pressioni, coppie e regolazioni li scrivi tu con ✏️ Modifica.</div>
+            </div>`;
+        }
+        function applicaPropostaScheda(encId, encChiave) {
+            const sc = _listaSchede().find(x => String(x.id) === String(safeDecode(encId)));
+            if (!sc) return;
+            const chiave = safeDecode(encChiave), prop = _proposteScheda(sc), scelte = chiave === 'tutte' ? prop : prop.filter(p => p.chiave === chiave);
+            if (!scelte.length || !_puoSalvare('schede_tecniche')) return;
+            const rec = JSON.parse(JSON.stringify(sc));
+            const ricambi = Object.values(rec.ricambi || {}).filter(x => x && typeof x === 'object');
+            scelte.forEach(p => {
+                if (p.tipo === 'olio_tipo') { rec.olio_tipo = p.valore; return; }
+                if (p.tipo === 'olio_qta') { rec.olio_qta = p.valore; return; }
+                if (p.azione === 'aggiungi') { ricambi.push({ nome: p.nome, codice: p.codice }); return; }
+                let r = ricambi.find(x => _maiusc(x.nome) === _maiusc(p.nome));
+                if (!r) {   // riga della prima versione (filtro_olio, candela… come testo): passa nella tabella
+                    const v = ST_VECCHI.find(([, n]) => _maiusc(n) === _maiusc(p.nome));
+                    r = { nome: p.nome, codice: v ? String(rec[v[0]] || '').trim() : String(p.attuale || '') };
+                    if (v) delete rec[v[0]];
+                    ricambi.push(r);
+                }
+                if (!r.alternativo && r.codice) r.alternativo = r.codice;   // quello di prima resta come alternativo
+                r.codice = p.codice;
+            });
+            if (ricambi.length) rec.ricambi = ricambi;
+            rec.aggiornato = getOggiLocale();
+            schedeTecniche = { ...schedeTecniche, [rec.id]: rec };
+            _scrivi({ ['schede_tecniche/' + rec.id]: rec });
+            mostraToast(scelte.length === 1 ? '🤖 Messo nella scheda' : `🤖 ${scelte.length} dati messi nella scheda`);
+            _vistaScheda(rec);
+            if (currentView === 'schede') refreshSchedeTecniche();
+            if (!$('modal-conto').classList.contains('hidden')) { const j = db.find(x => String(x.id) === String(currentJobId)); if (j) _renderSchedaConto(j); }
+        }
+        // Scheda nuova: righe e olio già compilati con quello che dicono i lavori (si salva solo con 💾)
+        function _compilaModuloDaiLavori(marca, modello) {
+            const av = $('st-appreso-avviso');
+            if (av) av.innerHTML = '';
+            if (!_maiusc(modello)) return;
+            const a = _appresoDaiLavori(marca, modello, null);
+            let n = 0;
+            a.ricambi.forEach(r => {
+                const riga = [...document.querySelectorAll('#st-codici-righe .st-riga-codice')].find(d => _maiusc(d.querySelector('.stc-nome').value) === _maiusc(r.nome));
+                if (riga) { const c = riga.querySelector('.stc-codice'); if (!c.value.trim()) { c.value = r.codice; n++; } }
+                else { $('st-codici-righe').appendChild(_rigaCodice({ nome: r.nome, codice: r.codice })); n++; }
+            });
+            if (a.olio) {
+                if ($('st_olio_tipo') && !$('st_olio_tipo').value.trim()) { $('st_olio_tipo').value = a.olio.tipo; n++; }
+                if ($('st_olio_qta') && !$('st_olio_qta').value.trim() && a.olio.qta) { $('st_olio_qta').value = a.olio.qta; n++; }
+            }
+            if (n && av) av.innerHTML = `<div class="st-appreso-avviso" style="border:1px dashed rgba(56,189,248,0.55); background:rgba(56,189,248,0.06); border-radius:10px; padding:8px 12px; margin:0 0 12px; color:#7dd3fc; font-size:0.86rem;">🤖 Ho compilato ${n === 1 ? '1 campo' : n + ' campi'} con quello che hai usato in ${a.lavori === 1 ? '1 lavoro' : a.lavori + ' lavori'} su questo modello: controlla e premi <b>💾 Salva scheda</b>.</div>`;
+        }
         // Nel conto: codici e dati principali della scheda (richiudibile), oppure "➕ Crea scheda tecnica"
         function _renderSchedaConto(j) {
             const box = $('conto-scheda-tecnica');
@@ -4405,7 +4583,8 @@
             const sc = _schedaTecnicaPer(j.marca, j.modello, j.anno);
             box.style.display = '';
             if (!sc) {
-                box.innerHTML = `<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px dashed rgba(249,115,22,0.5); border-radius:10px; padding:8px 12px; color:var(--muted); font-size:0.88rem;"><span style="flex:1;">🔧 Nessuna scheda tecnica per <b style="color:var(--text);">${htmlEsc(_gruppoMarca(j.marca))} ${htmlEsc(_maiusc(j.modello))}</b></span><button type="button" class="btn w-auto" style="margin:0; padding:5px 12px; background:transparent; color:#fdba74; border:1px solid rgba(249,115,22,0.6);" onclick="apriSchedaTecnicaJob('${j.id}')">➕ Crea scheda tecnica</button></div>`;
+                const imp = _appresoDaiLavori(_gruppoMarca(j.marca), _maiusc(j.modello), null), ni = imp.ricambi.length + (imp.olio ? 1 : 0);
+                box.innerHTML = `<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px dashed rgba(249,115,22,0.5); border-radius:10px; padding:8px 12px; color:var(--muted); font-size:0.88rem;"><span style="flex:1;">🔧 Nessuna scheda tecnica per <b style="color:var(--text);">${htmlEsc(_gruppoMarca(j.marca))} ${htmlEsc(_maiusc(j.modello))}</b>${ni ? ` <span class="st-dai-lavori" style="color:#7dd3fc;">· 🤖 si compila con i lavori già fatti</span>` : ''}</span><button type="button" class="btn w-auto" style="margin:0; padding:5px 12px; background:transparent; color:#fdba74; border:1px solid rgba(249,115,22,0.6);" onclick="apriSchedaTecnicaJob('${j.id}')">➕ Crea scheda tecnica</button></div>`;
                 return;
             }
             const dati = [...(_olioTesto(sc) ? [['🛢️ Olio motore', _olioTesto(sc)]] : []), ..._gommeRighe(sc), ...ST_CAMPI.filter(([k]) => String(sc[k] || '').trim()).map(([k, lbl]) => [lbl, sc[k]])];
@@ -4415,7 +4594,7 @@
                 ${codici ? `<div style="margin-top:8px;">${codici}</div>` : ''}
                 ${dati.length ? `<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:4px 16px; margin-top:8px; font-size:0.86rem;">${dati.map(([lbl, t]) => `<div><span style="color:var(--muted);">${lbl}:</span> <span style="color:var(--text); white-space:pre-wrap;">${htmlEsc(t)}</span></div>`).join('')}</div>` : ''}
                 ${!codici && !dati.length ? '<div style="color:var(--muted); margin-top:6px;">Scheda ancora vuota.</div>' : ''}
-                <div style="margin-top:6px;"><button type="button" class="btn btn-dark w-auto" style="margin:0; padding:4px 10px; font-size:0.8rem;" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}')">Apri la scheda</button></div>
+                <div style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;"><button type="button" class="btn btn-dark w-auto" style="margin:0; padding:4px 10px; font-size:0.8rem;" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}')">Apri la scheda</button>${(() => { const np = _proposteScheda(sc).length; return np ? `<span class="st-da-confermare" role="button" tabindex="0" onclick="apriSchedaTecnica('${htmlEsc(String(sc.id))}')" style="cursor:pointer; font-size:0.78rem; color:#7dd3fc; border:1px solid rgba(56,189,248,0.5); border-radius:10px; padding:1px 8px;">🤖 ${np} da confermare dai lavori</span>` : ''; })()}</div>
             </details>`;
         }
 

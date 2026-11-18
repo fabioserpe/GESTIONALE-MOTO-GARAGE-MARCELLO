@@ -3057,6 +3057,80 @@
     switchView('board');
   });
 
+  await passo('Schede tecniche che imparano dai lavori', async () => {
+    // v232 (Fabio): dai conti dei lavori chiusi codici ricambi e olio; propone, Fabio conferma
+    const dbPrima = JSON.parse(JSON.stringify(fb.leggi('db'))), magPrima = JSON.parse(JSON.stringify(fb.leggi('magazzino') || {})), stPrima = JSON.parse(JSON.stringify(fb.leggi('schede_tecniche') || {}));
+    const piu = n => { const x = new Date(oggi + 'T12:00:00'); x.setDate(x.getDate() + n); return formatDateISO(x); };
+    fb.scritturaRemota({
+      'magazzino/HF204': { codice: 'HF204', nome: 'FILTRO OLIO HIFLO HF204', marca: 'HIFLO', categoria: 'MOTORE', giacenza: 5, prezzo: 5, prezzo_pubblico: 12, min_stock: 1 },
+      'magazzino/MOT7100': { codice: 'MOT7100', nome: 'OLIO MOTUL 7100 10W40 1L', marca: 'MOTUL', categoria: 'LUBRIFICANTI', giacenza: 20, prezzo: 8, prezzo_pubblico: 15, min_stock: 2 },
+      'magazzino/KITCAT': { codice: 'KITCAT', nome: 'KIT CATENA DID 520', marca: 'DID', categoria: 'TRASMISSIONE', giacenza: 2, prezzo: 60, prezzo_pubblico: 110, min_stock: 1 },
+    });
+    const J = (id, d, stato, conto, marca, modello) => { const j = { id, stato, data: piu(d), cognome: 'ZZIMPARA', nome: 'PROVA', targa: 'IM' + id, marca: marca || 'YAMAHA', modello: modello || 'TMAX 999', conto, totale_lordo: 100, clientId: 'c-imp' + id }; if (stato === 'done' || stato === 'archived') j.data_chiusura = piu(d); return j; };
+    const R = (desc, qty, mag) => { const r = { desc, price: 10, qty: qty || 1, iva: 22 }; if (mag) r.mag_codice = mag; return r; };
+    const nuovi = [
+      J(88001, -300, 'archived', [R('FILTRO OLIO HIFLO HF204', 1, 'HF204'), R('OLIO MOTUL 7100 10W40 1L', 3, 'MOT7100'), R('CANDELA NGK CR8E'), R('KIT CATENA DID 520', 1, 'KITCAT')]),
+      J(88002, -200, 'archived', [R('FILTRO OLIO HIFLO HF204', 1, 'HF204'), R('OLIO MOTUL 7100 10W40 1L', 3, 'MOT7100'), R('CANDELA NGK CR8E'), R('PASTIGLIE FRENO ANT. BREMBO 07YA23SA'), R('KIT CATENA DID 520', 1, 'KITCAT')]),
+      J(88003, -10, 'done', [R('FILTRO OLIO HIFLO HF204', 1, 'HF204'), R('OLIO MOTUL 7100 10W40 1L', 3, 'MOT7100'), R('FILTRO ARIA PER TMAX 999'), R('MANODOPERA CAMBIO OLIO')]),
+      J(88004, -5, 'preventivo', [R('FILTRO OLIO K&N KN204')]),
+      J(88005, 0, 'todo', [R('CANDELA NGK ZZZ9')]),
+      J(88006, -400, 'archived', [R('FILTRO OLIO HF303')]),
+      J(88011, -100, 'archived', [R('FILTRO OLIO HF113'), R('OLIO MOTORE 5W40 SINTETICO', 2)], 'KYMCO', 'ZZ 300'),
+      J(88012, -50, 'archived', [R('FILTRO OLIO HF113'), R('OLIO MOTORE 5W40 SINTETICO', 2)], 'KYMCO', 'ZZ 300'),
+    ];
+    fb.scritturaRemota({ db: Object.values(dbPrima).concat(nuovi), 'schede_tecniche/zzimp1': { id: 'zzimp1', marca: 'YAMAHA', modello: 'TMAX 999', ricambi: [{ nome: 'Candela', codice: 'CR7E' }], press_ant: '2,25', aggiornato: '2026-01-01' } });
+    await attendi(60);
+    ok(_codiceDaDescrizione('FILTRO OLIO PER TMAX 999', 'TMAX 999') === '' && _codiceDaDescrizione('CANDELA NGK CR8E', 'X') === 'CR8E' && _codiceDaDescrizione('OLIO 10W40 1L', 'X') === '' && _codiceDaDescrizione('BATTERIA YUASA YTX9-BS 12V', 'X') === 'YTX9-BS' && _codiceDaDescrizione('CINGHIA TRASMISSIONE DAYCO 8186', 'X') === '8186' && _codiceDaDescrizione('RULLI VARIATORE 20X17 12GR', 'X') === '' && _codiceDaDescrizione('CANDELA NGK 2019', 'X') === '', 'Impara: dalla descrizione prende il codice (CR8E, YTX9-BS, 8186), non il modello, la viscosità, i litri, le misure o gli anni');
+    const sc = () => _listaSchede().find(x => x.id === 'zzimp1');
+    const a = _appresoDaiLavori('YAMAHA', 'TMAX 999', sc()), ric = n => a.ricambi.find(r => r.nome === n);
+    ok(a.lavori === 4, 'Impara: contano solo i lavori chiusi del modello (non appuntamenti né preventivi): ' + a.lavori);
+    ok(ric('Filtro olio') && ric('Filtro olio').codice === 'HF204' && ric('Filtro olio').volte === 3 && ric('Filtro olio').daMag && ric('Filtro olio').anche.includes('HF303') && !a.ricambi.some(r => r.codice === 'KN204' || r.codice === 'ZZZ9'), 'Impara: filtro olio HF204 usato 3 volte (dal magazzino), visto anche HF303');
+    ok(ric('Candela') && ric('Candela').codice === 'CR8E' && ric('Candela').volte === 2 && ric('Pastiglie anteriori') && ric('Pastiglie anteriori').codice === '07YA23SA' && ric('KIT CATENA DID 520') && ric('KIT CATENA DID 520').volte === 2 && !ric('Filtro aria'), 'Impara: candela, pastiglie e altri ricambi del magazzino usati almeno 2 volte; niente se il codice non c\'è');
+    ok(a.olio && a.olio.tipo === 'MOTUL 7100 10W40 1L' && a.olio.qta === '3' && a.olio.volte === 3, 'Impara: olio MOTUL 7100 10W40, 3 litri (3 da 1 L)');
+    let prop = _proposteScheda(sc());
+    ok(prop.length === 6 && prop.find(p => p.nome === 'Candela').azione === 'cambia' && prop.find(p => p.nome === 'Candela').attuale === 'CR7E', 'Proposte: 6, la candela diversa da quella scritta (CR7E) come "usa questo"');
+    _renderSchedaConto(nuovi[0]);
+    ok(document.getElementById('conto-scheda-tecnica').textContent.includes('6 da confermare dai lavori'), 'Conto: accanto alla scheda "🤖 6 da confermare dai lavori"');
+    switchView('schede'); await attendi(40);
+    const rigaSt = [...document.querySelectorAll('#st-elenco .st-riga')].find(r => r.textContent.includes('TMAX 999'));
+    ok(rigaSt && rigaSt.querySelector('.st-da-confermare') && rigaSt.querySelector('.st-da-confermare').textContent.includes('6 da confermare'), 'Elenco schede: "🤖 6 da confermare" sulla scheda');
+    apriSchedaTecnica('zzimp1'); await attendi(30);
+    const props = () => [...document.querySelectorAll('#st-vista .st-prop')];
+    const t0 = document.getElementById('st-vista').textContent;
+    ok(props().length === 6 && t0.includes('HF204') && t0.includes('usato 3 volte') && t0.includes('dal magazzino') && t0.includes('visti anche: HF303') && t0.includes("Nella scheda c'è CR7E") && t0.includes('3 L') && t0.includes('4 lavori chiusi'), 'Scheda: riquadro "🤖 Dai lavori" con le 6 proposte e da dove vengono');
+    let n = nScr();
+    props().find(d => d.textContent.includes('Filtro olio')).querySelector('button').click(); await attendi(30);
+    let s = fb.leggi('schede_tecniche/zzimp1');
+    ok(Object.values(s.ricambi).some(r => r.nome === 'Filtro olio' && r.codice === 'HF204') && props().length === 5 && s.press_ant === '2,25' && fb.scritture.slice(n).length === 1, '✓ Metti nella scheda: il filtro olio entra (una scrittura), il resto della scheda non cambia');
+    props().find(d => d.textContent.includes('Candela')).querySelector('button').click(); await attendi(30);
+    s = fb.leggi('schede_tecniche/zzimp1');
+    const cand = Object.values(s.ricambi).find(r => r.nome === 'Candela');
+    ok(cand && cand.codice === 'CR8E' && cand.alternativo === 'CR7E', '↔ Usa questo: candela CR8E, quella di prima (CR7E) resta come alternativo');
+    [...document.querySelectorAll('#st-vista .st-appreso button')].find(b => b.textContent.includes('Metti tutto')).click(); await attendi(30);
+    s = fb.leggi('schede_tecniche/zzimp1');
+    ok(s.olio_tipo === 'MOTUL 7100 10W40 1L' && s.olio_qta === '3' && Object.values(s.ricambi).some(r => r.nome === 'Pastiglie anteriori' && r.codice === '07YA23SA') && Object.values(s.ricambi).some(r => r.nome === 'KIT CATENA DID 520' && r.codice === 'KITCAT') && s.press_ant === '2,25' && s.aggiornato === oggi, '✓ Metti tutto: olio, pastiglie e kit catena entrano; pressione scritta a mano intatta');
+    ok(!document.querySelector('#st-vista .st-appreso') && _proposteScheda(sc()).length === 0, 'Dopo la conferma il riquadro sparisce (niente più da proporre)');
+    fb.scritturaRemota({ db: Object.values(fb.leggi('db')).concat([J(88007, -1, 'done', [R('FILTRO OLIO HIFLO HF204', 1, 'HF204')])]) }); await attendi(30);
+    ok(_appresoDaiLavori('YAMAHA', 'TMAX 999', sc()).ricambi.find(r => r.nome === 'Filtro olio').volte === 4, 'In tempo reale: un lavoro appena chiuso conta subito (filtro olio 4 volte)');
+    closeModal('modal-scheda-tecnica');
+    // Modello senza scheda: "Crea scheda" già compilata, si salva solo con 💾
+    _renderSchedaConto(nuovi[6]);
+    ok(document.getElementById('conto-scheda-tecnica').textContent.includes('si compila con i lavori già fatti'), 'Conto: per un modello senza scheda "🤖 si compila con i lavori già fatti"');
+    n = nScr();
+    nuovaSchedaPer(safeEncode('KYMCO'), safeEncode('ZZ 300')); await attendi(30);
+    const rigaFO = [...document.querySelectorAll('#st-codici-righe .st-riga-codice')].find(d => d.querySelector('.stc-nome').value === 'Filtro olio');
+    ok(rigaFO && rigaFO.querySelector('.stc-codice').value === 'HF113' && document.getElementById('st_olio_tipo').value === '5W40 SINTETICO' && document.getElementById('st_olio_qta').value === '2' && document.getElementById('st-appreso-avviso').textContent.includes('Ho compilato 3 campi') && nScr() === n, 'Scheda nuova: già compilata con i lavori (filtro HF113, olio 5W40, 2 L), niente salvato finché non premi Salva');
+    salvaSchedaTecnica(); await attendi(30);
+    const nuova = _listaSchede().find(x => x.modello === 'ZZ 300');
+    ok(nuova && nuova.ricambi.some(r => r.nome === 'Filtro olio' && r.codice === 'HF113') && nuova.olio_tipo === '5W40 SINTETICO', 'Scheda nuova: salvata con i dati dei lavori');
+    apriSchedaTecnica(null, true); await attendi(20);
+    ok(document.getElementById('st-appreso-avviso').textContent === '', 'Nuova scheda vuota (senza modello): nessuna compilazione automatica');
+    closeModal('modal-scheda-tecnica');
+    fb.scritturaRemota({ db: dbPrima, magazzino: magPrima, schede_tecniche: stPrima }, false);
+    await attendi(60);
+    switchView('board'); await attendi(40);
+  });
+
   await passo('Senza internet', async () => {
     switchView('board');
     const striscia = document.getElementById('rete-striscia');
