@@ -1747,6 +1747,14 @@
     switchView('board');
   });
 
+  await passo('Fogli di stampa senza scritte del browser', async () => {
+    // v231 (Fabio): niente indirizzo, titolo, data e numero di pagina sui fogli: zone del margine della pagina dichiarate vuote
+    const css = [...document.querySelectorAll('style')].map(s => s.textContent).join('\n');
+    const pag = (css.match(/@page\s*\{[\s\S]*?\n\s*\}/) || [''])[0];
+    ok(['@top-left', '@top-center', '@top-right', '@bottom-left', '@bottom-center', '@bottom-right'].every(z => pag.includes(z + ' { content: ""; }')) && /margin:\s*1cm/.test(pag), 'Stampa: le zone di intestazione e piè di pagina sono vuote e i margini restano 1 cm');
+    ok(typeof window.__cassaHtml === 'string' && ['@top-left', '@bottom-right'].every(z => window.__cassaHtml.includes(z + ' { content: ""; }')), 'Stampa: lo stesso anche nel foglio del collaboratore');
+  });
+
   await passo('Stampa pre-conto', async () => {
     const txt = id => (document.getElementById(id) || {}).textContent || '';
     fb.scritturaRemota({

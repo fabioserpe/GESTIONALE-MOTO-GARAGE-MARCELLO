@@ -143,7 +143,14 @@
         /* Foglio da stampare (come "Stampa Scheda Collaboratore" nel gestionale) */
         #print-area { display: none; }
         @media print {
-            @page { size: A4 portrait; margin: 1cm; }
+            @page {
+                size: A4 portrait; margin: 1cm;
+                /* v231 (Fabio): sui fogli solo il contenuto, niente intestazioni e piè di pagina del browser (indirizzo,
+                   titolo della pagina, data, numero di pagina). Con le zone del margine dichiarate vuote Chrome non scrive
+                   niente e i margini restano di 1 cm su ogni pagina (gli adesivi del Passaporto contano su questi margini). */
+                @top-left { content: ""; } @top-center { content: ""; } @top-right { content: ""; }
+                @bottom-left { content: ""; } @bottom-center { content: ""; } @bottom-right { content: ""; }
+            }
             html, body { background: white !important; color: black !important; height: auto !important; min-height: 0 !important; }
             body > *:not(#print-area) { display: none !important; }
             #print-area { display: block !important; max-width: 19cm; margin: 0 auto; color: black; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11pt; }
