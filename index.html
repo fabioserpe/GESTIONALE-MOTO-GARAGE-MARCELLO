@@ -453,7 +453,14 @@
         }
 
         @media print {
-            @page { size: A4 portrait; margin: 1cm; }
+            @page {
+                size: A4 portrait; margin: 1cm;
+                /* v231 (Fabio): sui fogli solo il contenuto, niente intestazioni e piè di pagina del browser (indirizzo,
+                   titolo della pagina, data, numero di pagina). Con le zone del margine dichiarate vuote Chrome non scrive
+                   niente e i margini restano di 1 cm su ogni pagina (gli adesivi del Passaporto contano su questi margini). */
+                @top-left { content: ""; } @top-center { content: ""; } @top-right { content: ""; }
+                @bottom-left { content: ""; } @bottom-center { content: ""; } @bottom-right { content: ""; }
+            }
             html, body { background: white !important; display: block !important; height: auto !important; margin: 0 !important; }
             .sidebar, .main-content > *:not(#print-area), .modal, .no-print, .notes-panel { display: none !important; }
             .main-content { padding: 0 !important; display: block !important; width: 100% !important; }
